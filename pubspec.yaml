@@ -1,0 +1,20 @@
+name: user_onboarding
+description: "A new Flutter project."
+publish_to: 'none' 
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+  
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  http: ^0.13.5 
+  intl: ^0.18.0  
+  shared_preferences: ^2.0.15
+
+flutter:
+  uses-material-design: true
+  
