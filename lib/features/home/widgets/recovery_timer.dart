@@ -58,7 +58,7 @@ class RecoveryTimer extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              childAspectRatio: 0.8,
+              childAspectRatio: 0.9,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
             ),
@@ -139,11 +139,17 @@ class RecoveryTimer extends StatelessWidget {
     }
     
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -153,52 +159,76 @@ class RecoveryTimer extends StatelessWidget {
             name,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           
-          // Progress circle
-          SizedBox(
-            height: 60,
-            width: 60,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularProgressIndicator(
-                  value: recoveryPercentage,
-                  backgroundColor: Colors.grey[200],
-                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-                  strokeWidth: 8,
-                ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 20,
-                      color: statusColor,
+          // Progress circle - IMPROVED
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.grey.shade200, width: 1),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: SizedBox(
+              height: 80, // Increased from 60
+              width: 80, // Increased from 60
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer circle with progress
+                  SizedBox(
+                    height: 80,
+                    width: 80,
+                    child: CircularProgressIndicator(
+                      value: recoveryPercentage,
+                      backgroundColor: Colors.grey[200],
+                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                      strokeWidth: 8, // Made slightly thicker
                     ),
-                    Text(
-                      '$lastTrainedDays/$recoveryDays',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
+                  ),
+                  
+                  // Background circle for the icon
+                  Container(
+                    height: 58, // Increased from 45
+                    width: 58, // Increased from 45
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  
+                  // Body part icon
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getMuscleIcon(name),
+                        size: 28, // Increased from 20
                         color: statusColor,
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Text(
+                        '$lastTrainedDays/$recoveryDays',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           
           // Status text
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
@@ -206,7 +236,7 @@ class RecoveryTimer extends StatelessWidget {
             child: Text(
               statusText,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: statusColor,
               ),
@@ -215,5 +245,25 @@ class RecoveryTimer extends StatelessWidget {
         ],
       ),
     );
+  }
+  
+  // Get a more representative icon for each muscle group
+  IconData _getMuscleIcon(String muscleName) {
+    switch (muscleName.toLowerCase()) {
+      case 'chest':
+        return Icons.accessibility_new; // Person with arms out
+      case 'back':
+        return Icons.fitness_center; // Weight
+      case 'legs':
+        return Icons.directions_run; // Running person
+      case 'shoulders':
+        return Icons.accessibility; // Person 
+      case 'arms':
+        return Icons.sports_gymnastics; // Person doing activities
+      case 'core':
+        return Icons.radio_button_unchecked; // Circle for abs
+      default:
+        return Icons.fitness_center;
+    }
   }
 }

@@ -7,7 +7,9 @@ import 'package:user_onboarding/features/home/widgets/water_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/daily_step_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/calorie_tracker.dart';
 
-const Color kLilacColor = Color(0xFFC8A2C8);
+// Define custom lilac/purple colors for the background to match other screens
+const Color kLilacColor = Color(0xFFCE93D8); // Material Purple 200
+const Color kLilacColorDark = Color(0xFFBA68C8); // Material Purple 300
 
 class WeightLossHome extends StatelessWidget {
   final UserProfile userProfile;
@@ -20,7 +22,7 @@ class WeightLossHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kLilacColor,
+      backgroundColor: kLilacColor.withOpacity(0.4), // Light lilac background
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -39,18 +41,20 @@ class WeightLossHome extends StatelessWidget {
                   ),
                 ),
                 background: Container(
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [kLilacColor, kLilacColor.withOpacity(0.7)],
+                      colors: [kLilacColor, kLilacColorDark],
                     ),
                   ),
                 ),
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.notifications),
+                  icon: const Icon(
+                    Icons.notifications,
+                    color: Colors.white),
                   onPressed: () {
                     // TODO: Implement notifications
                   },
@@ -101,12 +105,12 @@ class WeightLossHome extends StatelessWidget {
                               _buildProgressStat(
                                 'Current',
                                 '${userProfile.weight.toStringAsFixed(1)} kg',
-                                Colors.blue,
+                                kLilacColor,
                               ),
                               _buildProgressStat(
                                 'Goal',
                                 '${userProfile.targetWeight.toStringAsFixed(1)} kg',
-                                Colors.green,
+                                kLilacColorDark,
                               ),
                             ],
                           ),
@@ -117,7 +121,7 @@ class WeightLossHome extends StatelessWidget {
                               value: _calculateProgressPercentage(),
                               minHeight: 12,
                               backgroundColor: Colors.grey[200],
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                              valueColor: AlwaysStoppedAnimation<Color>(kLilacColor),
                             ),
                           ),
                           const SizedBox(height: 8),

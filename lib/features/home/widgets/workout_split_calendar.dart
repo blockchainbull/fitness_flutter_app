@@ -30,23 +30,25 @@ class WorkoutSplitCalendar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          // Header with title
+          Row(
             children: [
               Icon(
                 Icons.calendar_today,
                 color: Colors.deepPurple,
+                size: 24,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(
                 'Weekly Training Split',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           
           // Day indicators
           Row(
@@ -60,22 +62,22 @@ class WorkoutSplitCalendar extends StatelessWidget {
             }),
           ),
           
+          const SizedBox(height: 20),
+          
+          // Current day's workout
+          _buildCurrentDayWorkout(weekSchedule[currentDayIndex]),
+          
           const SizedBox(height: 16),
           
-          // Workout cards for each day
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: PageView.builder(
-              controller: PageController(initialPage: currentDayIndex),
-              itemCount: 7,
-              itemBuilder: (context, index) {
-                final dayData = weekSchedule[index];
-                return _buildDayWorkout(dayData);
-              },
+          // Navigation hint
+          Center(
+            child: Text(
+              'Tap days to view different workouts',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ),
         ],
@@ -85,11 +87,18 @@ class WorkoutSplitCalendar extends StatelessWidget {
   
   Widget _buildDayCircle(String day, bool isCurrentDay) {
     return Container(
-      width: 32,
-      height: 32,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: isCurrentDay ? Colors.deepPurple : Colors.grey[200],
+        boxShadow: isCurrentDay ? [
+          BoxShadow(
+            color: Colors.deepPurple.withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ] : null,
       ),
       child: Center(
         child: Text(
@@ -97,42 +106,49 @@ class WorkoutSplitCalendar extends StatelessWidget {
           style: TextStyle(
             color: isCurrentDay ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
+            fontSize: 16,
           ),
         ),
       ),
     );
   }
   
-  Widget _buildDayWorkout(Map<String, dynamic> dayData) {
+  Widget _buildCurrentDayWorkout(Map<String, dynamic> dayData) {
     final String muscleGroup = dayData['muscleGroup'];
     final bool isRestDay = dayData['isRestDay'] ?? false;
     final List<String> exercises = List<String>.from(dayData['exercises'] ?? []);
     
-    return Padding(
+    return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
       child: isRestDay
           ? Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.hotel,
                   color: Colors.blue,
-                  size: 32,
+                  size: 38,
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                const SizedBox(height: 12),
+                Text(
                   'Rest Day',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.blue,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
                   'Focus on recovery today',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     color: Colors.grey[600],
                   ),
                 ),
@@ -140,52 +156,52 @@ class WorkoutSplitCalendar extends StatelessWidget {
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // Muscle group title
                 Text(
                   muscleGroup,
-                  style: const TextStyle(
-                    fontSize: 18,
+                  style: TextStyle(
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.deepPurple,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: exercises.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No exercises scheduled',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                
+                // Exercise list - simple, without scrolling
+                if (exercises.isEmpty)
+                  const Text(
+                    'No exercises scheduled',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                  )
+                else
+                  for (var exercise in exercises)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.fitness_center,
+                            size: 16,
+                            color: Colors.deepPurple,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            exercise,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        )
-                      : ListView.builder(
-                          itemCount: exercises.length,
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.fitness_center,
-                                    size: 14,
-                                    color: Colors.deepPurple,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    exercises[index],
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
+                        ],
+                      ),
+                    ),
               ],
             ),
     );

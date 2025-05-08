@@ -9,6 +9,10 @@ import 'package:user_onboarding/features/home/widgets/calorie_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/protein_intake_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/sleep_quality_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/muscle_group_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/strength_progress_card.dart';
+import 'package:user_onboarding/features/home/widgets/body_measurement_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/recovery_timer.dart';
+import 'package:user_onboarding/features/home/widgets/workout_split_calendar.dart';
 
 class CustomHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -25,17 +29,24 @@ class CustomHome extends StatefulWidget {
 class _CustomHomeState extends State<CustomHome> {
   // List to track which widgets are enabled
   final List<String> _enabledWidgets = [
-    'summary',
     'calories',
     'water',
     'steps',
     'workout',
     'nutrition',
+    'protein',
+    'sleep',
+    'strength',
+    'measurements',
+    'recovery',
+    'split',
+    'muscles',
+    'metrics',
+    'weight_goal',
   ];
 
   // List of all available widgets
   final List<Map<String, dynamic>> _availableWidgets = [
-    {'id': 'summary', 'name': 'Daily Summary', 'icon': Icons.dashboard},
     {'id': 'calories', 'name': 'Calorie Tracker', 'icon': Icons.local_fire_department},
     {'id': 'water', 'name': 'Water Intake', 'icon': Icons.water_drop},
     {'id': 'steps', 'name': 'Step Counter', 'icon': Icons.directions_walk},
@@ -43,8 +54,13 @@ class _CustomHomeState extends State<CustomHome> {
     {'id': 'nutrition', 'name': 'Meal Plan', 'icon': Icons.restaurant},
     {'id': 'protein', 'name': 'Protein Tracker', 'icon': Icons.egg},
     {'id': 'sleep', 'name': 'Sleep Quality', 'icon': Icons.nightlight_round},
+    {'id': 'strength', 'name': 'Strength Progress', 'icon': Icons.trending_up},
+    {'id': 'measurements', 'name': 'Body Measurements', 'icon': Icons.straighten},
+    {'id': 'recovery', 'name': 'Recovery Timer', 'icon': Icons.update},
+    {'id': 'split', 'name': 'Training Split', 'icon': Icons.calendar_today},
     {'id': 'muscles', 'name': 'Muscle Progress', 'icon': Icons.accessibility_new},
     {'id': 'metrics', 'name': 'Health Metrics', 'icon': Icons.monitor_heart},
+    {'id': 'weight_goal', 'name': 'Weight Goal', 'icon': Icons.monitor_weight},
   ];
 
   void _toggleWidget(String widgetId) {
@@ -167,8 +183,12 @@ class _CustomHomeState extends State<CustomHome> {
 
   @override
   Widget build(BuildContext context) {
+    // Define a custom color for our custom home - light and dark variant for gradient
+    final Color customPrimaryColor = Colors.teal;
+    final Color customPrimaryColorDark = Colors.teal.shade800;
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: customPrimaryColor.withOpacity(0.4),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -177,7 +197,7 @@ class _CustomHomeState extends State<CustomHome> {
               expandedHeight: 120,
               floating: true,
               pinned: true,
-              backgroundColor: Colors.blue,
+              backgroundColor: customPrimaryColor,
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(
                   'Welcome, ${widget.userProfile.name.split(' ')[0]}',
@@ -191,18 +211,22 @@ class _CustomHomeState extends State<CustomHome> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Colors.teal.shade400, Colors.teal.shade800],
+                      colors: [customPrimaryColor, customPrimaryColorDark],
                     ),
                   ),
                 ),
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.edit),
+                  icon: const Icon(
+                    Icons.edit,
+                    color: Colors.white),
                   onPressed: _openWidgetSelector,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.notifications),
+                  icon: const Icon(
+                    Icons.notifications,
+                    color: Colors.white),
                   onPressed: () {
                     // TODO: Implement notifications
                   },
@@ -218,20 +242,35 @@ class _CustomHomeState extends State<CustomHome> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Show widgets based on enabled list
-                    if (_enabledWidgets.contains('summary'))
-                      _buildSummaryCard(),
-                    
+                    if (_enabledWidgets.contains('weight_goal'))
+                      _buildWeightGoalSection(),
+                      
                     if (_enabledWidgets.contains('calories'))
                       _buildCalorieSection(),
                     
-                    if (_enabledWidgets.contains('water') || _enabledWidgets.contains('steps'))
-                      _buildWaterAndStepsRow(),
+                    if (_enabledWidgets.contains('water'))
+                      _buildWaterSection(),
+                    
+                    if (_enabledWidgets.contains('steps'))
+                      _buildStepsSection(),
                     
                     if (_enabledWidgets.contains('protein'))
                       _buildProteinTracker(),
                     
                     if (_enabledWidgets.contains('sleep'))
                       _buildSleepTracker(),
+                    
+                    if (_enabledWidgets.contains('strength'))
+                      _buildStrengthProgressSection(),
+                    
+                    if (_enabledWidgets.contains('measurements'))
+                      _buildBodyMeasurementsSection(),
+                    
+                    if (_enabledWidgets.contains('recovery'))
+                      _buildRecoverySection(),
+                    
+                    if (_enabledWidgets.contains('split'))
+                      _buildWorkoutSplitSection(),
                     
                     if (_enabledWidgets.contains('muscles'))
                       _buildMuscleTracker(),
@@ -258,13 +297,33 @@ class _CustomHomeState extends State<CustomHome> {
     );
   }
   
-  Widget _buildSummaryCard() {
+  // New widget for setting and tracking weight goal
+  Widget _buildWeightGoalSection() {
+    // Get user's current weight and target weight
+    final currentWeight = widget.userProfile.weight;
+    final targetWeight = widget.userProfile.targetWeight;
+    
+    // Determine if we're trying to gain or lose weight
+    final isWeightLoss = currentWeight > targetWeight;
+    final progressPercentage = _calculateWeightProgressPercentage();
+    
+    final Color progressColor = isWeightLoss ? Colors.purple.shade300 : Colors.green.shade500;
+    final String goalType = isWeightLoss ? 'Weight Loss' : 'Weight Gain';
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          '$goalType Progress',
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(16),
-          margin: const EdgeInsets.only(bottom: 24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -279,49 +338,69 @@ class _CustomHomeState extends State<CustomHome> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Daily Summary',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    goalType,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () {
+                      _showWeightGoalEditor(context);
+                    },
+                    tooltip: 'Edit goal',
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               Row(
-                      children: [
-                        // Water Intake Tracker
-                        Expanded(
-                          child: Container(
-                            height: 260, // Match the height of the steps tracker
-                            child: WaterTracker(
-                              waterGoal: 8,
-                              waterConsumed: 5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Steps Tracker
-                        Expanded(
-                          child: Container(
-                            height: 260, // Same height as water tracker
-                            child: DailyStepTracker(
-                              stepGoal: 10000,
-                              stepsWalked: 6500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildWeightStat(
+                    'Starting',
+                    '${currentWeight.toStringAsFixed(1)} kg',
+                    Colors.grey,
+                  ),
+                  _buildWeightStat(
+                    'Current',
+                    '${currentWeight.toStringAsFixed(1)} kg',
+                    progressColor,
+                  ),
+                  _buildWeightStat(
+                    'Goal',
+                    '${targetWeight.toStringAsFixed(1)} kg',
+                    progressColor.withOpacity(0.7),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
-              const Text(
-                'Today\'s Focus: Upper Body Strength',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progressPercentage,
+                  minHeight: 12,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Based on your goals and progress, we recommend focusing on protein intake and completing your strength workout today.',
+                '${(progressPercentage * 100).toStringAsFixed(1)}% of your goal achieved',
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isWeightLoss 
+                    ? 'You need to lose ${(currentWeight - targetWeight).toStringAsFixed(1)} kg to reach your goal'
+                    : 'You need to gain ${(targetWeight - currentWeight).toStringAsFixed(1)} kg to reach your goal',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 14,
@@ -330,7 +409,182 @@ class _CustomHomeState extends State<CustomHome> {
             ],
           ),
         ),
+        const SizedBox(height: 24),
       ],
+    );
+  }
+  
+  // Helper method to build weight stat item
+  Widget _buildWeightStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // Weight goal progress calculation
+  double _calculateWeightProgressPercentage() {
+    final startingWeight = widget.userProfile.weight;
+    final targetWeight = widget.userProfile.targetWeight;
+    
+    // If they're equal, we're at 100%
+    if (startingWeight == targetWeight) {
+      return 1.0;
+    }
+    
+    // For weight loss goal
+    if (startingWeight > targetWeight) {
+      // Calculate weight to lose
+      final totalWeightToLose = startingWeight - targetWeight;
+      // Assume no progress yet since we don't have tracking
+      final weightLost = 0;
+      
+      // Calculate percentage
+      if (totalWeightToLose <= 0) return 0.0;
+      final progress = weightLost / totalWeightToLose;
+      return progress.clamp(0.0, 1.0);
+    } 
+    // For weight gain goal
+    else {
+      // Calculate weight to gain
+      final totalWeightToGain = targetWeight - startingWeight;
+      // Assume no progress yet since we don't have tracking
+      final weightGained = 0;
+      
+      // Calculate percentage
+      if (totalWeightToGain <= 0) return 0.0;
+      final progress = weightGained / totalWeightToGain;
+      return progress.clamp(0.0, 1.0);
+    }
+  }
+  
+  // Dialog to edit weight goal
+  void _showWeightGoalEditor(BuildContext context) {
+    final TextEditingController targetWeightController = TextEditingController();
+    targetWeightController.text = widget.userProfile.targetWeight.toString();
+    
+    String goalType = 'maintain';
+    if (widget.userProfile.weight > widget.userProfile.targetWeight) {
+      goalType = 'lose';
+    } else if (widget.userProfile.weight < widget.userProfile.targetWeight) {
+      goalType = 'gain';
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Edit Weight Goal'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('What is your weight goal?'),
+                  const SizedBox(height: 12),
+                  // Goal type radio buttons
+                  ListTile(
+                    title: const Text('Lose Weight'),
+                    leading: Radio<String>(
+                      value: 'lose',
+                      groupValue: goalType,
+                      onChanged: (value) {
+                        setState(() {
+                          goalType = value!;
+                          if (goalType == 'lose') {
+                            targetWeightController.text = 
+                                (widget.userProfile.weight * 0.9).toStringAsFixed(1);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Maintain Weight'),
+                    leading: Radio<String>(
+                      value: 'maintain',
+                      groupValue: goalType,
+                      onChanged: (value) {
+                        setState(() {
+                          goalType = value!;
+                          if (goalType == 'maintain') {
+                            targetWeightController.text = 
+                                widget.userProfile.weight.toString();
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    title: const Text('Gain Weight'),
+                    leading: Radio<String>(
+                      value: 'gain',
+                      groupValue: goalType,
+                      onChanged: (value) {
+                        setState(() {
+                          goalType = value!;
+                          if (goalType == 'gain') {
+                            targetWeightController.text = 
+                                (widget.userProfile.weight * 1.1).toStringAsFixed(1);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: targetWeightController,
+                    decoration: const InputDecoration(
+                      labelText: 'Target Weight (kg)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Convert to proper types
+                    double targetWeight = double.tryParse(targetWeightController.text) ?? 
+                        widget.userProfile.weight;
+                    
+                    // TODO: Save the changes to user profile
+                    // This would need a proper implementation to update the user profile
+                    // For now, we'll just print to console
+                    print('Updated weight goal: $goalType, Target: $targetWeight kg');
+                    
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          }
+        );
+      },
     );
   }
   
@@ -343,6 +597,7 @@ class _CustomHomeState extends State<CustomHome> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
@@ -359,28 +614,44 @@ class _CustomHomeState extends State<CustomHome> {
     );
   }
   
-  Widget _buildWaterAndStepsRow() {
+  Widget _buildWaterSection() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            if (_enabledWidgets.contains('water'))
-              const Expanded(
-                child: WaterTracker(
-                  waterGoal: 10,
-                  waterConsumed: 6,
-                ),
-              ),
-            if (_enabledWidgets.contains('water') && _enabledWidgets.contains('steps'))
-              const SizedBox(width: 16),
-            if (_enabledWidgets.contains('steps'))
-              const Expanded(
-                child: DailyStepTracker(
-                  stepGoal: 10000,
-                  stepsWalked: 8540,
-                ),
-              ),
-          ],
+        const Text(
+          'Water Intake',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const WaterTracker(
+          waterGoal: 10,
+          waterConsumed: 6,
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+  
+  Widget _buildStepsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Daily Activity',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const DailyStepTracker(
+          stepGoal: 10000,
+          stepsWalked: 8540,
         ),
         const SizedBox(height: 24),
       ],
@@ -396,6 +667,7 @@ class _CustomHomeState extends State<CustomHome> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
@@ -417,6 +689,7 @@ class _CustomHomeState extends State<CustomHome> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
@@ -425,6 +698,232 @@ class _CustomHomeState extends State<CustomHome> {
           sleepQuality: 0.85,
           deepSleepPercentage: 0.22,
           remSleepPercentage: 0.18,
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+  
+  Widget _buildStrengthProgressSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Strength Progress',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const StrengthProgressCard(
+          lifts: [
+            {
+              'name': 'Bench Press',
+              'current': 100.0,
+              'previous': 95.0,
+              'unit': 'kg',
+            },
+            {
+              'name': 'Squat',
+              'current': 140.0,
+              'previous': 130.0,
+              'unit': 'kg',
+            },
+            {
+              'name': 'Deadlift',
+              'current': 160.0,
+              'previous': 155.0,
+              'unit': 'kg',
+            },
+          ],
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+  
+  Widget _buildBodyMeasurementsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Body Measurements',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const BodyMeasurementTracker(
+          measurements: [
+            {
+              'name': 'Chest',
+              'current': 105.0,
+              'previous': 103.5,
+              'unit': 'cm',
+              'icon': Icons.accessibility,
+            },
+            {
+              'name': 'Arms',
+              'current': 38.5,
+              'previous': 37.8,
+              'unit': 'cm',
+              'icon': Icons.accessibility,
+            },
+            {
+              'name': 'Waist',
+              'current': 83.0,
+              'previous': 84.5,
+              'unit': 'cm',
+              'icon': Icons.accessibility,
+            },
+            {
+              'name': 'Thighs',
+              'current': 62.0,
+              'previous': 60.5,
+              'unit': 'cm',
+              'icon': Icons.accessibility,
+            },
+          ],
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+  
+  Widget _buildRecoverySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Muscle Recovery',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const RecoveryTimer(
+          muscleGroups: [
+            {
+              'name': 'Chest',
+              'lastTrainedDays': 2,
+              'recoveryDays': 3,
+              'icon': Icons.accessibility,
+            },
+            {
+              'name': 'Back',
+              'lastTrainedDays': 1,
+              'recoveryDays': 3,
+              'icon': Icons.accessibility,
+            },
+            {
+              'name': 'Legs',
+              'lastTrainedDays': 3,
+              'recoveryDays': 3,
+              'icon': Icons.accessibility,
+            },
+            {
+              'name': 'Shoulders',
+              'lastTrainedDays': 4,
+              'recoveryDays': 3,
+              'icon': Icons.accessibility,
+            },
+            {
+              'name': 'Arms',
+              'lastTrainedDays': 0,
+              'recoveryDays': 2,
+              'icon': Icons.accessibility,
+            },
+            {
+              'name': 'Core',
+              'lastTrainedDays': 1,
+              'recoveryDays': 1,
+              'icon': Icons.accessibility,
+            },
+          ],
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+  
+  Widget _buildWorkoutSplitSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Weekly Training Split',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        WorkoutSplitCalendar(
+          currentDayIndex: DateTime.now().weekday - 1,
+          weekSchedule: const [
+            {
+              'muscleGroup': 'Chest & Triceps',
+              'isRestDay': false,
+              'exercises': [
+                'Bench Press',
+                'Incline Dumbbell Press',
+                'Tricep Pushdowns',
+              ],
+            },
+            {
+              'muscleGroup': 'Back & Biceps',
+              'isRestDay': false,
+              'exercises': [
+                'Pull-ups',
+                'Barbell Rows',
+                'Bicep Curls',
+              ],
+            },
+            {
+              'muscleGroup': 'Rest Day',
+              'isRestDay': true,
+              'exercises': [],
+            },
+            {
+              'muscleGroup': 'Shoulders',
+              'isRestDay': false,
+              'exercises': [
+                'Overhead Press',
+                'Lateral Raises',
+                'Face Pulls',
+              ],
+            },
+            {
+              'muscleGroup': 'Legs',
+              'isRestDay': false,
+              'exercises': [
+                'Squats',
+                'Romanian Deadlifts',
+                'Leg Press',
+              ],
+            },
+            {
+              'muscleGroup': 'Arms Focus',
+              'isRestDay': false,
+              'exercises': [
+                'Skull Crushers',
+                'Dumbbell Curls',
+                'Cable Extensions',
+              ],
+            },
+            {
+              'muscleGroup': 'Rest Day',
+              'isRestDay': true,
+              'exercises': [],
+            },
+          ],
         ),
         const SizedBox(height: 24),
       ],
@@ -440,6 +939,7 @@ class _CustomHomeState extends State<CustomHome> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
@@ -467,6 +967,7 @@ class _CustomHomeState extends State<CustomHome> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
@@ -521,6 +1022,7 @@ class _CustomHomeState extends State<CustomHome> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
@@ -567,6 +1069,7 @@ class _CustomHomeState extends State<CustomHome> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
@@ -618,42 +1121,6 @@ class _CustomHomeState extends State<CustomHome> {
           const SizedBox(height: 40),
         ],
       ),
-    );
-  }
-  
-  Widget _buildSummaryStat(String label, String value, String target, IconData icon, Color color) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          color: color,
-          size: 28,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          target,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 14,
-          ),
-        ),
-      ],
     );
   }
 }

@@ -36,6 +36,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     'primaryGoal': '',
     'weightGoal': '',
     'targetWeight': 0.0,
+     'goalTimeline': '',
     'sleepHours': 7.0,
     'bedtime': '',
     'wakeupTime': '',

@@ -61,7 +61,9 @@ class ProfilePage extends StatelessWidget {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.settings),
+                icon: const Icon(
+                  Icons.settings,
+                  color: Colors.white),
                 onPressed: () {
                   // TODO: Navigate to settings
                 },

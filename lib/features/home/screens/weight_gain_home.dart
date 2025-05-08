@@ -52,7 +52,9 @@ class WeightGainHome extends StatelessWidget {
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.notifications),
+                  icon: const Icon(
+                    Icons.notifications,
+                    color: Colors.white),
                   onPressed: () {
                     // TODO: Implement notifications
                   },
