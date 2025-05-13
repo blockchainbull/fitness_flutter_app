@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class UserProfile {
   final String name;
   final String email;
@@ -24,6 +26,8 @@ class UserProfile {
   final List<String> availableEquipment;
   final String fitnessLevel;
   final bool hasTrainer;
+  // Add formData to hold BMI, BMR, and TDEE
+  final Map<String, dynamic> formData;
 
   UserProfile({
     required this.name,
@@ -51,9 +55,18 @@ class UserProfile {
     required this.availableEquipment,
     required this.fitnessLevel,
     required this.hasTrainer,
+    this.formData = const {},
   });
 
   factory UserProfile.fromMap(Map<String, dynamic> map) {
+    // Create a formData map or use an existing one
+    Map<String, dynamic> formDataMap = Map<String, dynamic>.from(map['formData'] ?? {});
+    
+    // If bmi, bmr, tdee are directly in the map, add them to formData
+    if (map.containsKey('bmi')) formDataMap['bmi'] = map['bmi'];
+    if (map.containsKey('bmr')) formDataMap['bmr'] = map['bmr'];
+    if (map.containsKey('tdee')) formDataMap['tdee'] = map['tdee'];
+
     return UserProfile(
       name: map['name'] ?? '',
       email: map['email'] ?? '',
@@ -80,11 +93,13 @@ class UserProfile {
       availableEquipment: List<String>.from(map['availableEquipment'] ?? []),
       fitnessLevel: map['fitnessLevel'] ?? 'Beginner',
       hasTrainer: map['hasTrainer'] ?? false,
+      formData: formDataMap,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    // Create a base map with all regular properties
+    final Map<String, dynamic> map = {
       'name': name,
       'email': email,
       'gender': gender,
@@ -110,7 +125,15 @@ class UserProfile {
       'availableEquipment': availableEquipment,
       'fitnessLevel': fitnessLevel,
       'hasTrainer': hasTrainer,
+      // Always include health metrics with proper defaults
+      'bmi': formData.containsKey('bmi') ? (formData['bmi'] is num ? formData['bmi'] : double.tryParse(formData['bmi'].toString()) ?? 0.0) : 0.0,
+      'bmr': formData.containsKey('bmr') ? (formData['bmr'] is num ? formData['bmr'] : double.tryParse(formData['bmr'].toString()) ?? 0.0) : 0.0,
+      'tdee': formData.containsKey('tdee') ? (formData['tdee'] is num ? formData['tdee'] : double.tryParse(formData['tdee'].toString()) ?? 0.0) : 0.0,
     };
+    
+    
+    
+    return map;
   }
 
   // Add a method to convert to JSON for API requests
@@ -143,6 +166,7 @@ class UserProfile {
     List<String>? availableEquipment,
     String? fitnessLevel,
     bool? hasTrainer,
+    Map<String, dynamic>? formData,
   }) {
     return UserProfile(
       name: name ?? this.name,
@@ -170,6 +194,7 @@ class UserProfile {
       availableEquipment: availableEquipment ?? this.availableEquipment,
       fitnessLevel: fitnessLevel ?? this.fitnessLevel,
       hasTrainer: hasTrainer ?? this.hasTrainer,
+      formData: formData ?? this.formData,
     );
   }
   

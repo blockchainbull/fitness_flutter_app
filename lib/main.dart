@@ -1,34 +1,36 @@
-// main.dart
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:user_onboarding/app.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/data/services/data_manager.dart';
 
 void main() async {
   // This line is critical - don't forget it
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Check for saved profile
-  final prefs = await SharedPreferences.getInstance();
-  final bool onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+  // Initialize data manager
+  final dataManager = DataManager();
+  await dataManager.initialize();
+  
+  // Check if onboarding is completed
+  final bool onboardingCompleted = await dataManager.isOnboardingCompleted();
   
   print('Onboarding completed: $onboardingCompleted');
   
   // Try to load user profile
   UserProfile? userProfile;
   if (onboardingCompleted) {
-    final profileJson = prefs.getString('user_profile');
-    print('Found profile data: $profileJson');
-    
-    if (profileJson != null) {
-      try {
-        userProfile = UserProfile.fromMap(jsonDecode(profileJson));
-        print('Successfully loaded profile for: ${userProfile.name}');
-      } catch (e) {
-        print('Error loading profile: $e');
-      }
+    userProfile = await dataManager.loadUserProfile();
+    if (userProfile != null) {
+      print('Successfully loaded profile for: ${userProfile.name}');
+    } else {
+      print('No user profile found');
     }
+  }
+  
+  // Synchronize data with remote source if needed (in background)
+  if (onboardingCompleted) {
+    dataManager.synchronizeData();
   }
   
   runApp(HealthAIApp(

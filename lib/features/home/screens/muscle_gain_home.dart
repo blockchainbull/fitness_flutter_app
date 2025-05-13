@@ -317,9 +317,8 @@ class MuscleGainHome extends StatelessWidget {
                     const SizedBox(height: 16),
                     
                     // Water Tracker
-                    const WaterTracker(
-                      waterGoal: 12,
-                      waterConsumed: 8,
+                    WaterTracker(
+                      userProfile: userProfile,
                     ),
                     
                     const SizedBox(height: 24),
@@ -450,12 +449,8 @@ class MuscleGainHome extends StatelessWidget {
                     const SizedBox(height: 16),
                     
                     // Metrics Card
-                    const MetricsCard(
-                      metrics: [
-                        {'name': 'BMI', 'value': '22.8', 'status': 'Normal'},
-                        {'name': 'Body Fat', 'value': '14%', 'status': 'Athletic'},
-                        {'name': 'Resting HR', 'value': '62', 'status': 'bpm'},
-                      ],
+                    MetricsCard(
+                      userProfile: userProfile,
                     ),
                     
                     const SizedBox(height: 24),

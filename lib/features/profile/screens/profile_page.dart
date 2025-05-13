@@ -1,15 +1,88 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:user_onboarding/data/services/connectivity_service.dart';
+import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/features/profile/widgets/stat_card.dart';
 import 'package:user_onboarding/features/profile/widgets/goal_progress.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   final UserProfile userProfile;
   
   const ProfilePage({
     Key? key,
     required this.userProfile,
   }) : super(key: key);
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final DataManager _dataManager = DataManager();
+  final ConnectivityService _connectivityService = ConnectivityService();
+  bool _isConnected = true;
+  bool _isSyncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConnectivity();
+    _setupConnectivityListener();
+  }
+
+  void _checkConnectivity() async {
+    final isConnected = await _connectivityService.isConnected();
+    setState(() {
+      _isConnected = isConnected;
+    });
+  }
+
+  void _setupConnectivityListener() {
+    _connectivityService.setupConnectivityListener((isConnected) {
+      setState(() {
+        _isConnected = isConnected;
+      });
+    });
+  }
+
+  Future<void> _synchronizeData() async {
+    if (!_isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Cannot synchronize data.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      await _dataManager.synchronizeData();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Data synchronized successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to synchronize data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSyncing = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +96,7 @@ class ProfilePage extends StatelessWidget {
             backgroundColor: Colors.indigo,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
-                userProfile.name,
+                widget.userProfile.name,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -46,7 +119,7 @@ class ProfilePage extends StatelessWidget {
                         radius: 50,
                         backgroundColor: Colors.white,
                         child: Text(
-                          userProfile.name.substring(0, 1).toUpperCase(),
+                          widget.userProfile.name.substring(0, 1).toUpperCase(),
                           style: TextStyle(
                             fontSize: 40,
                             color: Colors.indigo.shade800,
@@ -60,6 +133,37 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
             actions: [
+              // Synchronize data button
+              if (!_isSyncing)
+                IconButton(
+                  icon: Icon(
+                    _isConnected ? Icons.sync : Icons.sync_disabled,
+                    color: Colors.white,
+                  ),
+                  tooltip: _isConnected ? 'Synchronize data' : 'Offline mode',
+                  onPressed: _isConnected ? _synchronizeData : null,
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                ),
+              // Platform indicator
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Icon(
+                  kIsWeb ? Icons.web : Icons.devices,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
               IconButton(
                 icon: const Icon(
                   Icons.settings,
@@ -70,6 +174,30 @@ class ProfilePage extends StatelessWidget {
               ),
             ],
           ),
+          
+          // Offline mode banner
+          if (!_isConnected)
+            SliverToBoxAdapter(
+              child: Container(
+                width: double.infinity,
+                color: Colors.amber,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                child: const Row(
+                  children: [
+                    Icon(Icons.wifi_off, color: Colors.black),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'You are currently offline. Changes will be synchronized when you reconnect.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           
           // Profile Content
           SliverToBoxAdapter(
@@ -103,25 +231,25 @@ class ProfilePage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildInfoRow('Email', userProfile.email, Icons.email),
+                        _buildInfoRow('Email', widget.userProfile.email, Icons.email),
                         const Divider(),
-                        _buildInfoRow('Age', '${userProfile.age} years', Icons.cake),
+                        _buildInfoRow('Age', '${widget.userProfile.age} years', Icons.cake),
                         const Divider(),
                         _buildInfoRow(
                           'Height', 
-                          '${userProfile.height.toStringAsFixed(1)} cm', 
+                          '${widget.userProfile.height.toStringAsFixed(1)} cm', 
                           Icons.height
                         ),
                         const Divider(),
                         _buildInfoRow(
                           'Weight', 
-                          '${userProfile.weight.toStringAsFixed(1)} kg', 
+                          '${widget.userProfile.weight.toStringAsFixed(1)} kg', 
                           Icons.monitor_weight
                         ),
                         const Divider(),
                         _buildInfoRow(
                           'Activity Level', 
-                          userProfile.activityLevel, 
+                          widget.userProfile.activityLevel, 
                           Icons.fitness_center
                         ),
                       ],
@@ -166,7 +294,7 @@ class ProfilePage extends StatelessWidget {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                _getGoalIcon(userProfile.primaryGoal),
+                                _getGoalIcon(widget.userProfile.primaryGoal),
                                 color: Colors.indigo,
                                 size: 24,
                               ),
@@ -184,7 +312,7 @@ class ProfilePage extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    userProfile.primaryGoal,
+                                    widget.userProfile.primaryGoal,
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -223,7 +351,7 @@ class ProfilePage extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    '${userProfile.weightGoal} (${userProfile.targetWeight.toStringAsFixed(1)} kg)',
+                                    '${widget.userProfile.weightGoal} (${widget.userProfile.targetWeight.toStringAsFixed(1)} kg)',
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -233,6 +361,28 @@ class ProfilePage extends StatelessWidget {
                               ),
                             ),
                           ],
+                        ),
+                        // Database synchronization status
+                        if (_isConnected)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.cloud_done,
+                                color: Colors.green,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Data synchronized with cloud',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -294,7 +444,7 @@ class ProfilePage extends StatelessWidget {
                       Expanded(
                         child: StatCard(
                           title: 'Sleep',
-                          value: '${userProfile.sleepHours} hrs',
+                          value: '${widget.userProfile.sleepHours} hrs',
                           icon: Icons.nightlight_round,
                           color: Colors.indigo,
                           subtitle: 'Average',
@@ -304,7 +454,7 @@ class ProfilePage extends StatelessWidget {
                       Expanded(
                         child: StatCard(
                           title: 'Water',
-                          value: '${userProfile.waterIntake.toStringAsFixed(1)} L',
+                          value: '${widget.userProfile.waterIntake.toStringAsFixed(1)} L',
                           icon: Icons.water_drop,
                           color: Colors.blue,
                           subtitle: 'Target',
@@ -321,7 +471,7 @@ class ProfilePage extends StatelessWidget {
                       Expanded(
                         child: StatCard(
                           title: 'Workout',
-                          value: '${userProfile.workoutDuration} min',
+                          value: '${widget.userProfile.workoutDuration} min',
                           icon: Icons.timer,
                           color: Colors.orange,
                           subtitle: 'Duration',
@@ -331,7 +481,7 @@ class ProfilePage extends StatelessWidget {
                       Expanded(
                         child: StatCard(
                           title: 'Frequency',
-                          value: '${userProfile.workoutFrequency}/week',
+                          value: '${widget.userProfile.workoutFrequency}/week',
                           icon: Icons.calendar_today,
                           color: Colors.green,
                           subtitle: 'Target',
@@ -369,25 +519,25 @@ class ProfilePage extends StatelessWidget {
                         const SizedBox(height: 16),
                         _buildPreferenceItem(
                           'Workout Location',
-                          userProfile.workoutLocation,
+                          widget.userProfile.workoutLocation,
                           Icons.location_on,
                         ),
                         const Divider(),
                         _buildPreferenceItem(
                           'Fitness Level',
-                          userProfile.fitnessLevel,
+                          widget.userProfile.fitnessLevel,
                           Icons.fitness_center,
                         ),
                         const Divider(),
                         _buildPreferencesList(
                           'Dietary Preferences',
-                          userProfile.dietaryPreferences,
+                          widget.userProfile.dietaryPreferences,
                           Icons.restaurant,
                         ),
-                        if (userProfile.dietaryPreferences.isNotEmpty) const Divider(),
+                        if (widget.userProfile.dietaryPreferences.isNotEmpty) const Divider(),
                         _buildPreferencesList(
                           'Preferred Workouts',
-                          userProfile.preferredWorkouts,
+                          widget.userProfile.preferredWorkouts,
                           Icons.directions_run,
                         ),
                       ],
@@ -414,8 +564,42 @@ class ProfilePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         TextButton(
-                          onPressed: () {
-                            // TODO: Implement logout
+                          onPressed: () async {
+                            // Show confirmation dialog
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Log Out'),
+                                content: const Text(
+                                  'Are you sure you want to log out? Your data will remain synchronized with the database.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                    ),
+                                    child: const Text('Log Out'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirm == true) {
+                              // Clear local data and navigate to login screen
+                              await _dataManager.clearData();
+                              
+                              // Navigate to onboarding screen
+                              Navigator.pushNamedAndRemoveUntil(
+                                context, 
+                                '/', 
+                                (route) => false
+                              );
+                            }
                           },
                           child: const Text('Log Out'),
                         ),

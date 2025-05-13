@@ -1,15 +1,24 @@
+// lib/features/home/widgets/metrics_card.dart
+
 import 'package:flutter/material.dart';
+import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/features/metrics/screens/detailed_metrics_screen.dart';
 
 class MetricsCard extends StatelessWidget {
-  final List<Map<String, dynamic>> metrics;
+  final UserProfile userProfile;
   
   const MetricsCard({
     Key? key,
-    required this.metrics,
+    required this.userProfile,
   }) : super(key: key);
   
   @override
   Widget build(BuildContext context) {
+    // Extract metrics from user profile
+    final bmi = userProfile.formData['bmi'] as double? ?? 0.0;
+    final bmr = userProfile.formData['bmr'] as double? ?? 0.0;
+    final tdee = userProfile.formData['tdee'] as double? ?? 0.0;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -36,13 +45,39 @@ class MetricsCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: metrics.map((metric) => _buildMetric(metric)).toList(),
+            children: [
+              _buildMetric(
+                'BMI', 
+                bmi.toStringAsFixed(1), 
+                _getBmiStatus(bmi),
+                _getBmiColor(bmi),
+              ),
+              _buildMetric(
+                'BMR', 
+                '${bmr.toInt()}', 
+                'calories/day',
+                Colors.blue,
+              ),
+              _buildMetric(
+                'TDEE', 
+                '${tdee.toInt()}', 
+                'calories/day',
+                Colors.green,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Center(
             child: TextButton.icon(
               onPressed: () {
-                // TODO: Navigate to detailed metrics
+                  Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailedMetricsScreen(
+                      userProfile: userProfile,
+                    ),
+                  ),
+                );
               },
               icon: const Icon(
                 Icons.assessment,
@@ -56,21 +91,7 @@ class MetricsCard extends StatelessWidget {
     );
   }
   
-  Widget _buildMetric(Map<String, dynamic> metric) {
-    Color metricColor;
-    
-    // Determine color based on status
-    final status = metric['status'].toString().toLowerCase();
-    if (status.contains('normal') || status.contains('good')) {
-      metricColor = Colors.green;
-    } else if (status.contains('moderate')) {
-      metricColor = Colors.orange;
-    } else if (status.contains('high') || status.contains('low')) {
-      metricColor = Colors.blue;
-    } else {
-      metricColor = Colors.grey;
-    }
-    
+  Widget _buildMetric(String name, String value, String status, Color color) {
     return Column(
       children: [
         Container(
@@ -78,17 +99,17 @@ class MetricsCard extends StatelessWidget {
           height: 70,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: metricColor.withOpacity(0.1),
+            color: color.withOpacity(0.1),
             border: Border.all(
-              color: metricColor,
+              color: color,
               width: 2,
             ),
           ),
           child: Center(
             child: Text(
-              metric['value'],
+              value,
               style: TextStyle(
-                color: metricColor,
+                color: color,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
               ),
@@ -97,20 +118,34 @@ class MetricsCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          metric['name'],
+          name,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
           ),
         ),
         Text(
-          metric['status'],
+          status,
           style: TextStyle(
-            color: metricColor,
+            color: color,
             fontSize: 12,
           ),
         ),
       ],
     );
+  }
+  
+  String _getBmiStatus(double bmi) {
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25) return 'Normal';
+    if (bmi < 30) return 'Overweight';
+    return 'Obese';
+  }
+  
+  Color _getBmiColor(double bmi) {
+    if (bmi < 18.5) return Colors.blue;
+    if (bmi < 25) return Colors.green;
+    if (bmi < 30) return Colors.orange;
+    return Colors.red;
   }
 }

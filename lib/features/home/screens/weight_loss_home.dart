@@ -150,13 +150,8 @@ class WeightLossHome extends StatelessWidget {
                     const SizedBox(height: 16),
                     
                     // Calorie & Macros Tracker
-                    const CalorieTracker(
-                      calorieGoal: 1800,
-                      caloriesConsumed: 850,
-                      caloriesBurned: 320,
-                      carbs: 0.4,
-                      protein: 0.35,
-                      fat: 0.25,
+                    CalorieTracker(
+                      userProfile: userProfile,
                     ),
                     
                     const SizedBox(height: 16),
@@ -173,9 +168,8 @@ class WeightLossHome extends StatelessWidget {
                     const SizedBox(height: 8),
                     
                     // Water Tracker
-                    const WaterTracker(
-                      waterGoal: 8,
-                      waterConsumed: 5,
+                    WaterTracker(
+                      userProfile: userProfile,
                     ),
                     
                     const SizedBox(height: 16),
@@ -307,12 +301,8 @@ class WeightLossHome extends StatelessWidget {
                     const SizedBox(height: 16),
                     
                     // Metrics Card
-                    const MetricsCard(
-                      metrics: [
-                        {'name': 'BMI', 'value': '24.5', 'status': 'Normal'},
-                        {'name': 'Body Fat', 'value': '22%', 'status': 'Moderate'},
-                        {'name': 'Metabolic Rate', 'value': '1,720', 'status': 'kcal/day'},
-                      ],
+                    MetricsCard(
+                      userProfile: userProfile,
                     ),
                     
                     const SizedBox(height: 24),

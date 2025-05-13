@@ -601,13 +601,8 @@ class _CustomHomeState extends State<CustomHome> {
           ),
         ),
         const SizedBox(height: 16),
-        const CalorieTracker(
-          calorieGoal: 2200,
-          caloriesConsumed: 1850,
-          caloriesBurned: 380,
-          carbs: 0.45,
-          protein: 0.30,
-          fat: 0.25,
+        CalorieTracker(
+          userProfile: widget.userProfile,
         ),
         const SizedBox(height: 24),
       ],
@@ -627,10 +622,9 @@ class _CustomHomeState extends State<CustomHome> {
           ),
         ),
         const SizedBox(height: 16),
-        const WaterTracker(
-          waterGoal: 10,
-          waterConsumed: 6,
-        ),
+        WaterTracker(
+                      userProfile: widget.userProfile,
+                    ),
         const SizedBox(height: 24),
       ],
     );
@@ -1073,12 +1067,8 @@ class _CustomHomeState extends State<CustomHome> {
           ),
         ),
         const SizedBox(height: 16),
-        const MetricsCard(
-          metrics: [
-            {'name': 'BMI', 'value': '22.8', 'status': 'Normal'},
-            {'name': 'Body Fat', 'value': '18%', 'status': 'Good'},
-            {'name': 'Resting HR', 'value': '62', 'status': 'bpm'},
-          ],
+        MetricsCard(
+          userProfile: widget.userProfile,
         ),
         const SizedBox(height: 24),
       ],

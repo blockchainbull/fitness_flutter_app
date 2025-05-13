@@ -14,7 +14,15 @@ dependencies:
   http: ^0.13.5 
   intl: ^0.18.0  
   shared_preferences: ^2.0.15
+  # PostgreSQL dependencies
+  postgres: ^2.6.1
+  dotenv: ^4.1.0
+  path_provider: ^2.0.15
+  uuid: ^3.0.7
+  connectivity_plus: ^4.0.1
 
 flutter:
   uses-material-design: true
   
+  assets:
+    - .env
