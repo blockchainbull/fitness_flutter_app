@@ -24,6 +24,11 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
   final _weightController = TextEditingController();
   String _selectedActivityLevel = '';
 
+  // Added variables for health metrics
+  double _bmi = 0.0;
+  double _bmr = 0.0;
+  double _tdee = 0.0;
+
   final List<String> _activityLevels = [
     'Sedentary (little or no exercise)',
     'Lightly active (light exercise 1-3 days/week)',
@@ -43,6 +48,19 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
     _heightController.text = widget.formData['height']?.toString() ?? '';
     _weightController.text = widget.formData['weight']?.toString() ?? '';
     _selectedActivityLevel = widget.formData['activityLevel'] ?? '';
+
+    // Just calculate metrics locally without updating form data in initState
+    _updateLocalMetrics();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Safe place to update metrics after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateLocalMetrics();
+      setState(() {}); // Trigger UI update with calculated metrics
+    });
   }
 
   @override
@@ -53,6 +71,100 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
     _heightController.dispose();
     _weightController.dispose();
     super.dispose();
+  }
+
+  // Calculate BMI, BMR, and TDEE based on user inputs
+  void _calculateHealthMetrics() {
+    _updateLocalMetrics();
+    
+    // Only after updating local metrics, update form data
+    widget.onDataChanged('bmi', _bmi);
+    widget.onDataChanged('bmr', _bmr);
+    widget.onDataChanged('tdee', _tdee);
+  }
+  
+  // Update local metric values without calling widget.onDataChanged
+  void _updateLocalMetrics() {
+    double? height = double.tryParse(_heightController.text);
+    double? weight = double.tryParse(_weightController.text);
+    int? age = int.tryParse(_ageController.text);
+    String gender = _selectedGender;
+
+    // Calculate BMI if height and weight are available
+    if (height != null && weight != null && height > 0) {
+      // BMI = weight(kg) / (height(m))²
+      double heightInMeters = height / 100; // Convert cm to m
+      _bmi = weight / (heightInMeters * heightInMeters);
+    } else {
+      _bmi = 0.0;
+    }
+
+    // Calculate BMR if all required data is available
+    if (height != null && weight != null && age != null && gender.isNotEmpty) {
+      // Mifflin-St Jeor Equation for BMR - rounded to match expected values
+      if (gender == 'Male') {
+        _bmr = (10 * weight + 6.25 * height - 5 * age + 5).roundToDouble();
+      } else if (gender == 'Female') {
+        _bmr = (10 * weight + 6.25 * height - 5 * age - 161).roundToDouble();
+      }
+    } else {
+      _bmr = 0.0;
+    }
+
+    // Calculate TDEE if BMR and activity level are available
+    if (_bmr > 0 && _selectedActivityLevel.isNotEmpty) {
+      double activityMultiplier;
+      
+      // Assign activity multiplier based on selected level
+      if (_selectedActivityLevel.contains('Sedentary')) {
+        activityMultiplier = 1.2;
+      } else if (_selectedActivityLevel.contains('Lightly active')) {
+        activityMultiplier = 1.375;
+      } else if (_selectedActivityLevel.contains('Moderately active')) {
+        activityMultiplier = 1.55;
+      } else if (_selectedActivityLevel.contains('Very active')) {
+        activityMultiplier = 1.725;
+      } else if (_selectedActivityLevel.contains('Extra active')) {
+        activityMultiplier = 1.9;
+      } else {
+        activityMultiplier = 1.2; // Default to sedentary
+      }
+      
+      // Round to the nearest whole number to match expected values
+      _tdee = (_bmr * activityMultiplier).roundToDouble();
+    } else {
+      _tdee = 0.0;
+    }
+  }
+
+  // Get BMI category
+  String _getBmiCategory() {
+    if (_bmi < 18.5) {
+      return 'Underweight';
+    } else if (_bmi >= 18.5 && _bmi < 25) {
+      return 'Normal';
+    } else if (_bmi >= 25 && _bmi < 30) {
+      return 'Overweight';
+    } else if (_bmi >= 30) {
+      return 'Obese';
+    } else {
+      return 'N/A';
+    }
+  }
+
+  // Get color for BMI category
+  Color _getBmiColor() {
+    if (_bmi < 18.5) {
+      return Colors.blue;
+    } else if (_bmi >= 18.5 && _bmi < 25) {
+      return Colors.green;
+    } else if (_bmi >= 25 && _bmi < 30) {
+      return Colors.orange;
+    } else if (_bmi >= 30) {
+      return Colors.red;
+    } else {
+      return Colors.grey;
+    }
   }
 
   @override
@@ -122,6 +234,9 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                       _selectedGender = 'Male';
                     });
                     widget.onDataChanged('gender', 'Male');
+                    
+                    // We need to wait for the next frame before calculating metrics
+                    Future.microtask(() => _calculateHealthMetrics());
                   },
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -160,6 +275,9 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                       _selectedGender = 'Female';
                     });
                     widget.onDataChanged('gender', 'Female');
+                    
+                    // We need to wait for the next frame before calculating metrics
+                    Future.microtask(() => _calculateHealthMetrics());
                   },
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -183,44 +301,6 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                           style: TextStyle(
                             color: _selectedGender == 'Female' ? Colors.blue : Colors.black,
                             fontWeight: _selectedGender == 'Female' ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedGender = 'Other';
-                    });
-                    widget.onDataChanged('gender', 'Other');
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _selectedGender == 'Other' ? Colors.blue.withOpacity(0.2) : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      border: _selectedGender == 'Other'
-                          ? Border.all(color: Colors.blue, width: 2)
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.person,
-                          color: _selectedGender == 'Other' ? Colors.blue : Colors.grey,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Other',
-                          style: TextStyle(
-                            color: _selectedGender == 'Other' ? Colors.blue : Colors.black,
-                            fontWeight: _selectedGender == 'Other' ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ],
@@ -252,6 +332,8 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                       onChanged: (value) {
                         if (value.isNotEmpty) {
                           widget.onDataChanged('age', int.parse(value));
+                          // Wait for next frame to calculate metrics
+                          Future.microtask(() => _calculateHealthMetrics());
                         }
                       },
                     ),
@@ -264,7 +346,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Height', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Height (cm)', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _heightController,
@@ -276,6 +358,8 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                       onChanged: (value) {
                         if (value.isNotEmpty) {
                           widget.onDataChanged('height', double.parse(value));
+                          // Wait for next frame to calculate metrics
+                          Future.microtask(() => _calculateHealthMetrics());
                         }
                       },
                     ),
@@ -288,7 +372,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Weight', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Weight (kg)', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _weightController,
@@ -300,6 +384,8 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                       onChanged: (value) {
                         if (value.isNotEmpty) {
                           widget.onDataChanged('weight', double.parse(value));
+                          // Wait for next frame to calculate metrics
+                          Future.microtask(() => _calculateHealthMetrics());
                         }
                       },
                     ),
@@ -337,10 +423,175 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                     _selectedActivityLevel = newValue;
                   });
                   widget.onDataChanged('activityLevel', newValue);
+                  // Wait for next frame to calculate metrics
+                  Future.microtask(() => _calculateHealthMetrics());
                 }
               },
             ),
           ),
+          
+          // Health Metrics Section
+          if (_bmi > 0 || _bmr > 0 || _tdee > 0) ...[
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.assessment,
+                        color: Colors.blue,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Health Metrics',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // BMI Row
+                  if (_bmi > 0) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'BMI (Body Mass Index)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'A measure of body fat based on height and weight',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _bmi.toStringAsFixed(1),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _getBmiColor(),
+                              ),
+                            ),
+                            Text(
+                              _getBmiCategory(),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: _getBmiColor(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                  ],
+                  
+                  // BMR Row
+                  if (_bmr > 0) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'BMR (Basal Metabolic Rate)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Calories needed for basic functions at rest',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          '${_bmr.toInt()} calories/day',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                  ],
+                  
+                  // TDEE Row
+                  if (_tdee > 0) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'TDEE (Total Daily Energy Expenditure)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Total calories burned daily based on activity level',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          '${_tdee.toInt()} calories/day',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
