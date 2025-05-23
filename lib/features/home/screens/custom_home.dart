@@ -13,6 +13,7 @@ import 'package:user_onboarding/features/home/widgets/strength_progress_card.dar
 import 'package:user_onboarding/features/home/widgets/body_measurement_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/recovery_timer.dart';
 import 'package:user_onboarding/features/home/widgets/workout_split_calendar.dart';
+import 'package:user_onboarding/features/home/widgets/exercise_tracker.dart';
 
 class CustomHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -43,6 +44,7 @@ class _CustomHomeState extends State<CustomHome> {
     'muscles',
     'metrics',
     'weight_goal',
+    'exercise',
   ];
 
   // List of all available widgets
@@ -61,6 +63,7 @@ class _CustomHomeState extends State<CustomHome> {
     {'id': 'muscles', 'name': 'Muscle Progress', 'icon': Icons.accessibility_new},
     {'id': 'metrics', 'name': 'Health Metrics', 'icon': Icons.monitor_heart},
     {'id': 'weight_goal', 'name': 'Weight Goal', 'icon': Icons.monitor_weight},
+    {'id': 'exercise', 'name': 'Exercise Log', 'icon': Icons.directions_run},
   ];
 
   void _toggleWidget(String widgetId) {
@@ -283,7 +286,10 @@ class _CustomHomeState extends State<CustomHome> {
                       
                     if (_enabledWidgets.contains('metrics'))
                       _buildMetricsSection(),
-                      
+
+                    if (_enabledWidgets.contains('exercise'))
+                      _buildExerciseSection(),
+
                     // Empty state if no widgets are enabled
                     if (_enabledWidgets.isEmpty)
                       _buildEmptyState(),
@@ -1075,6 +1081,28 @@ class _CustomHomeState extends State<CustomHome> {
     );
   }
   
+  Widget _buildExerciseSection() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Exercise Activity',
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+      const SizedBox(height: 16),
+      ExerciseTracker(
+        userProfile: widget.userProfile,
+      ),
+      const SizedBox(height: 24),
+    ],
+  );
+}
+
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(

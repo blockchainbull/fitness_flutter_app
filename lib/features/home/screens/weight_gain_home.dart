@@ -6,6 +6,7 @@ import 'package:user_onboarding/features/home/widgets/metrics_card.dart';
 import 'package:user_onboarding/features/home/widgets/water_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/calorie_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/protein_intake_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/exercise_tracker.dart';
 
 // Define custom green colors for the background
 const Color kGreenBackgroundColor = Color(0xFF4CAF50); // Material Green 500
@@ -187,6 +188,22 @@ class WeightGainHome extends StatelessWidget {
                       userProfile: userProfile,
                     ),
                     
+                    const SizedBox(height: 24),
+
+                    // Exercise Tracker Section
+                    const Text(
+                      'Exercise Activity',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ExerciseTracker(
+                      userProfile: userProfile,
+                    ),
+
                     const SizedBox(height: 24),
                     
                     // Nutrition & Meals Section (MOVED UP)

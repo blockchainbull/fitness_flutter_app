@@ -7,6 +7,8 @@ import 'package:user_onboarding/data/repositories/user_repository.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
 import 'package:user_onboarding/data/services/database_service.dart';
+import 'package:user_onboarding/data/services/exercise_data_service.dart';
+
 
 class DataManager {
   static final DataManager _instance = DataManager._internal();
@@ -270,6 +272,23 @@ class DataManager {
     } catch (e) {
       _log('Failed to synchronize data: $e');
     }
+  }
+
+  Future<bool> saveExercises(String userId, List<Map<String, dynamic>> exercises) async {
+  final exerciseService = ExerciseDataService();
+  return await exerciseService.saveExercises(userId, exercises);
+}
+
+  // Load exercises
+  Future<List<Map<String, dynamic>>> loadExercises(String userId) async {
+    final exerciseService = ExerciseDataService();
+    return await exerciseService.loadExercises(userId);
+  }
+
+  // Add exercise
+  Future<bool> addExercise(String userId, Map<String, dynamic> exercise) async {
+    final exerciseService = ExerciseDataService();
+    return await exerciseService.addExercise(userId, exercise);
   }
 
   // Clear all data

@@ -9,6 +9,7 @@ import 'package:user_onboarding/features/home/widgets/strength_progress_card.dar
 import 'package:user_onboarding/features/home/widgets/body_measurement_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/recovery_timer.dart';
 import 'package:user_onboarding/features/home/widgets/workout_split_calendar.dart';
+import 'package:user_onboarding/features/home/widgets/exercise_tracker.dart';
 
 // Define custom deep purple color for the background
 const Color kPurpleBackgroundColor = Color(0xFF673AB7); // Material Deep Purple 500
@@ -282,6 +283,24 @@ class MuscleGainHome extends StatelessWidget {
                           'icon': Icons.accessibility,
                         },
                       ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+
+                    // Exercise Tracker Section
+                    const Text(
+                      'Exercise Activity',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Exercise Tracker
+                    ExerciseTracker(
+                      userProfile: userProfile,
                     ),
                     
                     const SizedBox(height: 24),

@@ -6,6 +6,7 @@ import 'package:user_onboarding/features/home/widgets/metrics_card.dart';
 import 'package:user_onboarding/features/home/widgets/water_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/daily_step_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/calorie_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/exercise_tracker.dart';
 
 // Define custom lilac/purple colors for the background to match other screens
 const Color kLilacColor = Color(0xFFCE93D8); // Material Purple 200
@@ -192,6 +193,22 @@ class WeightLossHome extends StatelessWidget {
                     ),
                     
                     const SizedBox(height: 24),
+                    
+                    // Exercise Tracker Section
+                    const Text(
+                      'Exercise Activity',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Exercise Tracker
+                    ExerciseTracker(
+                      userProfile: userProfile,
+                    ),
                     
                     // Nutrition & Meals Section
                     const Text(
