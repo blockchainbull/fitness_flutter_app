@@ -39,10 +39,12 @@ Write-Host "Granting privileges..."
 Write-Host "Creating tables..."
 # Connect to the new database and create tables
 & $PSQL -h $Hostname -p $Port -U $Username -d $DB_NAME -c @"
+-- Main users table with all profile information including password
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
   gender VARCHAR(10),
   age INTEGER,
   height DECIMAL,
@@ -51,86 +53,80 @@ CREATE TABLE IF NOT EXISTS users (
   bmi DECIMAL,
   bmr DECIMAL,
   tdee DECIMAL,
+  
+  -- Goal information
+  primary_goal VARCHAR(100),
+  weight_goal VARCHAR(100),
+  target_weight DECIMAL,
+  
+  -- Sleep information
+  sleep_hours DECIMAL,
+  bedtime VARCHAR(10),
+  wakeup_time VARCHAR(10),
+  sleep_issues TEXT[],
+  
+  -- Dietary information
+  dietary_preferences TEXT[],
+  water_intake DECIMAL,
+  
+  -- Medical information
+  medical_conditions TEXT[],
+  other_medical_condition TEXT,
+  
+  -- Exercise information
+  preferred_workouts TEXT[],
+  workout_frequency INTEGER,
+  workout_duration INTEGER,
+  workout_location VARCHAR(100),
+  available_equipment TEXT[],
+  fitness_level VARCHAR(50),
+  has_trainer BOOLEAN,
+  
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS user_goals (
+-- Daily tracking tables
+CREATE TABLE IF NOT EXISTS daily_water_intake (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL,
-  primary_goal VARCHAR(100),
-  weight_goal VARCHAR(100),
-  target_weight DECIMAL,
-  goal_timeline VARCHAR(50),
+  date DATE NOT NULL,
+  glasses_consumed INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE(user_id, date)
 );
 
-CREATE TABLE IF NOT EXISTS sleep_info (
+CREATE TABLE IF NOT EXISTS daily_meals (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL,
-  sleep_hours DECIMAL,
-  bedtime VARCHAR(10),
-  wakeup_time VARCHAR(10),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS sleep_issues (
-  id UUID PRIMARY KEY,
-  sleep_id UUID NOT NULL,
-  issue VARCHAR(100),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (sleep_id) REFERENCES sleep_info(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS dietary_preferences (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL,
-  preference VARCHAR(100),
-  water_intake DECIMAL,
+  date DATE NOT NULL,
+  meal_name VARCHAR(100),
+  description TEXT,
+  calories INTEGER,
+  meal_time VARCHAR(10),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS medical_conditions (
+CREATE TABLE IF NOT EXISTS daily_exercises (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL,
-  condition VARCHAR(100),
-  other_condition TEXT,
+  date DATE NOT NULL,
+  exercise_name VARCHAR(100),
+  duration_minutes INTEGER,
+  calories_burned INTEGER,
+  exercise_time VARCHAR(10),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS workout_preferences (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL,
-  workout_type VARCHAR(100),
-  workout_frequency INTEGER,
-  workout_duration INTEGER,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS exercise_setup (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL,
-  workout_location VARCHAR(100),
-  fitness_level VARCHAR(50),
-  has_trainer BOOLEAN,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS equipment (
-  id UUID PRIMARY KEY,
-  exercise_id UUID NOT NULL,
-  equipment_name VARCHAR(100),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (exercise_id) REFERENCES exercise_setup(id) ON DELETE CASCADE
-);
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_password_hash ON users(password_hash);
+CREATE INDEX IF NOT EXISTS idx_daily_water_user_date ON daily_water_intake(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_daily_meals_user_date ON daily_meals(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_daily_exercises_user_date ON daily_exercises(user_id, date);
 "@
 
 Write-Host "Granting table privileges..."

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class BasicInfoPage extends StatefulWidget {
   final Map<String, dynamic> formData;
   final Function(String, dynamic) onDataChanged;
@@ -18,11 +17,17 @@ class BasicInfoPage extends StatefulWidget {
 class _BasicInfoPageState extends State<BasicInfoPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   String _selectedGender = '';
   final _ageController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
   String _selectedActivityLevel = '';
+
+  // Password visibility
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   // Added variables for health metrics
   double _bmi = 0.0;
@@ -43,6 +48,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
     // Initialize controllers with existing values
     _nameController.text = widget.formData['name'] ?? '';
     _emailController.text = widget.formData['email'] ?? '';
+    _passwordController.text = widget.formData['password'] ?? '';
     _selectedGender = widget.formData['gender'] ?? '';
     _ageController.text = widget.formData['age']?.toString() ?? '';
     _heightController.text = widget.formData['height']?.toString() ?? '';
@@ -67,10 +73,25 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _ageController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     super.dispose();
+  }
+
+  // Validate password
+  String? _validatePassword(String password) {
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  }
+
+  // Check if passwords match
+  bool _doPasswordsMatch() {
+    return _passwordController.text == _confirmPasswordController.text;
   }
 
   // Calculate BMI, BMR, and TDEE based on user inputs
@@ -218,6 +239,65 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
             keyboardType: TextInputType.emailAddress,
             onChanged: (value) {
               widget.onDataChanged('email', value);
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Password field
+          const Text('Password', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _passwordController,
+            obscureText: !_isPasswordVisible,
+            decoration: InputDecoration(
+              hintText: 'Enter your password (min 6 characters)',
+              prefixIcon: const Icon(Icons.lock),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  });
+                },
+              ),
+              errorText: _passwordController.text.isNotEmpty 
+                  ? _validatePassword(_passwordController.text) 
+                  : null,
+            ),
+            onChanged: (value) {
+              widget.onDataChanged('password', value);
+              setState(() {}); // Refresh to show/hide validation error
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Confirm Password field
+          const Text('Confirm Password', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _confirmPasswordController,
+            obscureText: !_isConfirmPasswordVisible,
+            decoration: InputDecoration(
+              hintText: 'Confirm your password',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                  });
+                },
+              ),
+              errorText: _confirmPasswordController.text.isNotEmpty && !_doPasswordsMatch() 
+                  ? 'Passwords do not match' 
+                  : null,
+            ),
+            onChanged: (value) {
+              setState(() {}); // Refresh to show/hide validation error
             },
           ),
           const SizedBox(height: 16),

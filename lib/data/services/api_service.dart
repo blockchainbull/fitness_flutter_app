@@ -9,7 +9,7 @@ class ApiService {
   
   // API base URL - change this to your actual API URL when deployed
   static final String baseUrl = kDebugMode 
-    ? 'http://localhost:3000/api' 
+    ? 'http://localhost:8000/api/health' 
     : 'https://your-production-api.com/api';
 
   factory ApiService() {
