@@ -1,3 +1,4 @@
+// lib/features/home/screens/weight_loss_home.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/home/widgets/nutrition_card.dart';
@@ -7,6 +8,7 @@ import 'package:user_onboarding/features/home/widgets/water_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/daily_step_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/calorie_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/exercise_tracker.dart';
+import 'package:user_onboarding/widgets/app_drawer.dart'; 
 
 // Define custom lilac/purple colors for the background to match other screens
 const Color kLilacColor = Color(0xFFCE93D8); // Material Purple 200
@@ -24,6 +26,10 @@ class WeightLossHome extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kLilacColor.withOpacity(0.4), // Light lilac background
+      drawer: AppDrawer(
+        userProfile: userProfile,
+        currentSection: 'home',
+      ),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -33,6 +39,12 @@ class WeightLossHome extends StatelessWidget {
               floating: true,
               pinned: true,
               backgroundColor: kLilacColor,
+              leading: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.white),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(
                   'Welcome, ${userProfile.name.split(' ')[0]}',

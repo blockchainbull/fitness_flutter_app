@@ -1,3 +1,5 @@
+// lib/features/onboarding/screens/onboarding_flow.dart
+
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
@@ -122,11 +124,67 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
     
     try {
-      // Create a UserProfile object
-      final userProfile = UserProfile.fromMap(_formData);
+      // Convert form data to unified onboarding format
+      final onboardingData = {
+        'basicInfo': {
+          'name': _formData['name'],
+          'email': _formData['email'],
+          'password': 'defaultpassword123', // You might want to add a password field to your form
+          'gender': _formData['gender'],
+          'age': _formData['age'],
+          'height': _formData['height'],
+          'weight': _formData['weight'],
+          'activityLevel': _formData['activityLevel'],
+          'bmi': _formData['bmi'] ?? 0.0,
+          'bmr': _formData['bmr'] ?? 0.0,
+          'tdee': _formData['tdee'] ?? 0.0,
+        },
+        'primaryGoal': _formData['primaryGoal'],
+        'weightGoal': {
+          'weightGoal': _formData['weightGoal'],
+          'targetWeight': _formData['targetWeight'],
+          'timeline': _formData['goalTimeline'] ?? '',
+        },
+        'sleepInfo': {
+          'sleepHours': _formData['sleepHours'],
+          'bedtime': _formData['bedtime'],
+          'wakeupTime': _formData['wakeupTime'],
+          'sleepIssues': _formData['sleepIssues'],
+        },
+        'dietaryPreferences': {
+          'dietaryPreferences': _formData['dietaryPreferences'],
+          'waterIntake': _formData['waterIntake'],
+          'medicalConditions': _formData['medicalConditions'],
+          'otherCondition': _formData['otherMedicalCondition'],
+        },
+        'workoutPreferences': {
+          'workoutTypes': _formData['preferredWorkouts'],
+          'frequency': _formData['workoutFrequency'],
+          'duration': _formData['workoutDuration'],
+        },
+        'exerciseSetup': {
+          'workoutLocation': _formData['workoutLocation'],
+          'equipment': _formData['availableEquipment'],
+          'fitnessLevel': _formData['fitnessLevel'],
+          'hasTrainer': _formData['hasTrainer'],
+        },
+      };
+
+      print('🌙 Final sleep data being sent:');
+      print('  sleepHours: ${_formData['sleepHours']}');
+      print('  bedtime: ${_formData['bedtime']}');
+      print('  wakeupTime: ${_formData['wakeupTime']}');
+      print('  sleepIssues: ${_formData['sleepIssues']}');
+
+      // Complete onboarding using the new unified format
+      final userId = await _dataManager.completeOnboarding(onboardingData);
       
-      // Save user profile to database and/or local storage
-      await _dataManager.saveUserProfile(userProfile);
+      if (userId == null) {
+        throw Exception('Failed to complete onboarding');
+      }
+
+      // Create UserProfile object for navigation
+      final userProfile = UserProfile.fromMap(_formData);
       
       // Close loading indicator
       Navigator.pop(context);
@@ -154,7 +212,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         );
       }
       
-      // Show success dialog
+      // Show success dialog and navigate
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -194,11 +252,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   onPressed: () {
                     Navigator.pop(context); // Close dialog
                     // Navigate to home screen
-                    Navigator.pushReplacement(
+                    Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
                         builder: (context) => HomePage(userProfile: userProfile),
                       ),
+                      (route) => false,
                     );
                   },
                   style: ElevatedButton.styleFrom(

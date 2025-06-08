@@ -1,8 +1,10 @@
+// lib/data/models/user_profile.dart
 import 'dart:convert';
 
 class UserProfile {
   final String name;
   final String email;
+  final String? password; // Add password field (optional for security)
   final String gender;
   final int age;
   final double height;
@@ -11,6 +13,7 @@ class UserProfile {
   final String primaryGoal;
   final String weightGoal;
   final double targetWeight;
+  final String? goalTimeline; // Add goalTimeline field
   final double sleepHours;
   final String bedtime;
   final String wakeupTime;
@@ -26,12 +29,12 @@ class UserProfile {
   final List<String> availableEquipment;
   final String fitnessLevel;
   final bool hasTrainer;
-  // Add formData to hold BMI, BMR, and TDEE
   final Map<String, dynamic> formData;
 
   UserProfile({
     required this.name,
     required this.email,
+    this.password, // Optional password field
     required this.gender,
     required this.age,
     required this.height,
@@ -40,6 +43,7 @@ class UserProfile {
     required this.primaryGoal,
     required this.weightGoal,
     this.targetWeight = 0.0,
+    this.goalTimeline, // Add goalTimeline parameter
     required this.sleepHours,
     required this.bedtime,
     required this.wakeupTime,
@@ -70,6 +74,7 @@ class UserProfile {
     return UserProfile(
       name: map['name'] ?? '',
       email: map['email'] ?? '',
+      password: map['password'], // Add password field
       gender: map['gender'] ?? '',
       age: map['age'] ?? 0,
       height: map['height']?.toDouble() ?? 0.0,
@@ -78,6 +83,7 @@ class UserProfile {
       primaryGoal: map['primaryGoal'] ?? '',
       weightGoal: map['weightGoal'] ?? '',
       targetWeight: map['targetWeight']?.toDouble() ?? 0.0,
+      goalTimeline: map['goalTimeline'], // Add goalTimeline field
       sleepHours: map['sleepHours']?.toDouble() ?? 7.0,
       bedtime: map['bedtime'] ?? '22:00',
       wakeupTime: map['wakeupTime'] ?? '06:00',
@@ -98,10 +104,10 @@ class UserProfile {
   }
 
   Map<String, dynamic> toMap() {
-    // Create a base map with all regular properties
     final Map<String, dynamic> map = {
       'name': name,
       'email': email,
+      'password': password,
       'gender': gender,
       'age': age,
       'height': height,
@@ -110,6 +116,7 @@ class UserProfile {
       'primaryGoal': primaryGoal,
       'weightGoal': weightGoal,
       'targetWeight': targetWeight,
+      'goalTimeline': goalTimeline,
       'sleepHours': sleepHours,
       'bedtime': bedtime,
       'wakeupTime': wakeupTime,
@@ -125,24 +132,67 @@ class UserProfile {
       'availableEquipment': availableEquipment,
       'fitnessLevel': fitnessLevel,
       'hasTrainer': hasTrainer,
-      // Always include health metrics with proper defaults
       'bmi': formData.containsKey('bmi') ? (formData['bmi'] is num ? formData['bmi'] : double.tryParse(formData['bmi'].toString()) ?? 0.0) : 0.0,
       'bmr': formData.containsKey('bmr') ? (formData['bmr'] is num ? formData['bmr'] : double.tryParse(formData['bmr'].toString()) ?? 0.0) : 0.0,
       'tdee': formData.containsKey('tdee') ? (formData['tdee'] is num ? formData['tdee'] : double.tryParse(formData['tdee'].toString()) ?? 0.0) : 0.0,
     };
     
-    
-    
     return map;
   }
 
-  // Add a method to convert to JSON for API requests
-  Map<String, dynamic> toJson() => toMap();
-  
-  // Add a copy with method for easy updates
+  // Add method to convert to unified backend onboarding format
+  Map<String, dynamic> toOnboardingFormat() {
+    return {
+      'basicInfo': {
+        'name': name,
+        'email': email,
+        'password': password ?? 'defaultpassword123',
+        'gender': gender,
+        'age': age,
+        'height': height,
+        'weight': weight,
+        'activityLevel': activityLevel,
+        'bmi': formData['bmi'] ?? 0.0,
+        'bmr': formData['bmr'] ?? 0.0,
+        'tdee': formData['tdee'] ?? 0.0,
+      },
+      'primaryGoal': primaryGoal,
+      'weightGoal': {
+        'weightGoal': weightGoal,
+        'targetWeight': targetWeight,
+        'timeline': goalTimeline ?? '',
+      },
+      'sleepInfo': {
+        'sleepHours': sleepHours,
+        'bedtime': bedtime,
+        'wakeupTime': wakeupTime,
+        'sleepIssues': sleepIssues,
+      },
+      'dietaryPreferences': {
+        'dietaryPreferences': dietaryPreferences,
+        'waterIntake': waterIntake,
+        'medicalConditions': medicalConditions,
+        'otherCondition': otherMedicalCondition,
+      },
+      'workoutPreferences': {
+        'workoutTypes': preferredWorkouts,
+        'frequency': workoutFrequency,
+        'duration': workoutDuration,
+      },
+      'exerciseSetup': {
+        'workoutLocation': workoutLocation,
+        'equipment': availableEquipment,
+        'fitnessLevel': fitnessLevel,
+        'hasTrainer': hasTrainer,
+      },
+    };
+  }
+
+  // Update copyWith to include new fields
   UserProfile copyWith({
     String? name,
     String? email,
+    String? password,
     String? gender,
     int? age,
     double? height,
@@ -151,6 +201,7 @@ class UserProfile {
     String? primaryGoal,
     String? weightGoal,
     double? targetWeight,
+    String? goalTimeline,
     double? sleepHours,
     String? bedtime,
     String? wakeupTime,
@@ -171,6 +222,7 @@ class UserProfile {
     return UserProfile(
       name: name ?? this.name,
       email: email ?? this.email,
+      password: password ?? this.password,
       gender: gender ?? this.gender,
       age: age ?? this.age,
       height: height ?? this.height,
@@ -179,6 +231,7 @@ class UserProfile {
       primaryGoal: primaryGoal ?? this.primaryGoal,
       weightGoal: weightGoal ?? this.weightGoal,
       targetWeight: targetWeight ?? this.targetWeight,
+      goalTimeline: goalTimeline ?? this.goalTimeline,
       sleepHours: sleepHours ?? this.sleepHours,
       bedtime: bedtime ?? this.bedtime,
       wakeupTime: wakeupTime ?? this.wakeupTime,
@@ -198,7 +251,6 @@ class UserProfile {
     );
   }
   
-  // Override toString for better debugging
   @override
   String toString() {
     return 'UserProfile(name: $name, email: $email, age: $age, primaryGoal: $primaryGoal)';

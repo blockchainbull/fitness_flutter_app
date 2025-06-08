@@ -1,3 +1,4 @@
+// lib/features/onboarding/screens/sleep_info_page.dart
 import 'package:flutter/material.dart';
 
 class SleepInfoPage extends StatefulWidget {
@@ -17,7 +18,7 @@ class SleepInfoPage extends StatefulWidget {
 class _SleepInfoPageState extends State<SleepInfoPage> {
   double _sleepHours = 7.0;
   TimeOfDay _bedtime = const TimeOfDay(hour: 22, minute: 0);
-  TimeOfDay _wakeupTime = const TimeOfDay(hour: 6, minute: 0);
+  TimeOfDay _wakeupTime = const TimeOfDay(hour: 5, minute: 0);
   List<String> _sleepIssues = [];
 
   final List<String> _sleepIssueOptions = [
@@ -61,12 +62,48 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
     if (widget.formData['sleepIssues'] != null) {
       _sleepIssues = List<String>.from(widget.formData['sleepIssues']);
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _saveInitialValues();
+    });
+
   }
   
+  void _saveInitialValues() {
+    // Save default sleep hours if not set
+    if (widget.formData['sleepHours'] == null) {
+      widget.onDataChanged('sleepHours', _sleepHours);
+    }
+    
+    // Save default bedtime if not set
+    if (widget.formData['bedtime'] == null || widget.formData['bedtime'].isEmpty) {
+      widget.onDataChanged('bedtime', _formatTimeOfDay(_bedtime));
+    }
+    
+    // Save default wakeup time if not set
+    if (widget.formData['wakeupTime'] == null || widget.formData['wakeupTime'].isEmpty) {
+      widget.onDataChanged('wakeupTime', _formatTimeOfDay(_wakeupTime));
+    }
+    
+    // Save default sleep issues if not set
+    if (widget.formData['sleepIssues'] == null) {
+      widget.onDataChanged('sleepIssues', _sleepIssues);
+    }
+  }
+
   String _formatTimeOfDay(TimeOfDay timeOfDay) {
-    final hour = timeOfDay.hour.toString().padLeft(2, '0');
-    final minute = timeOfDay.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    // Convert to 12-hour format for web compatibility
+    final hour24 = timeOfDay.hour;
+    final minute = timeOfDay.minute;
+    
+    // Convert to 12-hour format
+    final hour12 = hour24 == 0 ? 12 : (hour24 > 12 ? hour24 - 12 : hour24);
+    final period = hour24 < 12 ? 'AM' : 'PM';
+    
+    final hourStr = hour12.toString();
+    final minuteStr = minute.toString().padLeft(2, '0');
+    
+    return '$hourStr:$minuteStr $period';
   }
 
     void _selectBedtime() async {
@@ -85,6 +122,13 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
         
         _wakeupTime = TimeOfDay(hour: adjustedHours, minute: adjustedMinutes);
       });
+      final bedtimeFormatted = _formatTimeOfDay(picked);
+      final wakeupTimeFormatted = _formatTimeOfDay(_wakeupTime);
+      
+      print('🛏️ Sleep time selected:');
+      print('  Bedtime: $bedtimeFormatted');
+      print('  Wake-up time: $wakeupTimeFormatted');
+
       widget.onDataChanged('bedtime', _formatTimeOfDay(picked));
       widget.onDataChanged('wakeupTime', _formatTimeOfDay(_wakeupTime));
     }

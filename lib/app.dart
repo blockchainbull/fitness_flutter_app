@@ -2,16 +2,17 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/config/home_routes.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/features/auth/screens/login_screens.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/onboarding_flow.dart';
 
 class HealthAIApp extends StatelessWidget {
-  final bool onboardingCompleted;
+  final bool hasValidLogin;
   final UserProfile? userProfile;
 
   const HealthAIApp({
     Key? key,
-    required this.onboardingCompleted,
+    required this.hasValidLogin,
     this.userProfile,
   }) : super(key: key);
 
@@ -36,16 +37,23 @@ class HealthAIApp extends StatelessWidget {
         
         // Default route handling
         return MaterialPageRoute(
-          builder: (_) => onboardingCompleted && userProfile != null
-              ? HomePage(userProfile: userProfile!)
-              : const OnboardingFlow(),
+          builder: (_) => _getInitialScreen(),
         );
       },
-      home: onboardingCompleted && userProfile != null
-          ? HomePage(userProfile: userProfile!)
-          : const OnboardingFlow(),
+      home: _getInitialScreen(),
     );
   }
+
+  Widget _getInitialScreen() {
+    // If user has valid login and profile, go to home
+    if (hasValidLogin && userProfile != null) {
+      return HomePage(userProfile: userProfile!);
+    }
+    
+    // Otherwise, show login screen (which can navigate to onboarding)
+    return const LoginScreen();
+  }
+
 
   ThemeData _buildTheme() {
     return ThemeData(
