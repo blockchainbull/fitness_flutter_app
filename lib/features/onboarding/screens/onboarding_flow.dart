@@ -6,6 +6,7 @@ import 'package:user_onboarding/data/services/connectivity_service.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/basic_info_page.dart';
+import 'package:user_onboarding/features/onboarding/screens/period_cycle_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/sleep_info_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/weight_goal_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/primary_goal_page.dart';
@@ -24,7 +25,7 @@ class OnboardingFlow extends StatefulWidget {
 class _OnboardingFlowState extends State<OnboardingFlow> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  final int _totalPages = 7;
+  int _totalPages = 7;
 
   // Form data
   final _formData = {
@@ -35,13 +36,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     'height': 0.0,
     'weight': 0.0,
     'activityLevel': '',
+    'hasPeriods': null,
+    'lastPeriodDate': '',
+    'cycleLength': 28,
+    'cycleLengthRegular': true,
+    'pregnancyStatus': '',
+    'trackingPreference': '',
     'primaryGoal': '',
     'weightGoal': '',
     'targetWeight': 0.0,
-     'goalTimeline': '',
-    'sleepHours': 7.0,
-    'bedtime': '',
-    'wakeupTime': '',
+    'goalTimeline': '',
+    'sleepHours': 8.0,
+    'bedtime': '10:00 PM',        
+    'wakeupTime': '6:00 AM',
     'sleepIssues': <String>[],
     'dietaryPreferences': <String>[],
     'waterIntake': 2.0,
@@ -90,6 +97,109 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     super.dispose();
   }
 
+  void _updateTotalPages() {
+    setState(() {
+      if (_formData['gender'] == 'Female') {
+        _totalPages = 8; // Add 1 for period cycle page
+      } else {
+        _totalPages = 7;
+      }
+    });
+  }
+
+  String _getPredefinedWeightGoal(String primaryGoal) {
+    const goalMapping = {
+      'Lose Weight': 'lose_weight',
+      'Build Muscle': 'gain_weight',
+      'Improve Fitness': 'maintain_weight',
+      'Maintain Health': 'maintain_weight',
+      'Reduce Stress': 'maintain_weight',
+    };
+    
+    return goalMapping[primaryGoal] ?? '';
+  }
+
+  void _onDataChanged(String key, dynamic value) {
+    setState(() {
+      _formData[key] = value;
+    });
+  // Update total pages when gender is set
+    if (key == 'gender') {
+      _updateTotalPages();
+    }
+
+    // Auto-map weight goal when primary goal is selected
+    if (key == 'primaryGoal' && value != null && value.toString().isNotEmpty) {
+      final predefinedWeightGoal = _getPredefinedWeightGoal(value.toString());
+      if (predefinedWeightGoal.isNotEmpty) {
+        setState(() {
+          _formData['weightGoal'] = predefinedWeightGoal;
+        });
+        print('Auto-mapped weight goal: $predefinedWeightGoal based on primary goal: $value');
+      }
+    }
+  }
+
+  Widget _buildCurrentPage() {
+    // Determine the actual page index considering female-only period cycle page
+    int actualPageIndex = _currentPage;
+    bool isFemale = _formData['gender'] == 'Female';
+
+    // Adjust page indices for non-female users (skip period cycle page)
+    if (!isFemale && _currentPage >= 1) {
+      actualPageIndex = _currentPage + 1;
+    }
+
+    switch (actualPageIndex) {
+      case 0:
+        return BasicInfoPage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+      case 1:
+        // Show period cycle page only for females
+        return PeriodCyclePage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+      case 2:
+        return PrimaryHealthGoalPage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+      case 3:
+        return WeightGoalPage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+      case 4:
+        return SleepInfoPage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+      case 5:
+        return DietaryPreferencesPage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+      case 6:
+        return WorkoutPreferencesPage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+      case 7:
+        return CurrentExerciseSetupPage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+      default:
+        return BasicInfoPage(
+          formData: _formData,
+          onDataChanged: _onDataChanged,
+        );
+    }
+  }
+  
   void _nextPage() {
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
@@ -129,7 +239,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         'basicInfo': {
           'name': _formData['name'],
           'email': _formData['email'],
-          'password': 'defaultpassword123', // You might want to add a password field to your form
+          'password': 'defaultpassword123',
           'gender': _formData['gender'],
           'age': _formData['age'],
           'height': _formData['height'],
@@ -138,6 +248,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           'bmi': _formData['bmi'] ?? 0.0,
           'bmr': _formData['bmr'] ?? 0.0,
           'tdee': _formData['tdee'] ?? 0.0,
+        },
+        if (_formData['gender'] == 'Female') 
+        'periodCycle': {
+          'hasPeriods': _formData['hasPeriods'],
+          'lastPeriodDate': _formData['lastPeriodDate'],
+          'cycleLength': _formData['cycleLength'],
+          'cycleLengthRegular': _formData['cycleLengthRegular'],
+          'pregnancyStatus': _formData['pregnancyStatus'],
+          'trackingPreference': _formData['trackingPreference'],
         },
         'primaryGoal': _formData['primaryGoal'],
         'weightGoal': {
@@ -170,11 +289,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         },
       };
 
-      print('🌙 Final sleep data being sent:');
-      print('  sleepHours: ${_formData['sleepHours']}');
-      print('  bedtime: ${_formData['bedtime']}');
-      print('  wakeupTime: ${_formData['wakeupTime']}');
-      print('  sleepIssues: ${_formData['sleepIssues']}');
+      print('🚀 DEBUGGING ONBOARDING DATA:');
+      print('📝 Gender: ${_formData['gender']}');
+      print('📝 Raw formData period fields:');
+      print('  hasPeriods: ${_formData['hasPeriods']}');
+      print('  lastPeriodDate: ${_formData['lastPeriodDate']}');
+      print('  cycleLength: ${_formData['cycleLength']}');
+      print('  cycleLengthRegular: ${_formData['cycleLengthRegular']}');
+      print('  pregnancyStatus: ${_formData['pregnancyStatus']}');
+      print('  trackingPreference: ${_formData['trackingPreference']}');
+      
+      if (_formData['gender'] == 'Female') {
+        print('🌸 Period cycle data being sent:');
+        print('  ${onboardingData['periodCycle']}');
+      } else {
+        print('❌ Not female user, no period data');
+      }
 
       // Complete onboarding using the new unified format
       final userId = await _dataManager.completeOnboarding(onboardingData);
@@ -345,72 +475,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             ),
             // Page content
             Expanded(
-              child: PageView(
+              child: PageView.builder(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
+                itemCount: _totalPages,
                 onPageChanged: (int page) {
                   setState(() {
                     _currentPage = page;
                   });
                 },
-                children: [
-                  BasicInfoPage(
-                    formData: _formData,
-                    onDataChanged: (key, value) {
-                      setState(() {
-                        _formData[key] = value;
-                      });
-                    },
-                  ),
-                  PrimaryHealthGoalPage(
-                    formData: _formData,
-                    onDataChanged: (key, value) {
-                      setState(() {
-                        _formData[key] = value;
-                      });
-                    },
-                  ),
-                  WeightGoalPage(
-                    formData: _formData,
-                    onDataChanged: (key, value) {
-                      setState(() {
-                        _formData[key] = value;
-                      });
-                    },
-                  ),
-                  SleepInfoPage(
-                    formData: _formData,
-                    onDataChanged: (key, value) {
-                      setState(() {
-                        _formData[key] = value;
-                      });
-                    },
-                  ),
-                  DietaryPreferencesPage(
-                    formData: _formData,
-                    onDataChanged: (key, value) {
-                      setState(() {
-                        _formData[key] = value;
-                      });
-                    },
-                  ),
-                  WorkoutPreferencesPage(
-                    formData: _formData,
-                    onDataChanged: (key, value) {
-                      setState(() {
-                        _formData[key] = value;
-                      });
-                    },
-                  ),
-                  CurrentExerciseSetupPage(
-                    formData: _formData,
-                    onDataChanged: (key, value) {
-                      setState(() {
-                        _formData[key] = value;
-                      });
-                    },
-                  ),
-                ],
+                itemBuilder: (context, index) {
+                  return _buildCurrentPage();
+                },
               ),
             ),
             // Navigation buttons

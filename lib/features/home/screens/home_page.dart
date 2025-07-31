@@ -121,7 +121,7 @@ class _HomePageState extends State<HomePage> {
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 _buildHomeByGoal(),
-                const ChatPage(),
+                ChatPage(userProfile: widget.userProfile),
                 ProfilePage(userProfile: widget.userProfile),
               ],
             ),

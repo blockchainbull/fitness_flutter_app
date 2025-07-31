@@ -1,13 +1,16 @@
+// lib/features/chat/widgets/chat_input.dart
 import 'package:flutter/material.dart';
 
 class ChatInput extends StatelessWidget {
   final TextEditingController controller;
   final Function(String) onSubmitted;
+  final bool enabled;
   
   const ChatInput({
     Key? key,
     required this.controller,
     required this.onSubmitted,
+    this.enabled = true,
   }) : super(key: key);
   
   @override
@@ -29,7 +32,7 @@ class ChatInput extends StatelessWidget {
           children: [
             IconButton(
               icon: const Icon(Icons.mic),
-              onPressed: () {
+              onPressed: enabled ? () {
                 // TODO: Implement voice input
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -37,37 +40,40 @@ class ChatInput extends StatelessWidget {
                     duration: Duration(seconds: 2),
                   ),
                 );
-              },
+              } : null,
             ),
             Expanded(
               child: TextField(
                 controller: controller,
+                enabled: enabled,
                 decoration: InputDecoration(
-                  hintText: 'Ask your AI health coach...',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  hintText: enabled 
+                      ? 'Ask your AI health coach...'
+                      : 'AI is typing...',
+                  hintStyle: TextStyle(
+                    color: enabled ? Colors.grey[400] : Colors.grey[300],
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: enabled ? Colors.grey[100] : Colors.grey[50],
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 10,
                   ),
                 ),
                 textCapitalization: TextCapitalization.sentences,
-                onSubmitted: onSubmitted,
+                onSubmitted: enabled ? onSubmitted : null,
               ),
             ),
             IconButton(
               icon: const Icon(Icons.send),
-              color: Colors.purple,
-              onPressed: () {
-                if (controller.text.trim().isNotEmpty) {
-                  onSubmitted(controller.text);
-                }
-              },
+              color: enabled ? Colors.purple : Colors.grey,
+              onPressed: enabled && controller.text.trim().isNotEmpty
+                  ? () => onSubmitted(controller.text)
+                  : null,
             ),
           ],
         ),

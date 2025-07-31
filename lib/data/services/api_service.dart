@@ -42,24 +42,96 @@ class ApiService {
   // Login user
   Future<Map<String, dynamic>> loginUser(String email, String password) async {
     try {
+      print('[ApiService] Attempting login for: $email');
+      
+      // Use the SAME endpoint as web - this is key!
       final response = await http.post(
-        Uri.parse('$baseUrl/login'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('http://localhost:8000/api/auth/login'), // Changed from /api/health/login
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({
           'email': email,
           'password': password,
         }),
       );
 
+      print('[ApiService] Login response status: ${response.statusCode}');
+      print('[ApiService] Login response body: ${response.body}');
+
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        return {
+          'success': data['success'] ?? true,
+          'userId': data['user']?['id'] ?? data['userId'], // Handle both response formats
+          'user': data['user'],
+        };
       } else {
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['detail'] ?? 'Login failed');
       }
     } catch (e) {
-      debugPrint('Login error: $e');
+      print('[ApiService] Login error: $e');
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> sendChatMessage(String userId, String message) async {
+    try {
+      print('[ApiService] Sending chat message for user: $userId');
+      
+      final response = await http.post(
+        Uri.parse('http://localhost:8000/api/chat/message'), // Note: different endpoint
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+          'message': message,
+        }),
+      );
+
+      print('[ApiService] Chat response status: ${response.statusCode}');
+      print('[ApiService] Chat response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Chat message failed');
+      }
+    } catch (e) {
+      print('[ApiService] Chat error: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getChatHistory(String userId) async {
+    try {
+      print('[ApiService] Getting chat history for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('http://localhost:8000/api/chat/history/$userId'), // Note: different endpoint
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      print('[ApiService] Chat history response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+        return [];
+      } else {
+        print('[ApiService] Failed to get chat history: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('[ApiService] Chat history error: $e');
+      return [];
     }
   }
 
@@ -82,7 +154,6 @@ class ApiService {
     }
   }
 
-  // Get user profile by ID using unified backend
   Future<UserProfile> getUserProfileById(String userId) async {
     try {
       final response = await http.get(
@@ -95,7 +166,8 @@ class ApiService {
         if (data['success'] == true && data['userProfile'] != null) {
           return UserProfile.fromMap(data['userProfile']);
         } else {
-          throw Exception('User profile not found');
+          // Try to create UserProfile from direct user data
+          return UserProfile.fromApiResponse(data);
         }
       } else {
         throw Exception('Failed to get user profile: ${response.body}');

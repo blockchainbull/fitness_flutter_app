@@ -64,115 +64,50 @@ class DatabaseService {
     }
 
     await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-      id UUID PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) UNIQUE NOT NULL,
-      gender VARCHAR(10),
-      age INTEGER,
-      height DECIMAL,
-      weight DECIMAL,
-      activity_level VARCHAR(100),
-      bmi DECIMAL,
-      bmr DECIMAL,
-      tdee DECIMAL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''');
-
-    await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS user_goals (
-      id UUID PRIMARY KEY,
-      user_id UUID NOT NULL,
-      primary_goal VARCHAR(100),
-      weight_goal VARCHAR(100),
-      target_weight DECIMAL,
-      goal_timeline VARCHAR(50),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-    ''');
-
-    await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS sleep_info (
-      id UUID PRIMARY KEY,
-      user_id UUID NOT NULL,
-      sleep_hours DECIMAL,
-      bedtime VARCHAR(10),
-      wakeup_time VARCHAR(10),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-    ''');
-
-    await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS sleep_issues (
-      id UUID PRIMARY KEY,
-      sleep_id UUID NOT NULL,
-      issue VARCHAR(100),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (sleep_id) REFERENCES sleep_info(id) ON DELETE CASCADE
-    )
-    ''');
-
-    await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS dietary_preferences (
-      id UUID PRIMARY KEY,
-      user_id UUID NOT NULL,
-      preference VARCHAR(100),
-      water_intake DECIMAL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-    ''');
-
-    await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS medical_conditions (
-      id UUID PRIMARY KEY,
-      user_id UUID NOT NULL,
-      condition VARCHAR(100),
-      other_condition TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-    ''');
-
-    await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS workout_preferences (
-      id UUID PRIMARY KEY,
-      user_id UUID NOT NULL,
-      workout_type VARCHAR(100),
-      workout_frequency INTEGER,
-      workout_duration INTEGER,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-    ''');
-
-    await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS exercise_setup (
-      id UUID PRIMARY KEY,
-      user_id UUID NOT NULL,
-      workout_location VARCHAR(100),
-      fitness_level VARCHAR(50),
-      has_trainer BOOLEAN,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-    ''');
-
-    await _connection!.execute('''
-    CREATE TABLE IF NOT EXISTS equipment (
-      id UUID PRIMARY KEY,
-      exercise_id UUID NOT NULL,
-      equipment_name VARCHAR(100),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (exercise_id) REFERENCES exercise_setup(id) ON DELETE CASCADE
-    )
-    ''');
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        gender VARCHAR(20),
+        age INTEGER,
+        height DECIMAL,
+        weight DECIMAL,
+        activity_level VARCHAR(100),
+        bmi DECIMAL,
+        bmr DECIMAL,
+        tdee DECIMAL,
+        primary_goal VARCHAR(100),
+        weight_goal VARCHAR(50),
+        target_weight DECIMAL,
+        goal_timeline VARCHAR(50),
+        sleep_hours DECIMAL DEFAULT 7.0,
+        bedtime VARCHAR(10),
+        wakeup_time VARCHAR(10),
+        sleep_issues TEXT[],
+        dietary_preferences TEXT[],
+        water_intake DECIMAL DEFAULT 2.0,
+        medical_conditions TEXT[],
+        other_medical_condition TEXT,
+        preferred_workouts TEXT[],
+        workout_frequency INTEGER DEFAULT 3,
+        workout_duration INTEGER DEFAULT 30,
+        workout_location VARCHAR(100),
+        available_equipment TEXT[],
+        fitness_level VARCHAR(50) DEFAULT 'Beginner',
+        has_trainer BOOLEAN DEFAULT FALSE,
+        -- NEW PERIOD CYCLE FIELDS
+        has_periods BOOLEAN DEFAULT NULL,
+        last_period_date TIMESTAMP DEFAULT NULL,
+        cycle_length INTEGER DEFAULT NULL,
+        cycle_length_regular BOOLEAN DEFAULT NULL,
+        pregnancy_status VARCHAR(50) DEFAULT NULL,
+        period_tracking_preference VARCHAR(50) DEFAULT NULL,
+        -- END NEW FIELDS
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+      ''');
   }
 
   // Close database connection

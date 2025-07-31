@@ -1,19 +1,28 @@
 // lib/data/models/user_profile.dart
-import 'dart:convert';
+
 
 class UserProfile {
+  final String id;
   final String name;
   final String email;
-  final String? password; // Add password field (optional for security)
+  final String? password; 
   final String gender;
   final int age;
   final double height;
   final double weight;
   final String activityLevel;
+  
+  final bool? hasPeriods;
+  final String? lastPeriodDate;
+  final int? cycleLength;
+  final bool? cycleLengthRegular;
+  final String? pregnancyStatus;
+  final String? periodTrackingPreference;
+  
   final String primaryGoal;
   final String weightGoal;
   final double targetWeight;
-  final String? goalTimeline; // Add goalTimeline field
+  final String? goalTimeline; 
   final double sleepHours;
   final String bedtime;
   final String wakeupTime;
@@ -32,18 +41,27 @@ class UserProfile {
   final Map<String, dynamic> formData;
 
   UserProfile({
+    required this.id,
     required this.name,
     required this.email,
-    this.password, // Optional password field
+    this.password, 
     required this.gender,
     required this.age,
     required this.height,
     required this.weight,
     required this.activityLevel,
+    
+    this.hasPeriods,
+    this.lastPeriodDate,
+    this.cycleLength,
+    this.cycleLengthRegular,
+    this.pregnancyStatus,
+    this.periodTrackingPreference,
+    
     required this.primaryGoal,
     required this.weightGoal,
     this.targetWeight = 0.0,
-    this.goalTimeline, // Add goalTimeline parameter
+    this.goalTimeline, 
     required this.sleepHours,
     required this.bedtime,
     required this.wakeupTime,
@@ -72,18 +90,27 @@ class UserProfile {
     if (map.containsKey('tdee')) formDataMap['tdee'] = map['tdee'];
 
     return UserProfile(
+      id: map['id'] ?? '',
       name: map['name'] ?? '',
       email: map['email'] ?? '',
-      password: map['password'], // Add password field
+      password: map['password'],
       gender: map['gender'] ?? '',
       age: map['age'] ?? 0,
       height: map['height']?.toDouble() ?? 0.0,
       weight: map['weight']?.toDouble() ?? 0.0,
       activityLevel: map['activityLevel'] ?? '',
+      
+      hasPeriods: map['hasPeriods'],
+      lastPeriodDate: map['lastPeriodDate'],
+      cycleLength: map['cycleLength'],
+      cycleLengthRegular: map['cycleLengthRegular'],
+      pregnancyStatus: map['pregnancyStatus'],
+      periodTrackingPreference: map['periodTrackingPreference'],
+      
       primaryGoal: map['primaryGoal'] ?? '',
       weightGoal: map['weightGoal'] ?? '',
       targetWeight: map['targetWeight']?.toDouble() ?? 0.0,
-      goalTimeline: map['goalTimeline'], // Add goalTimeline field
+      goalTimeline: map['goalTimeline'],
       sleepHours: map['sleepHours']?.toDouble() ?? 7.0,
       bedtime: map['bedtime'] ?? '22:00',
       wakeupTime: map['wakeupTime'] ?? '06:00',
@@ -103,8 +130,55 @@ class UserProfile {
     );
   }
 
+  static UserProfile fromApiResponse(Map<String, dynamic> data) {
+    return UserProfile(
+      id: data['id']?.toString() ?? '',
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      password: data['password'],
+      gender: data['gender'] ?? '',
+      age: data['age'] ?? 0,
+      height: (data['height'] ?? 0.0).toDouble(),
+      weight: (data['weight'] ?? 0.0).toDouble(),
+      activityLevel: data['activityLevel'] ?? '',
+      
+      hasPeriods: data['hasPeriods'] ?? data['has_periods'],
+      lastPeriodDate: data['lastPeriodDate'] ?? data['last_period_date'],
+      cycleLength: data['cycleLength'] ?? data['cycle_length'],
+      cycleLengthRegular: data['cycleLengthRegular'] ?? data['cycle_length_regular'],
+      pregnancyStatus: data['pregnancyStatus'] ?? data['pregnancy_status'],
+      periodTrackingPreference: data['periodTrackingPreference'] ?? data['period_tracking_preference'],
+      
+      primaryGoal: data['primaryGoal'] ?? '',
+      weightGoal: data['weightGoal'] ?? '',
+      targetWeight: (data['targetWeight'] ?? 0.0).toDouble(),
+      goalTimeline: data['goalTimeline'],
+      sleepHours: (data['sleepHours'] ?? 7.0).toDouble(),
+      bedtime: data['bedtime'] ?? '22:00',
+      wakeupTime: data['wakeupTime'] ?? '06:00',
+      sleepIssues: List<String>.from(data['sleepIssues'] ?? []),
+      dietaryPreferences: List<String>.from(data['dietaryPreferences'] ?? []),
+      waterIntake: (data['waterIntake'] ?? 2.0).toDouble(),
+      medicalConditions: List<String>.from(data['medicalConditions'] ?? []),
+      otherMedicalCondition: data['otherMedicalCondition'] ?? '',
+      preferredWorkouts: List<String>.from(data['preferredWorkouts'] ?? []),
+      workoutFrequency: data['workoutFrequency'] ?? 3,
+      workoutDuration: data['workoutDuration'] ?? 30,
+      workoutLocation: data['workoutLocation'] ?? '',
+      availableEquipment: List<String>.from(data['availableEquipment'] ?? []),
+      fitnessLevel: data['fitnessLevel'] ?? 'Beginner',
+      hasTrainer: data['hasTrainer'] ?? false,
+      formData: {
+        'bmi': data['bmi'] ?? 0.0,
+        'bmr': data['bmr'] ?? 0.0,
+        'tdee': data['tdee'] ?? 0.0,
+      },
+    );
+  }
+
   Map<String, dynamic> toMap() {
     final Map<String, dynamic> map = {
+      'id': id,
       'name': name,
       'email': email,
       'password': password,
@@ -113,6 +187,14 @@ class UserProfile {
       'height': height,
       'weight': weight,
       'activityLevel': activityLevel,
+      
+      'hasPeriods': hasPeriods,
+      'lastPeriodDate': lastPeriodDate,
+      'cycleLength': cycleLength,
+      'cycleLengthRegular': cycleLengthRegular,
+      'pregnancyStatus': pregnancyStatus,
+      'periodTrackingPreference': periodTrackingPreference,
+      
       'primaryGoal': primaryGoal,
       'weightGoal': weightGoal,
       'targetWeight': targetWeight,
@@ -140,7 +222,6 @@ class UserProfile {
     return map;
   }
 
-  // Add method to convert to unified backend onboarding format
   Map<String, dynamic> toOnboardingFormat() {
     return {
       'basicInfo': {
@@ -156,6 +237,15 @@ class UserProfile {
         'bmr': formData['bmr'] ?? 0.0,
         'tdee': formData['tdee'] ?? 0.0,
       },
+      if (gender.toLowerCase() == 'female' && hasPeriods != null)
+        'periodCycle': {
+          'hasPeriods': hasPeriods,
+          'lastPeriodDate': lastPeriodDate,
+          'cycleLength': cycleLength,
+          'cycleLengthRegular': cycleLengthRegular,
+          'pregnancyStatus': pregnancyStatus,
+          'trackingPreference': periodTrackingPreference,
+        },
       'primaryGoal': primaryGoal,
       'weightGoal': {
         'weightGoal': weightGoal,
@@ -188,8 +278,8 @@ class UserProfile {
     };
   }
 
-  // Update copyWith to include new fields
   UserProfile copyWith({
+    String? id,
     String? name,
     String? email,
     String? password,
@@ -198,6 +288,14 @@ class UserProfile {
     double? height,
     double? weight,
     String? activityLevel,
+    
+    bool? hasPeriods,
+    String? lastPeriodDate,
+    int? cycleLength,
+    bool? cycleLengthRegular,
+    String? pregnancyStatus,
+    String? periodTrackingPreference,
+    
     String? primaryGoal,
     String? weightGoal,
     double? targetWeight,
@@ -220,6 +318,7 @@ class UserProfile {
     Map<String, dynamic>? formData,
   }) {
     return UserProfile(
+      id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
       password: password ?? this.password,
@@ -228,6 +327,14 @@ class UserProfile {
       height: height ?? this.height,
       weight: weight ?? this.weight,
       activityLevel: activityLevel ?? this.activityLevel,
+      
+      hasPeriods: hasPeriods ?? this.hasPeriods,
+      lastPeriodDate: lastPeriodDate ?? this.lastPeriodDate,
+      cycleLength: cycleLength ?? this.cycleLength,
+      cycleLengthRegular: cycleLengthRegular ?? this.cycleLengthRegular,
+      pregnancyStatus: pregnancyStatus ?? this.pregnancyStatus,
+      periodTrackingPreference: periodTrackingPreference ?? this.periodTrackingPreference,
+      
       primaryGoal: primaryGoal ?? this.primaryGoal,
       weightGoal: weightGoal ?? this.weightGoal,
       targetWeight: targetWeight ?? this.targetWeight,

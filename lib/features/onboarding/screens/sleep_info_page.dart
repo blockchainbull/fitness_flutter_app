@@ -16,9 +16,9 @@ class SleepInfoPage extends StatefulWidget {
 }
 
 class _SleepInfoPageState extends State<SleepInfoPage> {
-  double _sleepHours = 7.0;
-  TimeOfDay _bedtime = const TimeOfDay(hour: 22, minute: 0);
-  TimeOfDay _wakeupTime = const TimeOfDay(hour: 5, minute: 0);
+  double _sleepHours = 8.0;
+  TimeOfDay _bedtime = const TimeOfDay(hour: 22, minute: 0); 
+  TimeOfDay _wakeupTime = const TimeOfDay(hour: 6, minute: 0); 
   List<String> _sleepIssues = [];
 
   final List<String> _sleepIssueOptions = [
@@ -30,33 +30,16 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
     'Sleep apnea',
     'None',
   ];
-  
+
   @override
   void initState() {
     super.initState();
-    _sleepHours = widget.formData['sleepHours'] ?? 7.0;
     
-    // Initialize bedtime from data if available
-    if (widget.formData['bedtime'] != null && widget.formData['bedtime'].isNotEmpty) {
-      final timeParts = widget.formData['bedtime'].split(':');
-      if (timeParts.length == 2) {
-        _bedtime = TimeOfDay(
-          hour: int.parse(timeParts[0]), 
-          minute: int.parse(timeParts[1])
-        );
-      }
-    }
+    // Initialize sleep hours from data
+    _sleepHours = widget.formData['sleepHours']?.toDouble() ?? 8.0;
     
-    // Initialize wakeup time from data if available
-    if (widget.formData['wakeupTime'] != null && widget.formData['wakeupTime'].isNotEmpty) {
-      final timeParts = widget.formData['wakeupTime'].split(':');
-      if (timeParts.length == 2) {
-        _wakeupTime = TimeOfDay(
-          hour: int.parse(timeParts[0]), 
-          minute: int.parse(timeParts[1])
-        );
-      }
-    }
+    // FIXED: Safe time parsing with error handling
+    _initializeTimeData();
     
     // Initialize sleep issues
     if (widget.formData['sleepIssues'] != null) {
@@ -66,26 +49,95 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _saveInitialValues();
     });
+  }
 
+  // ADDED: Safe time initialization method
+  void _initializeTimeData() {
+    try {
+      // Initialize bedtime from data if available
+      if (widget.formData['bedtime'] != null && widget.formData['bedtime'].toString().isNotEmpty) {
+        final bedtimeStr = widget.formData['bedtime'].toString();
+        final parsedBedtime = _parseTimeString(bedtimeStr);
+        if (parsedBedtime != null) {
+          _bedtime = parsedBedtime;
+        }
+      }
+      
+      // Initialize wakeup time from data if available
+      if (widget.formData['wakeupTime'] != null && widget.formData['wakeupTime'].toString().isNotEmpty) {
+        final wakeupStr = widget.formData['wakeupTime'].toString();
+        final parsedWakeup = _parseTimeString(wakeupStr);
+        if (parsedWakeup != null) {
+          _wakeupTime = parsedWakeup;
+        }
+      }
+    } catch (e) {
+      print('Error initializing time data: $e');
+      // Use default values if parsing fails
+      _bedtime = const TimeOfDay(hour: 22, minute: 0);
+      _wakeupTime = const TimeOfDay(hour: 6, minute: 0);
+    }
+  }
+
+  // ADDED: Safe time string parsing method
+  TimeOfDay? _parseTimeString(String timeStr) {
+    try {
+      // Handle different time formats
+      if (timeStr.contains('AM') || timeStr.contains('PM')) {
+        // Parse 12-hour format (e.g., "10:00 PM")
+        final parts = timeStr.split(' ');
+        if (parts.length == 2) {
+          final timePart = parts[0];
+          final period = parts[1];
+          final timeParts = timePart.split(':');
+          
+          if (timeParts.length == 2) {
+            int hour = int.parse(timeParts[0]);
+            int minute = int.parse(timeParts[1]);
+            
+            // Convert to 24-hour format
+            if (period == 'PM' && hour != 12) {
+              hour += 12;
+            } else if (period == 'AM' && hour == 12) {
+              hour = 0;
+            }
+            
+            return TimeOfDay(hour: hour, minute: minute);
+          }
+        }
+      } else if (timeStr.contains(':')) {
+        // Parse 24-hour format (e.g., "22:00")
+        final parts = timeStr.split(':');
+        if (parts.length == 2) {
+          int hour = int.parse(parts[0]);
+          int minute = int.parse(parts[1]);
+          
+          if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+            return TimeOfDay(hour: hour, minute: minute);
+          }
+        }
+      }
+    } catch (e) {
+      print('Error parsing time string "$timeStr": $e');
+    }
+    
+    return null; // Return null if parsing fails
   }
   
   void _saveInitialValues() {
-    // Save default sleep hours if not set
+    // Save default values if not set
     if (widget.formData['sleepHours'] == null) {
       widget.onDataChanged('sleepHours', _sleepHours);
     }
     
-    // Save default bedtime if not set
-    if (widget.formData['bedtime'] == null || widget.formData['bedtime'].isEmpty) {
+    if (widget.formData['bedtime'] == null || widget.formData['bedtime'].toString().isEmpty) {
       widget.onDataChanged('bedtime', _formatTimeOfDay(_bedtime));
     }
     
-    // Save default wakeup time if not set
-    if (widget.formData['wakeupTime'] == null || widget.formData['wakeupTime'].isEmpty) {
+    if (widget.formData['wakeupTime'] == null || widget.formData['wakeupTime'].toString().isEmpty) {
       widget.onDataChanged('wakeupTime', _formatTimeOfDay(_wakeupTime));
     }
     
-    // Save default sleep issues if not set
     if (widget.formData['sleepIssues'] == null) {
       widget.onDataChanged('sleepIssues', _sleepIssues);
     }
@@ -106,7 +158,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
     return '$hourStr:$minuteStr $period';
   }
 
-    void _selectBedtime() async {
+  void _selectBedtime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _bedtime,
@@ -122,6 +174,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
         
         _wakeupTime = TimeOfDay(hour: adjustedHours, minute: adjustedMinutes);
       });
+      
       final bedtimeFormatted = _formatTimeOfDay(picked);
       final wakeupTimeFormatted = _formatTimeOfDay(_wakeupTime);
       
@@ -129,12 +182,12 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
       print('  Bedtime: $bedtimeFormatted');
       print('  Wake-up time: $wakeupTimeFormatted');
 
-      widget.onDataChanged('bedtime', _formatTimeOfDay(picked));
-      widget.onDataChanged('wakeupTime', _formatTimeOfDay(_wakeupTime));
+      widget.onDataChanged('bedtime', bedtimeFormatted);
+      widget.onDataChanged('wakeupTime', wakeupTimeFormatted);
     }
   }
 
-    void _selectWakeupTime() async {
+  void _selectWakeupTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _wakeupTime,
@@ -261,7 +314,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
                             const Icon(Icons.bedtime, color: Colors.blue),
                             const SizedBox(width: 8),
                             Text(
-                              _bedtime.format(context),
+                              _formatTimeOfDay(_bedtime),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -301,7 +354,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
                             const Icon(Icons.wb_sunny, color: Colors.orange),
                             const SizedBox(width: 8),
                             Text(
-                              _wakeupTime.format(context),
+                              _formatTimeOfDay(_wakeupTime),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -352,15 +405,22 @@ class _SleepInfoPageState extends State<SleepInfoPage> {
                 ),
                 onChanged: (bool? value) {
                   setState(() {
-                    if (value == true) {
-                      if (issue == 'None') {
-                        _sleepIssues = ['None'];
-                      } else {
-                        _sleepIssues.remove('None');
+                    if (issue == 'None') {
+                      // If "None" is selected, clear all other selections
+                      if (value == true) {
+                        _sleepIssues.clear();
                         _sleepIssues.add(issue);
+                      } else {
+                        _sleepIssues.remove(issue);
                       }
                     } else {
-                      _sleepIssues.remove(issue);
+                      // If any other issue is selected, remove "None" if it was selected
+                      if (value == true) {
+                        _sleepIssues.remove('None');
+                        _sleepIssues.add(issue);
+                      } else {
+                        _sleepIssues.remove(issue);
+                      }
                     }
                   });
                   widget.onDataChanged('sleepIssues', _sleepIssues);

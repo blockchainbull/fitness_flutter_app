@@ -8,7 +8,6 @@ import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
 import 'package:user_onboarding/data/services/database_service.dart';
 import 'package:user_onboarding/data/services/exercise_data_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 
 class DataManager {
@@ -57,13 +56,46 @@ class DataManager {
     try {
       _log('Starting to save user profile for ${userProfile.name}');
       
-      // Use the new onboarding completion format
-      return await completeOnboarding(userProfile.toOnboardingFormat());
+      // Save to backend/database first
+      final userId = await completeOnboarding(userProfile.toOnboardingFormat());
+      
+      if (userId != null) {
+        // ADD THIS: Also save to local storage for offline access
+        await _saveUserProfileLocally(userProfile.copyWith(id: userId));
+        _log('User profile saved both remotely and locally');
+      }
+      
+      return userId;
     } catch (e) {
       _log('Failed to save user profile: $e');
       rethrow;
     }
   }
+
+  Future<void> _saveUserProfileLocally(UserProfile userProfile) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Convert UserProfile to Map
+      final userProfileMap = userProfile.toMap();
+      
+      // Ensure the ID is included in the saved data
+      if (userProfile.id.isNotEmpty) {
+        userProfileMap['id'] = userProfile.id;
+        // Also save the user ID separately for easy access
+        await prefs.setString(userIdKey, userProfile.id);
+      }
+      
+      // Save the user profile as JSON
+      await prefs.setString(userProfileKey, jsonEncode(userProfileMap));
+      
+      _log('User profile saved to local storage');
+    } catch (e) {
+      _log('Failed to save user profile locally: $e');
+      // Don't rethrow here - local storage failure shouldn't break the main flow
+    }
+  }
+
 
   // Load user profile
   Future<UserProfile?> loadUserProfile() async {
@@ -95,6 +127,15 @@ class DataManager {
           
           if (userProfile != null) {
             _log('User profile loaded from remote source');
+
+             if (userProfile.id.isEmpty) {
+              userProfile = userProfile.copyWith(id: userId);
+              _log('Fixed missing ID in remote profile');
+            }
+          
+          // Save the corrected profile locally
+          await _saveUserProfileLocally(userProfile);
+
             return userProfile;
           }
         } catch (e) {
@@ -109,21 +150,28 @@ class DataManager {
       if (userProfileJson != null && userProfileJson.isNotEmpty) {
         try {
           // Load user profile from local storage
-          final userProfile = UserProfile.fromMap(jsonDecode(userProfileJson));
+          final userProfileData = jsonDecode(userProfileJson);
+
+          if (userId != null && userId.isNotEmpty) {
+            userProfileData['id'] = userId; // Add the user ID to the profile data
+          }
+
+          final userProfile = UserProfile.fromMap(userProfileData);
           _log('User profile loaded from local storage');
-          return userProfile;
-        } catch (e) {
-          _log('Failed to load user profile from local storage: $e');
-        }
+          _log('UserProfile ID: ${userProfile.id}');
+        return userProfile;
+      } catch (e) {
+        _log('Failed to load user profile from local storage: $e');
       }
-      
-      _log('No user profile found');
-      return null;
-    } catch (e) {
-      _log('Failed to load user profile: $e');
-      return null;
     }
+    
+    _log('No user profile found');
+    return null;
+  } catch (e) {
+    _log('Failed to load user profile: $e');
+    return null;
   }
+}
 
   Future<String?> completeOnboarding(Map<String, dynamic> onboardingData) async {
     try {

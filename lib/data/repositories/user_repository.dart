@@ -261,6 +261,7 @@ class UserRepository {
 
       // Create UserProfile object
       final userProfile = UserProfile(
+        id: userData['id'] as String,
         name: userData['name'] as String,
         email: userData['email'] as String,
         gender: userData['gender'] as String,
