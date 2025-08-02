@@ -1,8 +1,9 @@
+// lib/features/profile/screens/profile_page.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:user_onboarding/data/services/connectivity_service.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:user_onboarding/features/profile/screens/edit_profile_page.dart';
+import 'package:user_onboarding/features/profile/screens/settings_page.dart';
 import 'package:user_onboarding/features/profile/widgets/stat_card.dart';
 import 'package:user_onboarding/features/profile/widgets/goal_progress.dart';
 
@@ -19,732 +20,475 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final DataManager _dataManager = DataManager();
-  final ConnectivityService _connectivityService = ConnectivityService();
-  bool _isConnected = true;
-  bool _isSyncing = false;
+  late UserProfile currentProfile;
+  final DataManager _dataManager = DataManager(); // Use DataManager instead of ApiService
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _checkConnectivity();
-    _setupConnectivityListener();
+    currentProfile = widget.userProfile;
   }
 
-  void _checkConnectivity() async {
-    final isConnected = await _connectivityService.isConnected();
+  Future<void> _refreshProfile() async {
     setState(() {
-      _isConnected = isConnected;
-    });
-  }
-
-  void _setupConnectivityListener() {
-    _connectivityService.setupConnectivityListener((isConnected) {
-      setState(() {
-        _isConnected = isConnected;
-      });
-    });
-  }
-
-  Future<void> _synchronizeData() async {
-    if (!_isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No internet connection. Cannot synchronize data.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSyncing = true;
+      isLoading = true;
     });
 
     try {
-      await _dataManager.synchronizeData();
+      // Use DataManager to load profile instead of direct API call
+      final updatedProfile = await _dataManager.loadUserProfile();
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Data synchronized successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (updatedProfile != null) {
+        setState(() {
+          currentProfile = updatedProfile;
+        });
+        print('[ProfilePage] Profile refreshed successfully');
+      } else {
+        print('[ProfilePage] No updated profile found, keeping current');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to synchronize data: $e'),
-          backgroundColor: Colors.red,
+      print('[ProfilePage] Error refreshing profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _navigateToEditProfile() async {
+    try {
+      print('[ProfilePage] Navigating to edit profile');
+      
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EditProfilePage(userProfile: currentProfile),
         ),
       );
-    } finally {
-      setState(() {
-        _isSyncing = false;
-      });
+      
+      print('[ProfilePage] Returned from edit profile with result: $result');
+      
+      if (result != null && result is UserProfile) {
+        setState(() {
+          currentProfile = result;
+        });
+        print('[ProfilePage] Profile updated from edit page');
+        
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('[ProfilePage] Error navigating to edit profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open edit profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _navigateToSettings() async {
+    try {
+      print('[ProfilePage] Navigating to settings');
+      
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SettingsPage(userProfile: currentProfile),
+        ),
+      );
+      
+      if (result == true) {
+        await _refreshProfile();
+      }
+    } catch (e) {
+      print('[ProfilePage] Error navigating to settings: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open settings: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // App Bar with Profile Image
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            backgroundColor: Colors.indigo,
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                widget.userProfile.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.indigo, Colors.indigo.shade800],
-                  ),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 20),
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          widget.userProfile.name.substring(0, 1).toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 40,
-                            color: Colors.indigo.shade800,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              // Synchronize data button
-              if (!_isSyncing)
-                IconButton(
-                  icon: Icon(
-                    _isConnected ? Icons.sync : Icons.sync_disabled,
-                    color: Colors.white,
-                  ),
-                  tooltip: _isConnected ? 'Synchronize data' : 'Offline mode',
-                  onPressed: _isConnected ? _synchronizeData : null,
-                )
-              else
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                ),
-              // Platform indicator
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Icon(
-                  kIsWeb ? Icons.web : Icons.devices,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.settings,
-                  color: Colors.white),
-                onPressed: () {
-                  // TODO: Navigate to settings
-                },
-              ),
-            ],
-          ),
-          
-          // Offline mode banner
-          if (!_isConnected)
+      backgroundColor: Colors.grey[50],
+      body: RefreshIndicator(
+        onRefresh: _refreshProfile,
+        child: CustomScrollView(
+          slivers: [
+            _buildAppBar(),
             SliverToBoxAdapter(
-              child: Container(
-                width: double.infinity,
-                color: Colors.amber,
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                child: const Row(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
                   children: [
-                    Icon(Icons.wifi_off, color: Colors.black),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'You are currently offline. Changes will be synchronized when you reconnect.',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    _buildProfileHeader(),
+                    const SizedBox(height: 24),
+                    _buildQuickStats(),
+                    const SizedBox(height: 24),
+                    _buildGoalsSection(),
+                    const SizedBox(height: 24),
+                    _buildActionButtons(),
+                    const SizedBox(height: 24),
+                    _buildMenuItems(),
                   ],
                 ),
               ),
             ),
-          
-          // Profile Content
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Basic Information Card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Personal Information',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildInfoRow('Email', widget.userProfile.email, Icons.email),
-                        const Divider(),
-                        _buildInfoRow('Age', '${widget.userProfile.age} years', Icons.cake),
-                        const Divider(),
-                        _buildInfoRow(
-                          'Height', 
-                          '${widget.userProfile.height.toStringAsFixed(1)} cm', 
-                          Icons.height
-                        ),
-                        const Divider(),
-                        _buildInfoRow(
-                          'Weight', 
-                          '${widget.userProfile.weight.toStringAsFixed(1)} kg', 
-                          Icons.monitor_weight
-                        ),
-                        const Divider(),
-                        _buildInfoRow(
-                          'Activity Level', 
-                          widget.userProfile.activityLevel, 
-                          Icons.fitness_center
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Goals Section
-                  const Text(
-                    'My Goals',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Primary Goal Card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.indigo.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _getGoalIcon(widget.userProfile.primaryGoal),
-                                color: Colors.indigo,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Primary Goal',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    widget.userProfile.primaryGoal,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.monitor_weight,
-                                color: Colors.green,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Weight Goal',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${widget.userProfile.weightGoal} (${widget.userProfile.targetWeight.toStringAsFixed(1)} kg)',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        // Database synchronization status
-                        if (_isConnected)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.cloud_done,
-                                color: Colors.green,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Data synchronized with cloud',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Goal Progress
-                  const GoalProgress(
-                    goals: [
-                      {
-                        'name': 'Weekly Workouts',
-                        'current': 3,
-                        'target': 5,
-                        'unit': 'workouts',
-                      },
-                      {
-                        'name': 'Protein Intake',
-                        'current': 115,
-                        'target': 140,
-                        'unit': 'g per day',
-                      },
-                      {
-                        'name': 'Daily Steps',
-                        'current': 7500,
-                        'target': 10000,
-                        'unit': 'steps',
-                      },
-                      {
-                        'name': 'Sleep Duration',
-                        'current': 7,
-                        'target': 8,
-                        'unit': 'hours',
-                      },
-                      {
-                        'name': 'Water Intake',
-                        'current': 6,
-                        'target': 8,
-                        'unit': 'glasses',
-                      },
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Stats Section
-                  const Text(
-                    'Stats & Preferences',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Stats Cards Row 1
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StatCard(
-                          title: 'Sleep',
-                          value: '${widget.userProfile.sleepHours} hrs',
-                          icon: Icons.nightlight_round,
-                          color: Colors.indigo,
-                          subtitle: 'Average',
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: StatCard(
-                          title: 'Water',
-                          value: '${widget.userProfile.waterIntake.toStringAsFixed(1)} L',
-                          icon: Icons.water_drop,
-                          color: Colors.blue,
-                          subtitle: 'Target',
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Stats Cards Row 2
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StatCard(
-                          title: 'Workout',
-                          value: '${widget.userProfile.workoutDuration} min',
-                          icon: Icons.timer,
-                          color: Colors.orange,
-                          subtitle: 'Duration',
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: StatCard(
-                          title: 'Frequency',
-                          value: '${widget.userProfile.workoutFrequency}/week',
-                          icon: Icons.calendar_today,
-                          color: Colors.green,
-                          subtitle: 'Target',
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Preferences Section
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'My Preferences',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildPreferenceItem(
-                          'Workout Location',
-                          widget.userProfile.workoutLocation,
-                          Icons.location_on,
-                        ),
-                        const Divider(),
-                        _buildPreferenceItem(
-                          'Fitness Level',
-                          widget.userProfile.fitnessLevel,
-                          Icons.fitness_center,
-                        ),
-                        const Divider(),
-                        _buildPreferencesList(
-                          'Dietary Preferences',
-                          widget.userProfile.dietaryPreferences,
-                          Icons.restaurant,
-                        ),
-                        if (widget.userProfile.dietaryPreferences.isNotEmpty) const Divider(),
-                        _buildPreferencesList(
-                          'Preferred Workouts',
-                          widget.userProfile.preferredWorkouts,
-                          Icons.directions_run,
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 30),
-                  
-                  // Account Actions
-                  Center(
-                    child: Column(
-                      children: [
-                        OutlinedButton(
-                          onPressed: () {
-                            // TODO: Navigate to edit profile
-                          },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text('Edit Profile'),
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () async {
-                            // Show confirmation dialog
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Log Out'),
-                                content: const Text(
-                                  'Are you sure you want to log out? Your data will remain synchronized with the database.',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                    ),
-                                    child: const Text('Log Out'),
-                                  ),
-                                ],
-                              ),
-                            );
+          ],
+        ),
+      ),
+    );
+  }
 
-                            if (confirm == true) {
-                              // Clear local data and navigate to login screen
-                              await _dataManager.clearData();
-                              
-                              // Navigate to onboarding screen
-                              Navigator.pushNamedAndRemoveUntil(
-                                context, 
-                                '/', 
-                                (route) => false
-                              );
-                            }
-                          },
-                          child: const Text('Log Out'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 40),
-                ],
-              ),
+  Widget _buildAppBar() {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: false,
+      pinned: true,
+      backgroundColor: Colors.blue,
+      flexibleSpace: FlexibleSpaceBar(
+        title: Text(
+          currentProfile.name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.blue, Colors.blue.shade700],
             ),
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.settings, color: Colors.white),
+          onPressed: _navigateToSettings,
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit, color: Colors.white),
+          onPressed: _navigateToEditProfile, // FIXED: Use the new method
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-    );
-  }
-  
-  Widget _buildInfoRow(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: Colors.indigo,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildPreferenceItem(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: Colors.indigo,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildPreferencesList(String label, List<String> items, IconData icon) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                color: Colors.indigo,
-                size: 20,
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: Colors.blue.shade100,
+            child: Text(
+              currentProfile.name.substring(0, 1).toUpperCase(),
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue.shade700,
               ),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: items.map((item) {
-              return Chip(
-                label: Text(
-                  item,
-                  style: const TextStyle(
-                    fontSize: 12,
-                  ),
-                ),
-                backgroundColor: Colors.indigo.withOpacity(0.1),
-                padding: const EdgeInsets.all(4),
-              );
-            }).toList(),
+          const SizedBox(height: 16),
+          Text(
+            currentProfile.name,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            currentProfile.email,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildProfileStat('Age', '${currentProfile.age ?? 0}'),
+              _buildProfileStat('Height', '${currentProfile.height.toInt()} cm'),
+              _buildProfileStat('Weight', '${currentProfile.weight.toInt()} kg'),
+            ],
           ),
         ],
       ),
     );
   }
-  
-  IconData _getGoalIcon(String goal) {
-    final lowerGoal = goal.toLowerCase();
-    
-    if (lowerGoal.contains('weight') && lowerGoal.contains('lose')) {
-      return Icons.trending_down;
-    } else if (lowerGoal.contains('muscle') || lowerGoal.contains('strength')) {
-      return Icons.fitness_center;
-    } else if (lowerGoal.contains('fitness') || lowerGoal.contains('endurance')) {
-      return Icons.directions_run;
-    } else if (lowerGoal.contains('health') || lowerGoal.contains('maintain')) {
-      return Icons.favorite;
-    } else if (lowerGoal.contains('stress') || lowerGoal.contains('mental')) {
-      return Icons.self_improvement;
-    } else {
-      return Icons.flag;
-    }
+
+  Widget _buildProfileStat(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickStats() {
+    // Safe null handling for formData
+    final Map<String, dynamic> formData = currentProfile.formData ?? {};
+    final double bmi = (formData['bmi'] as num?)?.toDouble() ?? 0.0;
+    final double bmr = (formData['bmr'] as num?)?.toDouble() ?? 0.0;
+    final double tdee = (formData['tdee'] as num?)?.toDouble() ?? 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Health Metrics',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: StatCard(
+                title: 'BMI',
+                value: bmi > 0 ? bmi.toStringAsFixed(1) : '--',
+                subtitle: bmi > 0 ? _getBMICategory(bmi) : 'Not calculated',
+                icon: Icons.accessibility,
+                color: bmi > 0 ? _getBMIColor(bmi) : Colors.grey,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: StatCard(
+                title: 'BMR',
+                value: bmr > 0 ? bmr.toInt().toString() : '--',
+                subtitle: 'cal/day',
+                icon: Icons.local_fire_department,
+                color: Colors.orange,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        StatCard(
+          title: 'Total Daily Energy',
+          value: tdee > 0 ? tdee.toInt().toString() : '--',
+          subtitle: 'calories needed per day',
+          icon: Icons.energy_savings_leaf,
+          color: Colors.green,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGoalsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Goals & Progress',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        GoalProgress(
+          title: currentProfile.primaryGoal ?? 'General Fitness',
+          subtitle: currentProfile.weightGoal ?? 'Maintain current weight',
+          progress: 0.65, // Mock progress
+          color: Colors.blue,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _navigateToEditProfile, // FIXED: Use the new method
+            icon: const Icon(Icons.edit),
+            label: const Text('Edit Profile'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _refreshProfile,
+            icon: isLoading 
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            label: const Text('Refresh'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuItems() {
+    return Column(
+      children: [
+        _buildMenuItem(
+          'Account Settings',
+          'Manage your account preferences',
+          Icons.settings,
+          _navigateToSettings,
+        ),
+        _buildMenuItem(
+          'Health Data',
+          'View your health metrics and history',
+          Icons.health_and_safety,
+          () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Health data page coming soon!')),
+            );
+          },
+        ),
+        _buildMenuItem(
+          'Privacy & Security',
+          'Manage your privacy settings',
+          Icons.security,
+          () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Privacy settings coming soon!')),
+            );
+          },
+        ),
+        _buildMenuItem(
+          'Help & Support',
+          'Get help and contact support',
+          Icons.help,
+          () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Help page coming soon!')),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuItem(String title, String subtitle, IconData icon, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.blue,
+          ),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: onTap,
+        tileColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  String _getBMICategory(double bmi) {
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25) return 'Normal';
+    if (bmi < 30) return 'Overweight';
+    return 'Obese';
+  }
+
+  Color _getBMIColor(double bmi) {
+    if (bmi < 18.5) return Colors.blue;
+    if (bmi < 25) return Colors.green;
+    if (bmi < 30) return Colors.orange;
+    return Colors.red;
   }
 }

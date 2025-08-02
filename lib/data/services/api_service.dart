@@ -39,14 +39,62 @@ class ApiService {
     }
   }
 
+  // FIXED: Update user profile using the correct backend endpoint
+  Future<void> updateUserProfile(UserProfile userProfile) async {
+    try {
+      print('[ApiService] Updating profile for user: ${userProfile.id}');
+      
+      // Use the correct backend endpoint that exists
+      final response = await http.put(
+        Uri.parse('http://localhost:8000/update-user/${userProfile.id}'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          // Only send the fields that can be updated
+          'height': userProfile.height,
+          'weight': userProfile.weight,
+          'activityLevel': userProfile.activityLevel,
+          'primaryGoal': userProfile.primaryGoal,
+          'weightGoal': userProfile.weightGoal,
+          'targetWeight': userProfile.targetWeight,
+          'goalTimeline': userProfile.goalTimeline,
+          'sleepHours': userProfile.sleepHours,
+          'bedtime': userProfile.bedtime,
+          'wakeupTime': userProfile.wakeupTime,
+          'sleepIssues': userProfile.sleepIssues,
+          'dietaryPreferences': userProfile.dietaryPreferences,
+          'waterIntake': userProfile.waterIntake,
+          'medicalConditions': userProfile.medicalConditions,
+          'otherMedicalCondition': userProfile.otherMedicalCondition,
+          'preferredWorkouts': userProfile.preferredWorkouts,
+          'workoutFrequency': userProfile.workoutFrequency,
+          'workoutDuration': userProfile.workoutDuration,
+          'workoutLocation': userProfile.workoutLocation,
+          'availableEquipment': userProfile.availableEquipment,
+          'fitnessLevel': userProfile.fitnessLevel,
+          'hasTrainer': userProfile.hasTrainer,
+        }),
+      );
+
+      print('[ApiService] Update response status: ${response.statusCode}');
+      print('[ApiService] Update response body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to update profile');
+      }
+    } catch (e) {
+      debugPrint('API error updating profile: $e');
+      rethrow;
+    }
+  }
+
   // Login user
   Future<Map<String, dynamic>> loginUser(String email, String password) async {
     try {
       print('[ApiService] Attempting login for: $email');
       
-      // Use the SAME endpoint as web - this is key!
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/auth/login'), // Changed from /api/health/login
+        Uri.parse('http://localhost:8000/api/auth/login'), 
         headers: {
           'Content-Type': 'application/json',
         },
@@ -63,7 +111,7 @@ class ApiService {
         final data = jsonDecode(response.body);
         return {
           'success': data['success'] ?? true,
-          'userId': data['user']?['id'] ?? data['userId'], // Handle both response formats
+          'userId': data['user']?['id'] ?? data['userId'], 
           'user': data['user'],
         };
       } else {
@@ -79,15 +127,17 @@ class ApiService {
   Future<Map<String, dynamic>> sendChatMessage(String userId, String message) async {
     try {
       print('[ApiService] Sending chat message for user: $userId');
+      print('[ApiService] Message: $message');
       
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/chat/message'), // Note: different endpoint
+        Uri.parse('http://localhost:8000/submit-prompt'), 
         headers: {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
           'user_id': userId,
-          'message': message,
+          'user_prompt': message,
+          'agent_name': 'health_coach',
         }),
       );
 
@@ -95,7 +145,11 @@ class ApiService {
       print('[ApiService] Chat response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'response': data['response'] ?? 'Sorry, I couldn\'t process your message.',
+        };
       } else {
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['detail'] ?? 'Chat message failed');
@@ -111,7 +165,7 @@ class ApiService {
       print('[ApiService] Getting chat history for user: $userId');
       
       final response = await http.get(
-        Uri.parse('http://localhost:8000/api/chat/history/$userId'), // Note: different endpoint
+        Uri.parse('http://localhost:8000/get-conversation/$userId'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -121,8 +175,21 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data is List) {
-          return List<Map<String, dynamic>>.from(data);
+        
+        if (data['conversation'] != null && data['conversation'] is List) {
+          List<Map<String, dynamic>> formattedHistory = [];
+          
+          for (var message in data['conversation']) {
+            if (message is Map<String, dynamic>) {
+              formattedHistory.add({
+                'content': message['content'] ?? '',
+                'role': message['role'] ?? 'assistant',
+                'timestamp': message['timestamp'] ?? DateTime.now().toIso8601String(),
+              });
+            }
+          }
+          
+          return formattedHistory;
         }
         return [];
       } else {
@@ -247,23 +314,5 @@ class ApiService {
         'hasTrainer': userProfile.hasTrainer,
       },
     };
-  }
-
-  // Legacy methods for backward compatibility (these will just call the new methods)
-  Future<UserProfile?> getUserProfileByEmail(String email) async {
-    // This would require a backend endpoint that doesn't exist yet
-    // For now, return null
-    return null;
-  }
-
-  Future<void> updateUserProfile(String userId, UserProfile userProfile) async {
-    // For now, this would be the same as creating a new profile
-    // You might want to add an update endpoint to your backend
-    throw UnimplementedError('Update profile not implemented yet');
-  }
-
-  Future<void> deleteUserProfile(String userId) async {
-    // You might want to add a delete endpoint to your backend
-    throw UnimplementedError('Delete profile not implemented yet');
   }
 }

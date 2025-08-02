@@ -1,6 +1,7 @@
 // lib/features/home/screens/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/features/home/screens/dashboard_home.dart';
 import 'package:user_onboarding/features/home/screens/weight_loss_home.dart';
 import 'package:user_onboarding/features/home/screens/weight_gain_home.dart';
 import 'package:user_onboarding/features/home/screens/muscle_gain_home.dart';
@@ -40,69 +41,105 @@ class _HomePageState extends State<HomePage> {
 
   // Build developer controls for testing different home screens
   Widget _buildDeveloperControls() {
-    return Padding(
+    if (!kDebugMode) return const SizedBox.shrink();
+    
+    return Container(
       padding: const EdgeInsets.all(8.0),
+      color: Colors.yellow[100],
       child: Column(
         children: [
-          const Text('Developer Controls', style: TextStyle(fontWeight: FontWeight.bold)),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          const Text(
+            'Developer Controls', 
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
             children: [
-              ElevatedButton(
-                onPressed: () => setState(() => _overrideHomeType = 'weight_loss'),
-                child: const Text('Weight Loss'),
-              ),
-              ElevatedButton(
-                onPressed: () => setState(() => _overrideHomeType = 'weight_gain'),
-                child: const Text('Weight Gain'),
-              ),
-              ElevatedButton(
-                onPressed: () => setState(() => _overrideHomeType = 'muscle_gain'),
-                child: const Text('Muscle Gain'),
-              ),
-              ElevatedButton(
-                onPressed: () => setState(() => _overrideHomeType = 'custom'),
-                child: const Text('Custom'),
-              ),
+              _buildDevButton('Dashboard', 'dashboard'),
+              _buildDevButton('Weight Loss', 'weight_loss'),
+              _buildDevButton('Weight Gain', 'weight_gain'),
+              _buildDevButton('Muscle Gain', 'muscle_gain'),
+              _buildDevButton('Custom', 'custom'),
+              _buildDevButton('Reset', null),
             ],
           ),
+          if (_overrideHomeType != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Currently showing: ${_overrideHomeType?.replaceAll('_', ' ').toUpperCase()}',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  // Build the home page based on user's primary health goal
-  Widget _buildHomeByGoal() {
+  Widget _buildDevButton(String label, String? type) {
+    return ElevatedButton(
+      onPressed: () => setState(() => _overrideHomeType = type),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        minimumSize: const Size(0, 32),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 10)),
+    );
+  }
+
+  // Determine which home screen to show based on user goal or override
+  String _getHomeType() {
+    // If developer override is active, use that
     if (_overrideHomeType != null) {
-      // Developer override is active
-      switch (_overrideHomeType) {
-        case 'weight_loss':
-          return WeightLossHome(userProfile: widget.userProfile);
-        case 'weight_gain':
-          return WeightGainHome(userProfile: widget.userProfile);
-        case 'muscle_gain':
-          return MuscleGainHome(userProfile: widget.userProfile);
-        case 'custom':
-          return CustomHome(userProfile: widget.userProfile);
-        default:
-          break;
-      }
+      return _overrideHomeType!;
     }
+
+    // Otherwise, use the new dashboard as default
+    return 'dashboard';
     
-    // Normal logic based on user profile
-    final primaryGoal = widget.userProfile.primaryGoal.toLowerCase();
-    final weightGoal = widget.userProfile.weightGoal.toLowerCase();
+    // Previous logic for goal-based homes (commented out for now):
+    // final goal = widget.userProfile.primaryGoal?.toLowerCase() ?? '';
+    // if (goal.contains('weight') && goal.contains('loss')) {
+    //   return 'weight_loss';
+    // } else if (goal.contains('weight') && goal.contains('gain')) {
+    //   return 'weight_gain';
+    // } else if (goal.contains('muscle')) {
+    //   return 'muscle_gain';
+    // } else {
+    //   return 'dashboard'; // Default to new dashboard
+    // }
+  }
+
+  // Build the appropriate home screen based on determined type
+  Widget _buildHomeByGoal() {
+    final homeType = _getHomeType();
     
-    if (primaryGoal.contains('lose weight') || weightGoal.contains('lose weight')) {
-      return WeightLossHome(userProfile: widget.userProfile);
-    } else if (primaryGoal.contains('build muscle') || weightGoal.contains('gain weight')) {
-      return WeightGainHome(userProfile: widget.userProfile);
-    } else if (primaryGoal.contains('maintain health') || weightGoal.contains('maintain weight')) {
-      return MuscleGainHome(userProfile: widget.userProfile);
-    } else {
-      // Default to custom home for other goals or if no matching goal found
-      return CustomHome(userProfile: widget.userProfile);
+    switch (homeType) {
+      case 'dashboard':
+        return DashboardHome(userProfile: widget.userProfile);
+      case 'weight_loss':
+        return WeightLossHome(userProfile: widget.userProfile);
+      case 'weight_gain':
+        return WeightGainHome(userProfile: widget.userProfile);
+      case 'muscle_gain':
+        return MuscleGainHome(userProfile: widget.userProfile);
+      case 'custom':
+        return CustomHome(userProfile: widget.userProfile);
+      default:
+        return DashboardHome(userProfile: widget.userProfile);
     }
+  }
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   @override
@@ -110,15 +147,19 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: Column(
         children: [
-          // Add the developer controls in debug mode
-          if (kDebugMode)
-            _buildDeveloperControls(),
+          // Developer controls (only visible in debug mode)
+          _buildDeveloperControls(),
           
           // Main content with page view
           Expanded(
             child: PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
               children: [
                 _buildHomeByGoal(),
                 ChatPage(userProfile: widget.userProfile),
@@ -130,23 +171,17 @@ class _HomePageState extends State<HomePage> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-            _pageController.animateToPage(
-              index,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          });
-        },
+        onTap: _onTabTapped,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
+            icon: Icon(Icons.psychology),
             label: 'AI Coach',
           ),
           BottomNavigationBarItem(

@@ -239,7 +239,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         'basicInfo': {
           'name': _formData['name'],
           'email': _formData['email'],
-          'password': 'defaultpassword123',
+          'password': _formData['password'] ?? 'defaultpassword123',
           'gender': _formData['gender'],
           'age': _formData['age'],
           'height': _formData['height'],
