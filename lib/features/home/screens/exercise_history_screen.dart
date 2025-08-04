@@ -1,5 +1,4 @@
 // lib/features/home/screens/exercise_history_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:intl/intl.dart';

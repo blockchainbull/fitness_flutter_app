@@ -7,7 +7,7 @@ import 'package:user_onboarding/features/home/widgets/activity_ring.dart';
 import 'package:user_onboarding/features/home/widgets/progress_card.dart';
 import 'package:user_onboarding/features/home/widgets/workout_item.dart';
 import 'package:user_onboarding/features/home/widgets/daily_calendar.dart';
-import 'package:user_onboarding/features/chat/screens/chat_page.dart';
+import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
 
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -22,6 +22,7 @@ class DashboardHome extends StatefulWidget {
 }
 
 class _DashboardHomeState extends State<DashboardHome> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DateTime selectedDate = DateTime.now();
   late DailyMetrics todayMetrics;
   List<WorkoutSession> recentWorkouts = [];
@@ -78,22 +79,46 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   String _getGreeting() {
-    final hour = DateTime.now().hour;
-    final name = widget.userProfile.name.split(' ').first;
-    
-    if (hour < 12) {
-      return 'Good morning, $name';
-    } else if (hour < 17) {
-      return 'Good afternoon, $name';
+  final hour = DateTime.now().hour;
+  final name = widget.userProfile.name.split(' ').first;
+  
+  String greeting;
+  
+  if (hour >= 7 && hour < 12) {
+    // 7AM to 12PM
+    greeting = 'Good morning';
+  } else if (hour >= 12 && hour < 15) {
+    // 12PM to 3PM
+    greeting = 'Good afternoon';
+  } else if (hour >= 18 && hour < 20) {
+    // 6PM to 8PM
+    greeting = 'Good evening';
+  } else if (hour >= 23 || hour < 5) {
+    // 11PM to 5AM
+    greeting = 'Good night';
+  } else {
+    // Handle the gaps: 3PM-6PM (15-17), 8PM-11PM (20-22), 5AM-7AM (5-6)
+    if (hour >= 15 && hour < 18) {
+      // 3PM to 6PM - Late afternoon
+      greeting = 'Good afternoon';
+    } else if (hour >= 20 && hour < 23) {
+      // 8PM to 11PM - Late evening
+      greeting = 'Good evening';
     } else {
-      return 'Good evening, $name';
+      // 5AM to 7AM - Early morning
+      greeting = 'Good morning';
     }
   }
+  
+  return '$greeting, $name';
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.grey[50],
+      drawer: ActivityDrawer(userProfile: widget.userProfile), // Keep the standard drawer
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -107,8 +132,6 @@ class _DashboardHomeState extends State<DashboardHome> {
                 const SizedBox(height: 24),
                 _buildTodayActivity(),
                 const SizedBox(height: 24),
-                _buildActionButtons(),
-                const SizedBox(height: 24),
                 _buildGoals(),
                 const SizedBox(height: 24),
                 _buildRecentWorkouts(),
@@ -116,6 +139,7 @@ class _DashboardHomeState extends State<DashboardHome> {
                 _buildMotivationCard(),
                 const SizedBox(height: 24),
                 _buildComingUp(),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -126,33 +150,59 @@ class _DashboardHomeState extends State<DashboardHome> {
 
   Widget _buildHeader() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _getGreeting(),
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const Text(
-              "Let's crush your goals today!",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-          ],
+        // MOVED: Menu button to the left
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.menu, size: 28, color: Colors.blue),
+            onPressed: () {
+              print('Menu button pressed');
+              _scaffoldKey.currentState?.openDrawer();
+            },
+            tooltip: 'Open activity menu',
+          ),
         ),
+        
+        const SizedBox(width: 16),
+        
+        // Greeting text in the middle
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _getGreeting(),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const Text(
+                "Let's crush your goals today!",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Notifications on the right
         Stack(
           children: [
             IconButton(
               icon: const Icon(Icons.notifications_outlined, size: 28),
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Notifications coming soon!')),
+                );
+              },
             ),
             Positioned(
               right: 8,
@@ -172,6 +222,7 @@ class _DashboardHomeState extends State<DashboardHome> {
     );
   }
 
+  // ... rest of your methods stay exactly the same
   Widget _buildCalendar() {
     return Card(
       child: Padding(
@@ -255,50 +306,6 @@ class _DashboardHomeState extends State<DashboardHome> {
     );
   }
 
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: _ActionButton(
-            title: 'Track Workout',
-            icon: Icons.fitness_center,
-            color: Colors.blue,
-            onTap: () {
-              // Navigate to workout tracking
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _ActionButton(
-            title: 'Chat with AI',
-            icon: Icons.psychology,
-            color: Colors.purple,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatPage(userProfile: widget.userProfile),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _ActionButton(
-            title: 'Log Nutrition',
-            icon: Icons.restaurant,
-            color: Colors.green,
-            onTap: () {
-              // Navigate to nutrition logging
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildGoals() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,7 +321,11 @@ class _DashboardHomeState extends State<DashboardHome> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Goals page coming soon!')),
+                );
+              },
               child: const Text('See All'),
             ),
           ],
@@ -352,7 +363,11 @@ class _DashboardHomeState extends State<DashboardHome> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Workout history coming soon!')),
+                );
+              },
               child: const Text('History'),
             ),
           ],
@@ -471,88 +486,36 @@ class _DashboardHomeState extends State<DashboardHome> {
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    TextButton(
-                      onPressed: () {},
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 0),
-                      ),
-                      child: const Text(
-                        'Reschedule',
-                        style: TextStyle(fontSize: 12),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Scheduled for tomorrow',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
                       ),
                     ),
                   ],
                 ),
               ),
-              Column(
-                children: [
-                  const Text(
-                    'Tomorrow',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.w600,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Tomorrow',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    child: const Text('Join Early', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.white, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
