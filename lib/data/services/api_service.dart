@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/data/models/weight_entry.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -39,7 +40,7 @@ class ApiService {
     }
   }
 
-  // FIXED: Update user profile using the correct backend endpoint
+  // Update user profile
   Future<void> updateUserProfile(UserProfile userProfile) async {
     try {
       print('[ApiService] Updating profile for user: ${userProfile.id}');
@@ -160,6 +161,126 @@ class ApiService {
     }
   }
 
+  // Save weight entry
+  Future<String> saveWeightEntry(WeightEntry weightEntry) async {
+    try {
+      print('[ApiService] Saving weight entry: ${weightEntry.weight} kg');
+      
+      final response = await http.post(
+        Uri.parse('http://localhost:8000/api/health/weight'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': weightEntry.userId,
+          'date': weightEntry.date.toIso8601String(),
+          'weight': weightEntry.weight,
+          'notes': weightEntry.notes,
+        }),
+      );
+
+      print('[ApiService] Weight entry response status: ${response.statusCode}');
+      print('[ApiService] Weight entry response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        return data['id'] ?? weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to save weight entry');
+      }
+    } catch (e) {
+      print('[ApiService] Weight entry error: $e');
+      rethrow;
+    }
+  }
+
+  // Get weight history
+  Future<List<WeightEntry>> getWeightHistory(String userId, {int limit = 50}) async {
+    try {
+      print('[ApiService] Getting weight history for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('http://localhost:8000/api/health/weight/$userId?limit=$limit'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Weight history response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['weights'] != null && data['weights'] is List) {
+          return (data['weights'] as List)
+              .map((item) => WeightEntry.fromMap(item))
+              .toList();
+        }
+        return [];
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get weight history');
+      }
+    } catch (e) {
+      print('[ApiService] Weight history error: $e');
+      return []; // Return empty list on error
+    }
+  }
+
+  // Get latest weight entry
+  Future<WeightEntry?> getLatestWeight(String userId) async {
+    try {
+      print('[ApiService] Getting latest weight for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('http://localhost:8000/api/health/weight/$userId/latest'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Latest weight response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['weight'] != null) {
+          return WeightEntry.fromMap(data['weight']);
+        }
+        return null;
+      } else if (response.statusCode == 404) {
+        // No weight entries found
+        return null;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get latest weight');
+      }
+    } catch (e) {
+      print('[ApiService] Latest weight error: $e');
+      return null;
+    }
+  }
+
+  // Update user's current weight in profile
+  Future<void> updateUserWeight(String userId, double newWeight) async {
+    try {
+      print('[ApiService] Updating user weight to $newWeight kg');
+      
+      final response = await http.patch(
+        Uri.parse('http://localhost:8000/api/health/user/$userId/weight'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'weight': newWeight,
+        }),
+      );
+
+      print('[ApiService] Update weight response status: ${response.statusCode}');
+
+      if (response.statusCode != 200) {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to update user weight');
+      }
+    } catch (e) {
+      print('[ApiService] Update weight error: $e');
+      rethrow;
+    }
+  }
+  
   Future<List<Map<String, dynamic>>> getChatHistory(String userId) async {
     try {
       print('[ApiService] Getting chat history for user: $userId');

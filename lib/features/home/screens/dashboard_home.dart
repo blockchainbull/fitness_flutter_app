@@ -8,6 +8,8 @@ import 'package:user_onboarding/features/home/widgets/progress_card.dart';
 import 'package:user_onboarding/features/home/widgets/workout_item.dart';
 import 'package:user_onboarding/features/home/widgets/daily_calendar.dart';
 import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
+import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
+
 
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -118,7 +120,7 @@ class _DashboardHomeState extends State<DashboardHome> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.grey[50],
-      drawer: ActivityDrawer(userProfile: widget.userProfile), // Keep the standard drawer
+      drawer: ActivityDrawer(userProfile: widget.userProfile),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -129,6 +131,8 @@ class _DashboardHomeState extends State<DashboardHome> {
                 _buildHeader(),
                 const SizedBox(height: 24),
                 _buildCalendar(),
+                const SizedBox(height: 24),
+                _buildQuickActions(),
                 const SizedBox(height: 24),
                 _buildTodayActivity(),
                 const SizedBox(height: 24),
@@ -238,6 +242,73 @@ class _DashboardHomeState extends State<DashboardHome> {
           userProfile: widget.userProfile,
         ),
       ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Quick Actions',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ActivityLoggingMenu(userProfile: widget.userProfile),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Log Activity'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Analytics coming soon!')),
+                  );
+                },
+                icon: const Icon(Icons.analytics),
+                label: const Text('View Reports'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:user_onboarding/features/profile/screens/edit_profile_page.dart'
 import 'package:user_onboarding/features/profile/screens/settings_page.dart';
 import 'package:user_onboarding/features/profile/widgets/stat_card.dart';
 import 'package:user_onboarding/features/profile/widgets/goal_progress.dart';
+import 'package:user_onboarding/features/auth/screens/login_screens.dart';
 
 class ProfilePage extends StatefulWidget {
   final UserProfile userProfile;
@@ -135,6 +136,57 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    // Show confirmation dialog
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout == true) {
+      try {
+        // Clear user data
+        await _dataManager.clearData();
+        
+        // Navigate to login page and clear the navigation stack
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (Route<dynamic> route) => false,
+          );
+        }
+      } catch (e) {
+        print('[ProfilePage] Error during logout: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Logout failed: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,6 +210,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildActionButtons(),
                     const SizedBox(height: 24),
                     _buildMenuItems(),
+                    const SizedBox(height: 24),
+                    _buildLogoutSection(),
                   ],
                 ),
               ),
@@ -366,7 +420,7 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: _navigateToEditProfile, // FIXED: Use the new method
+            onPressed: _navigateToEditProfile,
             icon: const Icon(Icons.edit),
             label: const Text('Edit Profile'),
             style: ElevatedButton.styleFrom(
@@ -477,6 +531,49 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
+  Widget _buildLogoutSection() {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Account',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _handleLogout,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Logout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Sign out of your account and return to the login screen.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
   String _getBMICategory(double bmi) {
     if (bmi < 18.5) return 'Underweight';

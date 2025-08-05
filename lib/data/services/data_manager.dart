@@ -8,6 +8,8 @@ import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
 import 'package:user_onboarding/data/services/database_service.dart';
 import 'package:user_onboarding/data/services/exercise_data_service.dart';
+import 'package:user_onboarding/data/models/weight_entry.dart';
+import 'package:user_onboarding/data/repositories/weight_repository.dart';
 
 class DataManager {
   static final DataManager _instance = DataManager._internal();
@@ -91,7 +93,6 @@ class DataManager {
       _log('User profile saved to local storage');
     } catch (e) {
       _log('Failed to save user profile locally: $e');
-      // Don't rethrow here - local storage failure shouldn't break the main flow
     }
   }
 
@@ -277,7 +278,234 @@ class DataManager {
     }
   }
 
-  // FIXED: Update user profile method
+  Future<String> saveWeightEntry(WeightEntry weightEntry) async {
+    try {
+      _log('Saving weight entry: ${weightEntry.weight} kg for ${weightEntry.date}');
+      
+      final isConnected = await _connectivityService.isConnected();
+      
+      if (isConnected) {
+        if (kIsWeb) {
+          // For web, use API service
+          try {
+            final result = await _apiService.saveWeightEntry(weightEntry);
+            _log('Weight entry saved via API');
+            return result;
+          } catch (e) {
+            _log('API save failed, falling back to local storage: $e');
+            await _saveWeightEntryLocally(weightEntry);
+            return weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+          }
+        } else {
+          // For native, try database first, fallback to local
+          try {
+            final result = await WeightRepository.saveWeightEntry(weightEntry);
+            _log('Weight entry saved to database');
+            return result;
+          } catch (e) {
+            _log('Database save failed, falling back to local storage: $e');
+            await _saveWeightEntryLocally(weightEntry);
+            return weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+          }
+        }
+      } else {
+        // Save locally when offline
+        await _saveWeightEntryLocally(weightEntry);
+        _log('Weight entry saved locally (offline)');
+        return weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+      }
+    } catch (e) {
+      _log('Failed to save weight entry: $e');
+      // Final fallback to local storage
+      try {
+        await _saveWeightEntryLocally(weightEntry);
+        return weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+      } catch (localError) {
+        _log('Even local save failed: $localError');
+        rethrow;
+      }
+    }
+  }
+
+  Future<List<WeightEntry>> getWeightHistory(String userId, {int limit = 50}) async {
+    try {
+      _log('Loading weight history for user: $userId');
+      
+      final isConnected = await _connectivityService.isConnected();
+      
+      if (isConnected) {
+        if (kIsWeb) {
+          // For web, use API service
+          try {
+            final result = await _apiService.getWeightHistory(userId, limit: limit);
+            _log('Weight history loaded via API: ${result.length} entries');
+            return result;
+          } catch (e) {
+            _log('API load failed, falling back to local storage: $e');
+            return await _loadWeightHistoryLocally(userId);
+          }
+        } else {
+          // For native, try database first, fallback to local
+          try {
+            final result = await WeightRepository.getWeightHistory(userId, limit: limit);
+            _log('Weight history loaded from database: ${result.length} entries');
+            return result;
+          } catch (e) {
+            _log('Database load failed, falling back to local storage: $e');
+            return await _loadWeightHistoryLocally(userId);
+          }
+        }
+      } else {
+        // Load from local storage when offline
+        return await _loadWeightHistoryLocally(userId);
+      }
+    } catch (e) {
+      _log('Failed to load weight history: $e');
+      return [];
+    }
+  }
+
+  Future<WeightEntry?> getLatestWeight(String userId) async {
+    try {
+      _log('Loading latest weight for user: $userId');
+      
+      final isConnected = await _connectivityService.isConnected();
+      
+      if (isConnected) {
+        if (kIsWeb) {
+          try {
+            final result = await _apiService.getLatestWeight(userId);
+            _log('Latest weight loaded via API');
+            return result;
+          } catch (e) {
+            _log('API load failed, falling back to local storage: $e');
+            final history = await _loadWeightHistoryLocally(userId);
+            return history.isNotEmpty ? history.first : null;
+          }
+        } else {
+          try {
+            final result = await WeightRepository.getLatestWeight(userId);
+            _log('Latest weight loaded from database');
+            return result;
+          } catch (e) {
+            _log('Database load failed, falling back to local storage: $e');
+            final history = await _loadWeightHistoryLocally(userId);
+            return history.isNotEmpty ? history.first : null;
+          }
+        }
+      } else {
+        // Load from local storage when offline
+        final history = await _loadWeightHistoryLocally(userId);
+        return history.isNotEmpty ? history.first : null;
+      }
+    } catch (e) {
+      _log('Failed to load latest weight: $e');
+      return null;
+    }
+  }
+
+  // Update user's current weight in profile
+  Future<void> updateUserWeight(String userId, double newWeight) async {
+    try {
+      _log('Updating user weight to $newWeight kg');
+      
+      // Update local profile first
+      final userProfile = await loadUserProfile();
+      if (userProfile != null) {
+        final updatedProfile = userProfile.copyWith(weight: newWeight);
+        await _saveUserProfileLocally(updatedProfile);
+        _log('User weight updated locally');
+      }
+
+      // Try to update remotely if connected
+      final isConnected = await _connectivityService.isConnected();
+      if (isConnected) {
+        try {
+          if (kIsWeb) {
+            await _apiService.updateUserWeight(userId, newWeight);
+            _log('User weight updated via API');
+          } else {
+            // For native apps, you might want to implement this in UserRepository
+            // or use the existing updateUserProfile method
+            if (userProfile != null) {
+              final updatedProfile = userProfile.copyWith(weight: newWeight);
+              await updateUserProfile(updatedProfile);
+              _log('User weight updated via database');
+            }
+          }
+        } catch (e) {
+          _log('Failed to update weight remotely, but local update succeeded: $e');
+          // Don't throw here since local update succeeded
+        }
+      }
+    } catch (e) {
+      _log('Failed to update user weight: $e');
+      // Don't rethrow since this is a non-critical operation
+    }
+  }
+
+  // Local storage methods for offline support
+  Future<void> _saveWeightEntryLocally(WeightEntry weightEntry) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'weight_entries_${weightEntry.userId}';
+      
+      // Get existing entries
+      final existingJson = prefs.getString(key) ?? '[]';
+      final List<dynamic> existingList = jsonDecode(existingJson);
+      
+      // Add new entry (with generated ID if none exists)
+      final entryToSave = weightEntry.id != null 
+          ? weightEntry 
+          : weightEntry.copyWith(id: DateTime.now().millisecondsSinceEpoch.toString());
+      
+      existingList.add(entryToSave.toMap());
+      
+      // Save back to preferences
+      await prefs.setString(key, jsonEncode(existingList));
+      
+      _log('Weight entry saved locally');
+    } catch (e) {
+      _log('Failed to save weight entry locally: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<WeightEntry>> _loadWeightHistoryLocally(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'weight_entries_$userId';
+      
+      final existingJson = prefs.getString(key) ?? '[]';
+      final List<dynamic> existingList = jsonDecode(existingJson);
+      
+      final entries = existingList
+          .map((item) => WeightEntry.fromMap(item))
+          .toList();
+      
+      // Sort by date descending
+      entries.sort((a, b) => b.date.compareTo(a.date));
+      
+      _log('Loaded ${entries.length} weight entries from local storage');
+      return entries;
+    } catch (e) {
+      _log('Failed to load weight history locally: $e');
+      return [];
+    }
+  }
+
+  // Clear weight data (for logout)
+  Future<void> clearWeightData(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'weight_entries_$userId';
+      await prefs.remove(key);
+      _log('Weight data cleared for user: $userId');
+    } catch (e) {
+      _log('Failed to clear weight data: $e');
+    }
+  }
+
   Future<void> updateUserProfile(UserProfile userProfile) async {
     try {
       _log('Starting to update user profile for ${userProfile.name}');
@@ -403,7 +631,6 @@ class DataManager {
     return await exerciseService.addExercise(userId, exercise);
   }
 
-  // FIXED: Clear all data method
   Future<void> clearData() async {
     try {
       _log('Clearing all user data');
@@ -415,12 +642,16 @@ class DataManager {
       
       // Check if connected to the internet and if user ID exists
       final isConnected = await _connectivityService.isConnected();
+      await prefs.remove(userIdKey);
+      await prefs.remove(userProfileKey);
+      await prefs.remove(onboardingCompletedKey);
       
-      // Add null check for userId
+      if (userId != null) {
+        await clearWeightData(userId);
+      }
+
       if (isConnected && userId != null && userId.isNotEmpty) {
         try {
-          // Note: deleteUserProfile method doesn't exist in current ApiService
-          // We'll skip this for now since it's not implemented
           _log('Remote user profile deletion not implemented');
         } catch (e) {
           _log('Failed to delete user profile from remote source: $e');
