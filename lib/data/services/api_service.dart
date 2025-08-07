@@ -492,4 +492,126 @@ class ApiService {
       },
     };
   }
+
+  // Supplement logging functions
+  Future<Map<String, dynamic>> saveSupplementPreferences(String userId, List<Map<String, dynamic>> supplements) async {
+    try {
+      print('[ApiService] Saving supplement preferences for user: $userId');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/supplements/preferences'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'supplements': supplements,
+        }),
+      );
+
+      print('[ApiService] Save preferences response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to save supplement preferences');
+      }
+    } catch (e) {
+      print('[ApiService] Error saving supplement preferences: $e');
+      rethrow;
+    }
+  }
+
+
+  // Log daily supplement intake
+  Future<Map<String, dynamic>> logSupplementIntake(Map<String, dynamic> logData) async {
+    try {
+      print('[ApiService] Logging supplement intake: ${logData['supplement_name']} = ${logData['taken']}');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/supplements/log'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(logData),
+      );
+
+      print('[ApiService] Log supplement response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to log supplement intake');
+      }
+    } catch (e) {
+      print('[ApiService] Error logging supplement intake: $e');
+      rethrow;
+    }
+  }
+
+  // Get supplement history
+  Future<List<Map<String, dynamic>>> getSupplementHistory(String userId, {int days = 30}) async {
+    try {
+      print('[ApiService] Getting supplement history for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/supplements/history/$userId?days=$days'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Supplement history response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['success'] == true && data['history'] != null) {
+          return List<Map<String, dynamic>>.from(data['history']);
+        }
+        return [];
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get supplement history');
+      }
+    } catch (e) {
+      print('[ApiService] Error getting supplement history: $e');
+      return []; // Return empty list on error instead of throwing
+    }
+  }
+
+  Future<Map<String, bool>> getTodaysSupplementStatus(String userId) async {
+    try {
+      print('[ApiService] Getting today\'s supplement status for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/supplements/status/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Supplement status response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['success'] == true && data['status'] != null) {
+          // Convert the status map to Map<String, bool>
+          final Map<String, dynamic> statusData = data['status'];
+          final Map<String, bool> status = {};
+          
+          statusData.forEach((key, value) {
+            status[key] = value == true;
+          });
+          
+          return status;
+        }
+        return {};
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get supplement status');
+      }
+    } catch (e) {
+      print('[ApiService] Error getting supplement status: $e');
+      return {}; // Return empty map on error instead of throwing
+    }
+  }
+
 }

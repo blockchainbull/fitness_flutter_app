@@ -1,75 +1,495 @@
-// lib/features/tracking/screens/supplements_logging_page.dart
+// lib/features/tracking/screens/supplement_logging_page.dart
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:user_onboarding/data/services/database_service.dart';
+import 'package:user_onboarding/data/repositories/supplement_repository.dart';
+import 'package:user_onboarding/features/tracking/screens/supplement_history_page.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'dart:math';
 
-class SupplementsLoggingPage extends StatefulWidget {
+class SupplementLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
 
-  const SupplementsLoggingPage({Key? key, required this.userProfile}) : super(key: key);
+  const SupplementLoggingPage({
+    Key? key,
+    required this.userProfile,
+  }) : super(key: key);
 
   @override
-  State<SupplementsLoggingPage> createState() => _SupplementsLoggingPageState();
+  State<SupplementLoggingPage> createState() => _SupplementLoggingPageState();
 }
 
-class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
-  final List<Map<String, dynamic>> _supplements = [
-    {
-      'name': 'Vitamin D',
-      'dosage': '1000 IU',
-      'frequency': 'Daily',
-      'time': '9:00 AM',
-      'taken_today': true,
-      'color': Colors.orange,
-      'icon': Icons.wb_sunny,
-      'notes': 'With breakfast',
-    },
-    {
-      'name': 'Omega-3',
-      'dosage': '1000 mg',
-      'frequency': 'Daily',
-      'time': '9:00 AM',
-      'taken_today': true,
-      'color': Colors.blue,
-      'icon': Icons.water,
-      'notes': 'Fish oil capsule',
-    },
-    {
-      'name': 'Multivitamin',
-      'dosage': '1 tablet',
-      'frequency': 'Daily',
-      'time': '9:00 AM',
-      'taken_today': false,
-      'color': Colors.green,
-      'icon': Icons.medication,
-      'notes': '',
-    },
-    {
-      'name': 'Magnesium',
-      'dosage': '400 mg',
-      'frequency': 'Evening',
-      'time': '9:00 PM',
-      'taken_today': false,
-      'color': Colors.purple,
-      'icon': Icons.nightlight_round,
-      'notes': 'Before bed',
-    },
-    {
-      'name': 'Protein Powder',
-      'dosage': '30g',
-      'frequency': 'Post-workout',
-      'time': 'Variable',
-      'taken_today': true,
-      'color': Colors.red,
-      'icon': Icons.fitness_center,
-      'notes': 'After gym',
-    },
-  ];
+class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
+  final DataManager _dataManager = DataManager();
+  final ApiService _apiService = ApiService();
+  final Random _random = Random();
+  
+  List<Map<String, dynamic>> _userSupplements = [];
+  Map<String, bool> _todaysTaken = {};
+  bool _isLoading = true;
+  bool _hasSetupSupplements = false;
+  late String _supplementPreferenceKey;
+  late String _todaysStatusKey;
+  String _todaysDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+  String _generateId() {
+    return DateTime.now().millisecondsSinceEpoch.toString() + 
+           _random.nextInt(9999).toString().padLeft(4, '0');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _supplementPreferenceKey = 'supplement_setup_${widget.userProfile.id}';
+    _todaysStatusKey = 'supplement_status_${widget.userProfile.id}_$_todaysDate';
+    _initializeSupplementTracking();
+  }
+
+  Future<void> _initializeSupplementTracking() async {
+    await _checkFirstTimeSetup();
+  }
+
+  Future<void> _checkFirstTimeSetup() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasSetup = prefs.getBool(_supplementPreferenceKey) ?? false;
+      
+      if (!hasSetup) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showFirstTimeSetupDialog();
+        });
+      } else {
+        await _loadUserSupplements();
+        await _loadTodaysStatus();
+      }
+    } catch (e) {
+      print('Error checking first time setup: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _showFirstTimeSetupDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.medication, color: Colors.teal, size: 28),
+              const SizedBox(width: 12),
+              const Text(
+                'Supplement Tracking',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Would you like to track your daily supplements?',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.teal, size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Benefits:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('• Daily supplement reminders'),
+                    const Text('• Track what you missed'),
+                    const Text('• View historical adherence'),
+                    const Text('• No time pressure - take anytime'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await _disableSupplementTracking();
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'No Thanks',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showSupplementSetupWizard();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Set Up Tracking'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _disableSupplementTracking() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_supplementPreferenceKey, false);
+      await prefs.setBool('${_supplementPreferenceKey}_disabled', true);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Supplement tracking disabled.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error disabling supplement tracking: $e');
+    }
+  }
+
+  Future<void> _showSupplementSetupWizard() async {
+    final List<String> commonSupplements = [
+      'Multivitamin',
+      'Vitamin D',
+      'Vitamin C',
+      'Omega-3',
+      'Magnesium',
+      'Calcium',
+      'Iron',
+      'B-Complex',
+      'Zinc',
+      'Probiotics',
+      'Protein Powder',
+      'Creatine',
+      'Biotin',
+      'CoQ10',
+      'Turmeric',
+    ];
+
+    final List<String> selectedSupplements = [];
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'Select Your Supplements',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 400,
+                child: Column(
+                  children: [
+                    const Text(
+                      'Select supplements you take regularly:',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView(
+                        children: commonSupplements.map((supplement) {
+                          final isSelected = selectedSupplements.contains(supplement);
+                          return CheckboxListTile(
+                            title: Text(supplement),
+                            value: isSelected,
+                            onChanged: (bool? value) {
+                              setDialogState(() {
+                                if (value == true) {
+                                  selectedSupplements.add(supplement);
+                                } else {
+                                  selectedSupplements.remove(supplement);
+                                }
+                              });
+                            },
+                            activeColor: Colors.teal,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _showFirstTimeSetupDialog();
+                  },
+                  child: const Text('Back'),
+                ),
+                ElevatedButton(
+                  onPressed: selectedSupplements.isNotEmpty
+                      ? () async {
+                          Navigator.of(context).pop();
+                          await _setupInitialSupplements(selectedSupplements);
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Continue'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _setupInitialSupplements(List<String> selectedSupplements) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      final supplements = selectedSupplements.map((name) {
+        return {
+          'id': _generateId(),
+          'name': name,
+          'dosage': _getDefaultDosage(name),
+          'color': _getSupplementColor(name).value,
+          'icon': _getSupplementIcon(name).codePoint,
+          'notes': '',
+          'created_at': DateTime.now().toIso8601String(),
+        };
+      }).toList();
+
+      // Save user's supplement list locally
+      await prefs.setString(_supplementPreferenceKey + '_list', jsonEncode(supplements));
+      await prefs.setBool(_supplementPreferenceKey, true);
+
+      // Save preferences to database
+      try {
+        await SupplementRepository.saveSupplementPreferences(
+          widget.userProfile.id!,
+          supplements,
+        );
+        print('✅ Saved supplement preferences to database');
+      } catch (e) {
+        print('❌ Failed to save preferences to database: $e');
+        // Continue anyway - local storage works
+      }
+
+      // Initialize today's status from database
+      final dbStatus = await SupplementRepository.getTodaysSupplementStatus(widget.userProfile.id!);
+      final todaysStatus = <String, bool>{};
+      for (var supplement in supplements) {
+        final name = supplement['name'] as String;
+        todaysStatus[name] = dbStatus[name] ?? false;
+      }
+      
+      await prefs.setString(_todaysStatusKey, jsonEncode(todaysStatus));
+
+      setState(() {
+        _userSupplements = supplements;
+        _todaysTaken = todaysStatus;
+        _hasSetupSupplements = true;
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${supplements.length} supplements added and saved to database!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error setting up supplements: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadUserSupplements() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final supplementsJson = prefs.getString(_supplementPreferenceKey + '_list');
+      
+      if (supplementsJson != null) {
+        final List<dynamic> supplementsList = jsonDecode(supplementsJson);
+        setState(() {
+          _userSupplements = supplementsList.cast<Map<String, dynamic>>();
+          _hasSetupSupplements = true;
+        });
+      }
+    } catch (e) {
+      print('Error loading supplements: $e');
+    }
+  }
+
+  Future<void> _loadTodaysStatus() async {
+    try {
+      print('📅 Loading today\'s status...');
+      
+      // Try to load from database first
+      final dbStatus = await SupplementRepository.getTodaysSupplementStatus(widget.userProfile.id!);
+      
+      if (dbStatus.isNotEmpty) {
+        print('✅ Loaded status from database: ${dbStatus.length} items');
+        setState(() {
+          _todaysTaken = dbStatus;
+          _isLoading = false;
+        });
+        
+        // Also save to local storage for offline access
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_todaysStatusKey, jsonEncode(dbStatus));
+        return;
+      }
+      
+      // Fallback to local storage
+      final prefs = await SharedPreferences.getInstance();
+      final statusJson = prefs.getString(_todaysStatusKey);
+      
+      if (statusJson != null && statusJson.isNotEmpty) {
+        final Map<String, dynamic> statusMap = jsonDecode(statusJson);
+        print('📱 Loaded status from local storage: ${statusMap.length} items');
+        setState(() {
+          _todaysTaken = statusMap.cast<String, bool>();
+          _isLoading = false;
+        });
+      } else {
+        print('📝 Creating new status for today...');
+        // Initialize today's status for all user supplements
+        final todaysStatus = <String, bool>{};
+        for (var supplement in _userSupplements) {
+          todaysStatus[supplement['name'] as String] = false;
+        }
+        await prefs.setString(_todaysStatusKey, jsonEncode(todaysStatus));
+        setState(() {
+          _todaysTaken = todaysStatus;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading today\'s status: $e');
+      setState(() {
+        _todaysTaken = {};
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _getDefaultDosage(String supplementName) {
+    switch (supplementName.toLowerCase()) {
+      case 'vitamin d': return '1000 IU';
+      case 'vitamin c': return '500 mg';
+      case 'omega-3': return '1000 mg';
+      case 'magnesium': return '400 mg';
+      case 'calcium': return '500 mg';
+      case 'iron': return '18 mg';
+      case 'zinc': return '15 mg';
+      case 'protein powder': return '30g';
+      case 'creatine': return '5g';
+      case 'biotin': return '2500 mcg';
+      case 'coq10': return '100 mg';
+      case 'turmeric': return '500 mg';
+      default: return '1 capsule';
+    }
+  }
+
+  Color _getSupplementColor(String supplementName) {
+    switch (supplementName.toLowerCase()) {
+      case 'vitamin d': return Colors.orange;
+      case 'vitamin c': return Colors.yellow.shade700;
+      case 'omega-3': return Colors.blue;
+      case 'magnesium': return Colors.purple;
+      case 'calcium': return Colors.grey;
+      case 'iron': return Colors.red.shade700;
+      case 'zinc': return Colors.indigo;
+      case 'protein powder': return Colors.brown;
+      case 'creatine': return Colors.green.shade700;
+      case 'probiotics': return Colors.pink;
+      case 'biotin': return Colors.amber;
+      case 'coq10': return Colors.deepOrange;
+      case 'turmeric': return Colors.yellow.shade800;
+      default: return Colors.teal;
+    }
+  }
+
+  IconData _getSupplementIcon(String supplementName) {
+    switch (supplementName.toLowerCase()) {
+      case 'vitamin d': return Icons.wb_sunny;
+      case 'omega-3': return Icons.water;
+      case 'protein powder': return Icons.fitness_center;
+      case 'magnesium': return Icons.nightlight_round;
+      case 'probiotics': return Icons.health_and_safety;
+      case 'iron': return Icons.bloodtype;
+      case 'calcium': return Icons.local_hospital;
+      default: return Icons.medication;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final takenCount = _supplements.where((s) => s['taken_today'] == true).length;
-    final totalCount = _supplements.length;
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Supplements'),
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!_hasSetupSupplements) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Supplements'),
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final takenCount = _todaysTaken.values.where((taken) => taken).length;
+    final totalCount = _userSupplements.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -78,25 +498,44 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SupplementHistoryPage(
+                    userProfile: widget.userProfile,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
             onPressed: _showAddSupplementDialog,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTodaysSummary(takenCount, totalCount),
-            const SizedBox(height: 20),
-            _buildSupplementsList(),
-            const SizedBox(height: 20),
-            _buildWeeklyOverview(),
-            const SizedBox(height: 20),
-            _buildSupplementTips(),
-          ],
-        ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _userSupplements.isEmpty
+          ? _buildEmptyState()
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTodaysSummary(takenCount, totalCount),
+                  const SizedBox(height: 20),
+                  _buildSupplementsList(),
+                  const SizedBox(height: 20),
+                  _buildQuickActions(),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddSupplementDialog,
@@ -106,8 +545,85 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
     );
   }
 
+  Widget _buildDatabaseStatus() {
+    return FutureBuilder<String>(
+      future: DatabaseService.getConnectionStatus(),
+      builder: (context, snapshot) {
+        final status = snapshot.data ?? 'Checking...';
+        final isConnected = status == 'Connected';
+        
+        return Container(
+          margin: const EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isConnected ? Colors.green.shade100 : Colors.orange.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isConnected ? Colors.green : Colors.orange,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isConnected ? Icons.cloud_done : Icons.cloud_off,
+                size: 16,
+                color: isConnected ? Colors.green : Colors.orange,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'DB: $status',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isConnected ? Colors.green.shade700 : Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.medication, size: 80, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            'No Supplements Added',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add supplements to start tracking',
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _showAddSupplementDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Supplement'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTodaysSummary(int taken, int total) {
     final progress = total > 0 ? taken / total : 0.0;
+    final dateStr = DateFormat('EEEE, MMM d').format(DateTime.now());
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -122,20 +638,32 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Today\'s Progress',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Today\'s Supplements',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    dateStr,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
               Text(
                 '$taken / $total',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -153,7 +681,7 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
             children: [
               _buildSummaryStat('Completed', '$taken'),
               _buildSummaryStat('Remaining', '${total - taken}'),
-              _buildSummaryStat('Adherence', '${(progress * 100).toStringAsFixed(0)}%'),
+              _buildSummaryStat('Progress', '${(progress * 100).toStringAsFixed(0)}%'),
             ],
           ),
         ],
@@ -188,21 +716,22 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Today\'s Supplements',
+          'Your Supplements',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 16),
-        ..._supplements.map((supplement) => _buildSupplementCard(supplement)),
+        ..._userSupplements.map((supplement) => _buildSupplementCard(supplement)),
       ],
     );
   }
 
   Widget _buildSupplementCard(Map<String, dynamic> supplement) {
-    final taken = supplement['taken_today'] as bool;
-    final color = supplement['color'] as Color;
+    final supplementName = supplement['name'] as String;
+    final taken = _todaysTaken[supplementName] ?? false;
+    final color = Color(supplement['color'] as int);
     
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -232,7 +761,7 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              supplement['icon'] as IconData,
+              IconData(supplement['icon'] as int, fontFamily: 'MaterialIcons'),
               color: color,
               size: 24,
             ),
@@ -243,14 +772,14 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  supplement['name'] as String,
+                  supplementName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  '${supplement['dosage']} • ${supplement['frequency']}',
+                  supplement['dosage'] as String,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -268,42 +797,27 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
               ],
             ),
           ),
-          Column(
-            children: [
-              Text(
-                supplement['time'] as String,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+          GestureDetector(
+            onTap: () => _toggleSupplement(supplementName),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: taken ? color : Colors.grey[300],
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: () => _toggleSupplement(supplement),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: taken ? color : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
-                    taken ? Icons.check : Icons.close,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
+              child: Icon(
+                taken ? Icons.check : Icons.add,
+                color: taken ? Colors.white : Colors.grey[600],
+                size: 20,
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWeeklyOverview() {
-    final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final adherenceData = [0.8, 1.0, 0.6, 0.9, 1.0, 0.7, 0.8]; // Mock data
-    
+  Widget _buildQuickActions() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -311,133 +825,145 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Weekly Adherence',
+              'Quick Actions',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(7, (index) {
-                final adherence = adherenceData[index];
-                final color = adherence >= 0.8 ? Colors.green : 
-                            adherence >= 0.5 ? Colors.orange : Colors.red;
-                
-                return Column(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: FractionallySizedBox(
-                        alignment: Alignment.bottomCenter,
-                        heightFactor: adherence,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: color,
-                            borderRadius: BorderRadius.circular(4),
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SupplementHistoryPage(
+                            userProfile: widget.userProfile,
                           ),
                         ),
-                      ),
+                      );
+                    },
+                    icon: const Icon(Icons.history),
+                    label: const Text('View History'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      weekDays[index],
-                      style: const TextStyle(fontSize: 10),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _markAllTaken,
+                    icon: const Icon(Icons.done_all),
+                    label: const Text('Mark All'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
                     ),
-                  ],
-                );
-              }),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildAdherenceIndicator('Excellent', Colors.green),
-                _buildAdherenceIndicator('Good', Colors.orange),
-                _buildAdherenceIndicator('Needs Work', Colors.red),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAdherenceIndicator(String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 10),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSupplementTips() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.lightbulb, color: Colors.amber),
-                const SizedBox(width: 8),
-                const Text(
-                  'Supplement Tips',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            const Text('• Take fat-soluble vitamins (A, D, E, K) with meals'),
-            const Text('• Space out iron and calcium supplements'),
-            const Text('• Set reminders to maintain consistency'),
-            const Text('• Store supplements in a cool, dry place'),
-            const Text('• Check expiration dates regularly'),
           ],
         ),
       ),
     );
   }
 
-  void _toggleSupplement(Map<String, dynamic> supplement) {
+  void _toggleSupplement(String supplementName) async {
+    final wasTaken = _todaysTaken[supplementName] ?? false;
+    final nowTaken = !wasTaken;
+    
     setState(() {
-      supplement['taken_today'] = !(supplement['taken_today'] as bool);
+      _todaysTaken[supplementName] = nowTaken;
     });
     
-    final taken = supplement['taken_today'] as bool;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          taken 
-            ? '${supplement['name']} marked as taken!'
-            : '${supplement['name']} marked as not taken',
+    // Save daily status locally
+    await _saveTodaysStatus();
+    
+    // Save historical record to database
+    await _saveToDatabase(supplementName, nowTaken);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            nowTaken 
+              ? '$supplementName marked as taken!'
+              : '$supplementName unmarked',
+          ),
+          backgroundColor: nowTaken ? Colors.green : Colors.orange,
+          duration: const Duration(seconds: 1),
         ),
-        backgroundColor: taken ? Colors.green : Colors.orange,
-      ),
-    );
+      );
+    }
+  }
+
+  Future<void> _saveTodaysStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_todaysStatusKey, jsonEncode(_todaysTaken));
+    } catch (e) {
+      print('Error saving today\'s status: $e');
+    }
+  }
+
+  Future<void> _saveToDatabase(String supplementName, bool taken) async {
+    try {
+      // Find the supplement details
+      final supplement = _userSupplements.firstWhere(
+        (s) => s['name'] == supplementName,
+        orElse: () => <String, dynamic>{},
+      );
+
+      if (supplement.isNotEmpty) {
+        // Use SupplementRepository which handles API vs Direct DB automatically
+        await SupplementRepository.logSupplementIntake(
+          userId: widget.userProfile.id!,
+          date: _todaysDate,
+          supplementName: supplementName,
+          taken: taken,
+          dosage: supplement['dosage'],
+          timeTaken: taken ? DateTime.now().toIso8601String() : null,
+        );
+        
+        print('✅ Saved to database via repository: $supplementName = $taken');
+      }
+    } catch (e) {
+      print('Error saving to database: $e');
+      // Don't show error to user - local storage still works
+    }
+  }
+
+  void _markAllTaken() async {
+    setState(() {
+      for (var supplement in _userSupplements) {
+        _todaysTaken[supplement['name']] = true;
+      }
+    });
+    
+    await _saveTodaysStatus();
+    
+    // Save all to database
+    for (var supplement in _userSupplements) {
+      await _saveToDatabase(supplement['name'], true);
+    }
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All supplements marked as taken!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   void _showAddSupplementDialog() {
     final nameController = TextEditingController();
     final dosageController = TextEditingController();
-    String frequency = 'Daily';
+    final notesController = TextEditingController();
     
     showDialog(
       context: context,
@@ -457,21 +983,18 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
             TextField(
               controller: dosageController,
               decoration: const InputDecoration(
-                labelText: 'Dosage',
+                labelText: 'Dosage (e.g., 500mg, 1 tablet)',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: frequency,
+            TextField(
+              controller: notesController,
               decoration: const InputDecoration(
-                labelText: 'Frequency',
+                labelText: 'Notes (optional)',
                 border: OutlineInputBorder(),
               ),
-              items: ['Daily', 'Twice Daily', 'Weekly', 'As Needed']
-                  .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                  .toList(),
-              onChanged: (value) => frequency = value!,
+              maxLines: 2,
             ),
           ],
         ),
@@ -483,28 +1006,53 @@ class _SupplementsLoggingPageState extends State<SupplementsLoggingPage> {
           ElevatedButton(
             onPressed: () {
               if (nameController.text.isNotEmpty && dosageController.text.isNotEmpty) {
-                setState(() {
-                  _supplements.add({
-                    'name': nameController.text,
-                    'dosage': dosageController.text,
-                    'frequency': frequency,
-                    'time': '9:00 AM',
-                    'taken_today': false,
-                    'color': Colors.teal,
-                    'icon': Icons.medication,
-                    'notes': '',
-                  });
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Supplement added!')),
+                _addNewSupplement(
+                  nameController.text,
+                  dosageController.text,
+                  notesController.text,
                 );
+                Navigator.pop(context);
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Add'),
           ),
         ],
       ),
     );
   }
+
+  void _addNewSupplement(String name, String dosage, String notes) async {
+    final newSupplement = {
+      'id': _generateId(),
+      'name': name,
+      'dosage': dosage,
+      'color': Colors.teal.value,
+      'icon': Icons.medication.codePoint,
+      'notes': notes,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+
+    setState(() {
+      _userSupplements.add(newSupplement);
+      _todaysTaken[name] = false;
+    });
+
+    // Save updated supplement list
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_supplementPreferenceKey + '_list', jsonEncode(_userSupplements));
+    await _saveTodaysStatus();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+         content: Text('Supplement added successfully!'),
+         backgroundColor: Colors.green,
+       ),
+     );
+   }
+ }
 }

@@ -83,7 +83,7 @@ class ActivityDrawer extends StatelessWidget {
                   'Track your daily supplements',
                   Icons.medication,
                   Colors.teal,
-                  () => _navigateToPage(context, SupplementsLoggingPage(userProfile: userProfile)),
+                  () => _navigateToPage(context, SupplementLoggingPage(userProfile: userProfile)),
                 ),
                 // Only show period tracking for female users
                 if (userProfile.gender?.toLowerCase() == 'female')

@@ -123,7 +123,7 @@ class ActivityLoggingMenu extends StatelessWidget {
         'subtitle': 'Track daily vitamins',
         'icon': Icons.medication,
         'color': Colors.teal,
-        'page': SupplementsLoggingPage(userProfile: userProfile),
+        'page': SupplementLoggingPage(userProfile: userProfile),
       },
     ];
 

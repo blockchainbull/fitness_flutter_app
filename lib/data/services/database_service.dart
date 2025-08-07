@@ -6,6 +6,7 @@ class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
   static PostgreSQLConnection? _connection;
   static bool _isInitialized = false;
+  static bool get isInitialized => _isInitialized;
 
   factory DatabaseService() {
     return _instance;
@@ -121,6 +122,45 @@ class DatabaseService {
           CREATE INDEX IF NOT EXISTS idx_weight_entries_user_date 
           ON weight_entries(user_id, date DESC)
         ''');
+        await _connection!.execute('''
+          CREATE TABLE IF NOT EXISTS supplement_tracking (
+            id VARCHAR(50) PRIMARY KEY,
+            user_id VARCHAR(50) NOT NULL,
+            date DATE NOT NULL,
+            supplement_name VARCHAR(100) NOT NULL,
+            dosage VARCHAR(50),
+            taken BOOLEAN DEFAULT FALSE,
+            time_taken TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, date, supplement_name)
+          )
+        ''');
+
+        await _connection!.execute('''
+          CREATE TABLE IF NOT EXISTS user_supplement_preferences (
+            id VARCHAR(50) PRIMARY KEY,
+            user_id VARCHAR(50) NOT NULL,
+            supplement_name VARCHAR(100) NOT NULL,
+            dosage VARCHAR(50),
+            frequency VARCHAR(50) DEFAULT 'Daily',
+            preferred_time VARCHAR(10) DEFAULT '9:00 AM',
+            notes TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        ''');
+
+        // Add indices
+        await _connection!.execute('''
+          CREATE INDEX IF NOT EXISTS idx_supplement_tracking_user_date 
+          ON supplement_tracking(user_id, date DESC)
+        ''');
+        
+        await _connection!.execute('''
+          CREATE INDEX IF NOT EXISTS idx_supplement_preferences_user 
+          ON user_supplement_preferences(user_id, is_active)
+        ''');
   }
 
   // Close database connection
@@ -173,15 +213,37 @@ class DatabaseService {
   static Future<bool> checkConnection() async {
     try {
       if (_connection == null || _connection!.isClosed) {
+        print('❌ Database connection is null or closed');
         return false;
       }
       
       // Try a simple query to test the connection
       await _connection!.query('SELECT 1');
+      print('✅ Database connection is healthy');
       return true;
     } catch (e) {
-      debugPrint('Database connection error: $e');
+      print('❌ Database connection error: $e');
       return false;
     }
   }
+
+  static Future<String> getConnectionStatus() async {
+    if (!_isInitialized) {
+      return 'Not initialized';
+    }
+    if (_connection == null) {
+      return 'Connection is null';
+    }
+    if (_connection!.isClosed) {
+      return 'Connection is closed';
+    }
+    
+    try {
+      await _connection!.query('SELECT 1');
+      return 'Connected';
+    } catch (e) {
+      return 'Connection failed: $e';
+    }
+  }
+
 }
