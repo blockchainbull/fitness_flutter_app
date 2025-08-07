@@ -10,6 +10,8 @@ class UserProfile {
   final int age;
   final double height;
   final double weight;
+  final double? startingWeight;
+  final DateTime? startingWeightDate;
   final String activityLevel;
   
   final bool? hasPeriods;
@@ -49,6 +51,8 @@ class UserProfile {
     required this.age,
     required this.height,
     required this.weight,
+    this.startingWeight,
+    this.startingWeightDate,
     required this.activityLevel,
     
     this.hasPeriods,
@@ -98,6 +102,12 @@ class UserProfile {
       age: map['age'] ?? 0,
       height: map['height']?.toDouble() ?? 0.0,
       weight: map['weight']?.toDouble() ?? 0.0,
+      startingWeight: map['starting_weight']?.toDouble(),
+      startingWeightDate: map['starting_weight_date'] != null 
+          ? DateTime.parse(map['starting_weight_date']) 
+          : (map['startingWeightDate'] != null 
+              ? DateTime.parse(map['startingWeightDate']) 
+              : null),
       activityLevel: map['activityLevel'] ?? '',
       
       hasPeriods: map['hasPeriods'],
@@ -140,6 +150,15 @@ class UserProfile {
       age: data['age'] ?? 0,
       height: (data['height'] ?? 0.0).toDouble(),
       weight: (data['weight'] ?? 0.0).toDouble(),
+
+      startingWeight: data['starting_weight']?.toDouble() ?? 
+                     data['startingWeight']?.toDouble(),
+      startingWeightDate: data['starting_weight_date'] != null 
+          ? DateTime.parse(data['starting_weight_date']) 
+          : (data['startingWeightDate'] != null 
+              ? DateTime.parse(data['startingWeightDate']) 
+              : null),
+
       activityLevel: data['activityLevel'] ?? '',
       
       hasPeriods: data['hasPeriods'] ?? data['has_periods'],
@@ -186,6 +205,8 @@ class UserProfile {
       'age': age,
       'height': height,
       'weight': weight,
+      'startingWeight': startingWeight,
+      'startingWeightDate': startingWeightDate?.toIso8601String(),
       'activityLevel': activityLevel,
       
       'hasPeriods': hasPeriods,
@@ -232,6 +253,8 @@ class UserProfile {
         'age': age,
         'height': height,
         'weight': weight,
+        'startingWeight': startingWeight,
+        'startingWeightDate': startingWeightDate?.toIso8601String(),
         'activityLevel': activityLevel,
         'bmi': formData['bmi'] ?? 0.0,
         'bmr': formData['bmr'] ?? 0.0,
@@ -287,6 +310,8 @@ class UserProfile {
     int? age,
     double? height,
     double? weight,
+    double? startingWeight,
+    DateTime? startingWeightDate,
     String? activityLevel,
     
     bool? hasPeriods,
@@ -326,6 +351,8 @@ class UserProfile {
       age: age ?? this.age,
       height: height ?? this.height,
       weight: weight ?? this.weight,
+      startingWeight: startingWeight ?? this.startingWeight,
+      startingWeightDate: startingWeightDate ?? this.startingWeightDate,
       activityLevel: activityLevel ?? this.activityLevel,
       
       hasPeriods: hasPeriods ?? this.hasPeriods,

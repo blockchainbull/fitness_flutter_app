@@ -96,18 +96,31 @@ class DatabaseService {
         available_equipment TEXT[],
         fitness_level VARCHAR(50) DEFAULT 'Beginner',
         has_trainer BOOLEAN DEFAULT FALSE,
-        -- NEW PERIOD CYCLE FIELDS
         has_periods BOOLEAN DEFAULT NULL,
         last_period_date TIMESTAMP DEFAULT NULL,
         cycle_length INTEGER DEFAULT NULL,
         cycle_length_regular BOOLEAN DEFAULT NULL,
         pregnancy_status VARCHAR(50) DEFAULT NULL,
         period_tracking_preference VARCHAR(50) DEFAULT NULL,
-        -- END NEW FIELDS
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
       ''');
+       await _connection!.execute('''
+        CREATE TABLE IF NOT EXISTS weight_entries (
+          id UUID PRIMARY KEY,
+          user_id UUID NOT NULL,
+          date TIMESTAMP NOT NULL,
+          weight DECIMAL NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      ''');
+        await _connection!.execute('''
+          CREATE INDEX IF NOT EXISTS idx_weight_entries_user_date 
+          ON weight_entries(user_id, date DESC)
+        ''');
   }
 
   // Close database connection

@@ -35,7 +35,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _errorMessage;
 
   // Read-only fields that cannot be edited
-  final List<String> _readOnlyFields = ['name', 'email', 'age', 'gender'];
+  final List<String> _readOnlyFields = ['name', 'email', 'age', 'gender', 'startingWeight', 'startingWeightDate'];
 
   // FIXED: Activity level mapping
   final List<String> _activityLevelOptions = [
@@ -160,7 +160,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
         age: widget.userProfile.age, // Read-only
         height: height,
         weight: weight,
-        activityLevel: _selectedActivityLevel, // Use the key, not formatted text
+        startingWeight: widget.userProfile.startingWeight, // Read-only
+        startingWeightDate: widget.userProfile.startingWeightDate, // Read-only
+        activityLevel: _selectedActivityLevel,
         primaryGoal: primaryGoal,
         weightGoal: weightGoal,
         targetWeight: targetWeight,
@@ -286,6 +288,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
               min: 30,
               max: 300,
             ),
+
+            if (widget.userProfile.startingWeight != null) ...[
+              _buildReadOnlyField(
+                'Starting Weight', 
+                '${widget.userProfile.startingWeight!.toStringAsFixed(1)} kg'
+              ),
+              if (widget.userProfile.startingWeightDate != null)
+                _buildReadOnlyField(
+                  'Started Tracking', 
+                  '${widget.userProfile.startingWeightDate!.day}/${widget.userProfile.startingWeightDate!.month}/${widget.userProfile.startingWeightDate!.year}'
+                ),
+            ],
+
             _buildDropdownField(
               'Activity Level',
               _selectedActivityLevel,
@@ -316,10 +331,83 @@ class _EditProfilePageState extends State<EditProfilePage> {
               isRequired: false,
             ),
 
+            // Show weight progress if starting weight exists
+           if (widget.userProfile.startingWeight != null) ...[
+             const SizedBox(height: 24),
+             _buildSectionHeader('Weight Progress'),
+             _buildWeightProgressCard(),
+           ],
+
             const SizedBox(height: 32),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildWeightProgressCard() {
+    final startingWeight = widget.userProfile.startingWeight!;
+    final currentWeight = widget.userProfile.weight;
+    final weightChange = startingWeight - currentWeight;
+    final isLoss = weightChange > 0;
+    final daysTracking = widget.userProfile.startingWeightDate != null 
+        ? DateTime.now().difference(widget.userProfile.startingWeightDate!).inDays 
+        : 0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildProgressStat('Started', '${startingWeight.toStringAsFixed(1)} kg', Colors.blue),
+                Icon(Icons.arrow_forward, color: Colors.grey[400]),
+                _buildProgressStat('Current', '${currentWeight.toStringAsFixed(1)} kg', Colors.indigo),
+                Icon(isLoss ? Icons.trending_down : Icons.trending_up, 
+                      color: isLoss ? Colors.green : Colors.orange),
+                _buildProgressStat(
+                  isLoss ? 'Lost' : 'Gained', 
+                  '${weightChange.abs().toStringAsFixed(1)} kg', 
+                  isLoss ? Colors.green : Colors.orange
+                ),
+              ],
+            ),
+            if (daysTracking > 0) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Tracking for $daysTracking days',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 
@@ -376,7 +464,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           const SizedBox(height: 4),
           Text(
-            'This field cannot be edited',
+            _getReadOnlyReason(label),
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[500],
@@ -385,6 +473,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ],
       ),
     );
+  }
+
+  String _getReadOnlyReason(String label) {
+    switch (label) {
+      case 'Name':
+      case 'Email':
+      case 'Age':
+      case 'Gender':
+        return 'This field cannot be edited for security reasons';
+      case 'Starting Weight':
+        return 'Starting weight is locked to preserve your progress history';
+      case 'Started Tracking':
+        return 'This date is automatically set when you first log your weight';
+      default:
+        return 'This field cannot be edited';
+    }
   }
 
   Widget _buildTextField(

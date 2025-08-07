@@ -5,6 +5,8 @@ class WeightEntry {
   final DateTime date;
   final double weight;
   final String? notes;
+  final double? bodyFatPercentage;
+  final double? muscleMassKg;
   final DateTime createdAt;
 
   WeightEntry({
@@ -13,6 +15,8 @@ class WeightEntry {
     required this.date,
     required this.weight,
     this.notes,
+    this.bodyFatPercentage,
+    this.muscleMassKg,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -23,6 +27,8 @@ class WeightEntry {
       'date': date.toIso8601String(),
       'weight': weight,
       'notes': notes,
+      'body_fat_percentage': bodyFatPercentage,
+      'muscle_mass_kg': muscleMassKg,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -34,6 +40,8 @@ class WeightEntry {
       date: DateTime.parse(map['date']),
       weight: map['weight']?.toDouble() ?? 0.0,
       notes: map['notes'],
+      bodyFatPercentage: map['body_fat_percentage']?.toDouble(),
+      muscleMassKg: map['muscle_mass_kg']?.toDouble(),
       createdAt: DateTime.parse(map['created_at']),
     );
   }
@@ -44,6 +52,8 @@ class WeightEntry {
     DateTime? date,
     double? weight,
     String? notes,
+    double? bodyFatPercentage,
+    double? muscleMassKg,
     DateTime? createdAt,
   }) {
     return WeightEntry(
@@ -52,6 +62,8 @@ class WeightEntry {
       date: date ?? this.date,
       weight: weight ?? this.weight,
       notes: notes ?? this.notes,
+      bodyFatPercentage: bodyFatPercentage ?? this.bodyFatPercentage,
+      muscleMassKg: muscleMassKg ?? this.muscleMassKg,
       createdAt: createdAt ?? this.createdAt,
     );
   }

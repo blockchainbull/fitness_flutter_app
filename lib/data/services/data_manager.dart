@@ -76,23 +76,12 @@ class DataManager {
   Future<void> _saveUserProfileLocally(UserProfile userProfile) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      // Convert UserProfile to Map
-      final userProfileMap = userProfile.toMap();
-      
-      // Ensure the ID is included in the saved data
-      if (userProfile.id != null && userProfile.id!.isNotEmpty) {
-        userProfileMap['id'] = userProfile.id;
-        // Also save the user ID separately for easy access
-        await prefs.setString(userIdKey, userProfile.id!);
-      }
-      
-      // Save the user profile as JSON
-      await prefs.setString(userProfileKey, jsonEncode(userProfileMap));
-      
-      _log('User profile saved to local storage');
+      final profileJson = jsonEncode(userProfile.toMap());
+      await prefs.setString(userProfileKey, profileJson);
+      await prefs.setString(userIdKey, userProfile.id ?? '');
     } catch (e) {
       _log('Failed to save user profile locally: $e');
+      rethrow;
     }
   }
 
@@ -278,9 +267,9 @@ class DataManager {
     }
   }
 
-  Future<String> saveWeightEntry(WeightEntry weightEntry) async {
+  Future<bool> setStartingWeight(String userId, double startingWeight) async {
     try {
-      _log('Saving weight entry: ${weightEntry.weight} kg for ${weightEntry.date}');
+      _log('Setting starting weight: $startingWeight kg for user: $userId');
       
       final isConnected = await _connectivityService.isConnected();
       
@@ -288,8 +277,48 @@ class DataManager {
         if (kIsWeb) {
           // For web, use API service
           try {
+            final result = await _apiService.setStartingWeight(userId, startingWeight);
+            if (result) {
+              _log('Starting weight set successfully via API');
+              return true;
+            } else {
+              _log('Failed to set starting weight via API');
+              return false;
+            }
+          } catch (e) {
+            _log('API starting weight failed: $e');
+            return false;
+          }
+        } else {
+          // For native, could use database directly
+          _log('Setting starting weight via database not implemented yet');
+          return false;
+        }
+      } else {
+        _log('Cannot set starting weight while offline');
+        return false;
+      }
+    } catch (e) {
+      _log('Failed to set starting weight: $e');
+      return false;
+    }
+  }
+
+  Future<String> saveWeightEntry(WeightEntry weightEntry) async {
+    try {
+      _log('Saving weight entry for user: ${weightEntry.userId}');
+      _log('Weight: ${weightEntry.weight} kg');
+      _log('Date: ${weightEntry.date}');
+      
+      final isConnected = await _connectivityService.isConnected();
+      
+      if (isConnected) {
+        if (kIsWeb) {
+          // For web, use API service
+          try {
+            _log('Using API service to save weight entry');
             final result = await _apiService.saveWeightEntry(weightEntry);
-            _log('Weight entry saved via API');
+            _log('Weight entry saved via API with ID: $result');
             return result;
           } catch (e) {
             _log('API save failed, falling back to local storage: $e');
@@ -425,13 +454,14 @@ class DataManager {
             await _apiService.updateUserWeight(userId, newWeight);
             _log('User weight updated via API');
           } else {
-            // For native apps, you might want to implement this in UserRepository
-            // or use the existing updateUserProfile method
-            if (userProfile != null) {
-              final updatedProfile = userProfile.copyWith(weight: newWeight);
-              await updateUserProfile(updatedProfile);
-              _log('User weight updated via database');
-            }
+            // For native apps, update via database
+            await DatabaseService.execute('''
+              UPDATE users SET weight = @weight WHERE id = @userId
+            ''', {
+              'weight': newWeight,
+              'userId': userId,
+            });
+            _log('User weight updated via database');
           }
         } catch (e) {
           _log('Failed to update weight remotely, but local update succeeded: $e');
@@ -441,56 +471,6 @@ class DataManager {
     } catch (e) {
       _log('Failed to update user weight: $e');
       // Don't rethrow since this is a non-critical operation
-    }
-  }
-
-  // Local storage methods for offline support
-  Future<void> _saveWeightEntryLocally(WeightEntry weightEntry) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'weight_entries_${weightEntry.userId}';
-      
-      // Get existing entries
-      final existingJson = prefs.getString(key) ?? '[]';
-      final List<dynamic> existingList = jsonDecode(existingJson);
-      
-      // Add new entry (with generated ID if none exists)
-      final entryToSave = weightEntry.id != null 
-          ? weightEntry 
-          : weightEntry.copyWith(id: DateTime.now().millisecondsSinceEpoch.toString());
-      
-      existingList.add(entryToSave.toMap());
-      
-      // Save back to preferences
-      await prefs.setString(key, jsonEncode(existingList));
-      
-      _log('Weight entry saved locally');
-    } catch (e) {
-      _log('Failed to save weight entry locally: $e');
-      rethrow;
-    }
-  }
-
-  Future<List<WeightEntry>> _loadWeightHistoryLocally(String userId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'weight_entries_$userId';
-      
-      final existingJson = prefs.getString(key) ?? '[]';
-      final List<dynamic> existingList = jsonDecode(existingJson);
-      
-      final entries = existingList
-          .map((item) => WeightEntry.fromMap(item))
-          .toList();
-      
-      // Sort by date descending
-      entries.sort((a, b) => b.date.compareTo(a.date));
-      
-      _log('Loaded ${entries.length} weight entries from local storage');
-      return entries;
-    } catch (e) {
-      _log('Failed to load weight history locally: $e');
-      return [];
     }
   }
 
@@ -534,6 +514,114 @@ class DataManager {
     } catch (e) {
       _log('Failed to update user profile: $e');
       rethrow;
+    }
+  }
+
+  Future<bool> deleteWeightEntry(String entryId) async {
+    try {
+      _log('Deleting weight entry: $entryId');
+      
+      final isConnected = await _connectivityService.isConnected();
+      
+      if (isConnected) {
+        if (kIsWeb) {
+          // For web, use API service (you'll need to implement this in ApiService)
+          try {
+            await _apiService.deleteWeightEntry(entryId);
+            _log('Weight entry deleted via API');
+            return true;
+          } catch (e) {
+            _log('API delete failed: $e');
+            return false;
+          }
+        } else {
+          // For native, use database
+          try {
+            final result = await WeightRepository.deleteWeightEntry(entryId);
+            _log('Weight entry deleted from database');
+            return result;
+          } catch (e) {
+            _log('Database delete failed: $e');
+            return false;
+          }
+        }
+      } else {
+        // When offline, remove from local storage
+        try {
+          // You'll need to implement local deletion logic
+          _log('Offline delete not implemented yet');
+          return false;
+        } catch (e) {
+          _log('Local delete failed: $e');
+          return false;
+        }
+      }
+    } catch (e) {
+      _log('Failed to delete weight entry: $e');
+      return false;
+    }
+  }
+
+  Future<void> _deleteWeightEntryLocally(String entryId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+    
+      final userId = prefs.getString(userIdKey);
+      if (userId != null) {
+        final key = 'weight_entries_$userId';
+        final existingJson = prefs.getString(key) ?? '[]';
+        final List<dynamic> existingList = jsonDecode(existingJson);
+        
+        // Remove the entry with matching ID
+        existingList.removeWhere((item) => item['id'] == entryId);
+        
+        // Save back to preferences
+        await prefs.setString(key, jsonEncode(existingList));
+      }
+    } catch (e) {
+      _log('Failed to delete weight entry locally: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _saveWeightEntryLocally(WeightEntry weightEntry) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'weight_entries_${weightEntry.userId}';
+      
+      // Get existing entries
+      final existingJson = prefs.getString(key) ?? '[]';
+      final List<dynamic> existingList = jsonDecode(existingJson);
+      
+      // Add new entry (with generated ID if none exists)
+      final entryToSave = weightEntry.id != null 
+          ? weightEntry 
+          : weightEntry.copyWith(id: DateTime.now().millisecondsSinceEpoch.toString());
+      
+      existingList.add(entryToSave.toMap());
+      
+      // Sort by date (newest first)
+      existingList.sort((a, b) => DateTime.parse(b['date']).compareTo(DateTime.parse(a['date'])));
+      
+      // Save back to preferences
+      await prefs.setString(key, jsonEncode(existingList));
+    } catch (e) {
+      _log('Failed to save weight entry locally: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<WeightEntry>> _loadWeightHistoryLocally(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'weight_entries_$userId';
+      final existingJson = prefs.getString(key) ?? '[]';
+      final List<dynamic> existingList = jsonDecode(existingJson);
+      
+      return existingList.map((item) => WeightEntry.fromMap(item)).toList();
+    } catch (e) {
+      _log('Failed to load weight history locally: $e');
+      return [];
     }
   }
 

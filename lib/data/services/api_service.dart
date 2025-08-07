@@ -165,6 +165,8 @@ class ApiService {
   Future<String> saveWeightEntry(WeightEntry weightEntry) async {
     try {
       print('[ApiService] Saving weight entry: ${weightEntry.weight} kg');
+      print('[ApiService] User ID: ${weightEntry.userId}');
+      print('[ApiService] Date: ${weightEntry.date.toIso8601String()}');
       
       final response = await http.post(
         Uri.parse('http://localhost:8000/api/health/weight'),
@@ -182,7 +184,9 @@ class ApiService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        return data['id'] ?? weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+        final entryId = data['id'] ?? weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+        print('[ApiService] Weight entry saved with ID: $entryId');
+        return entryId;
       } else {
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['detail'] ?? 'Failed to save weight entry');
@@ -256,6 +260,30 @@ class ApiService {
     }
   }
 
+  // Delete weight entry
+  Future<bool> deleteWeightEntry(String entryId) async {
+    try {
+      print('[ApiService] Deleting weight entry: $entryId');
+      
+      final response = await http.delete(
+        Uri.parse('$baseUrl/weight/$entryId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Delete weight response status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to delete weight entry');
+      }
+    } catch (e) {
+      print('[ApiService] Delete weight error: $e');
+      return false;
+    }
+  }
+
   // Update user's current weight in profile
   Future<void> updateUserWeight(String userId, double newWeight) async {
     try {
@@ -278,6 +306,34 @@ class ApiService {
     } catch (e) {
       print('[ApiService] Update weight error: $e');
       rethrow;
+    }
+  }
+
+  Future<bool> setStartingWeight(String userId, double startingWeight) async {
+    try {
+      print('[ApiService] Setting starting weight: $startingWeight kg for user: $userId');
+      
+      final response = await http.post(
+        Uri.parse('http://localhost:8000/api/health/user/$userId/set-starting-weight'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'starting_weight': startingWeight,
+        }),
+      );
+
+      print('[ApiService] Set starting weight response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('[ApiService] Starting weight set successfully');
+        return true;
+      } else {
+        print('[ApiService] Failed to set starting weight: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('[ApiService] Starting weight error: $e');
+      return false;
     }
   }
   
