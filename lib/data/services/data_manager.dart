@@ -729,10 +729,7 @@ class DataManager {
       final userId = prefs.getString(userIdKey);
       
       // Check if connected to the internet and if user ID exists
-      final isConnected = await _connectivityService.isConnected();
-      await prefs.remove(userIdKey);
-      await prefs.remove(userProfileKey);
-      await prefs.remove(onboardingCompletedKey);
+      final isConnected = await _connectivityService.isConnected(); 
       
       if (userId != null) {
         await clearWeightData(userId);
@@ -746,9 +743,20 @@ class DataManager {
         }
       }
       
-      // Clear shared preferences
-      await prefs.clear();
-      _log('Local data cleared');
+      
+      final keysToRemove = <String>[];
+      for (String key in prefs.getKeys()) {
+        if (!key.contains('supplement_')) {
+          keysToRemove.add(key);
+        }
+      }
+      
+      // Remove non-supplement keys
+      for (String key in keysToRemove) {
+        await prefs.remove(key);
+      }
+      
+      _log('Local data cleared (preserved supplement preferences)');
     } catch (e) {
       _log('Failed to clear data: $e');
       rethrow;

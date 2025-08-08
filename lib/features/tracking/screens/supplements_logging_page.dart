@@ -56,18 +56,91 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
   Future<void> _checkFirstTimeSetup() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final hasSetup = prefs.getBool(_supplementPreferenceKey) ?? false;
       
-      if (!hasSetup) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showFirstTimeSetupDialog();
+      // Check multiple indicators
+      final hasSetupFlag = prefs.getBool(_supplementPreferenceKey) ?? false;
+      final isDisabled = prefs.getBool('${_supplementPreferenceKey}_disabled') ?? false;
+      final supplementsJson = prefs.getString(_supplementPreferenceKey + '_list');
+      final hasSupplementsList = supplementsJson != null && supplementsJson.isNotEmpty;
+      
+      print('🔍 DEBUG: Setup flag: $hasSetupFlag');
+      print('🔍 DEBUG: Is disabled: $isDisabled');
+      print('🔍 DEBUG: Has supplements list: $hasSupplementsList');
+      
+      // If user previously disabled supplement tracking, don't show setup
+      if (isDisabled) {
+        print('🚫 Supplement tracking is disabled by user choice');
+        setState(() {
+          _hasSetupSupplements = false;
+          _userSupplements = [];
+          _isLoading = false;
         });
-      } else {
+        return;
+      }
+      
+      // Consider setup complete if flag is true OR supplements list exists
+      final isSetupComplete = hasSetupFlag || hasSupplementsList;
+      
+      if (isSetupComplete) {
+        print('🔍 Local setup found, loading existing supplements');
         await _loadUserSupplements();
         await _loadTodaysStatus();
+        return;
       }
+      
+      // ✅ NEW: Check database before showing setup dialog
+      print('🔍 No local setup found, checking database...');
+      try {
+        final dbPreferences = await SupplementRepository.getSupplementPreferences(widget.userProfile.id!);
+        
+        if (dbPreferences.isNotEmpty) {
+          print('✅ Found ${dbPreferences.length} supplements in database, syncing to local storage...');
+          
+          // Convert database format to local format
+          final supplements = dbPreferences.map((pref) {
+            return {
+              'id': pref['id'] ?? _generateId(),
+              'name': pref['supplement_name'],
+              'dosage': pref['dosage'],
+              'frequency': pref['frequency'] ?? 'Daily',
+              'preferred_time': pref['preferred_time'] ?? '9:00 AM',
+              'notes': pref['notes'] ?? '',
+              // Add local UI fields with defaults
+              'color': _getSupplementColor(pref['supplement_name']).value,
+              'icon': _getSupplementIcon(pref['supplement_name']).codePoint,
+              'created_at': pref['created_at'] ?? DateTime.now().toIso8601String(),
+            };
+          }).toList();
+          
+          // Save to local storage
+          await prefs.setString(_supplementPreferenceKey + '_list', jsonEncode(supplements));
+          await prefs.setBool(_supplementPreferenceKey, true);
+          
+          setState(() {
+            _userSupplements = supplements;
+            _hasSetupSupplements = true;
+            _isLoading = false;
+          });
+          
+          // Load today's status
+          await _loadTodaysStatus();
+          
+          print('💾 Successfully synced ${supplements.length} supplements from database');
+          return;
+        }
+      } catch (dbError) {
+        print('⚠️ Database check failed: $dbError');
+        // Continue to show setup dialog
+      }
+      
+      // If we get here, no setup found anywhere - show dialog
+      print('🔍 No setup found anywhere, showing first time setup dialog');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showFirstTimeSetupDialog();
+      });
+      
     } catch (e) {
-      print('Error checking first time setup: $e');
+      print('❌ Error checking first time setup: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -283,6 +356,8 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
 
   Future<void> _setupInitialSupplements(List<String> selectedSupplements) async {
     try {
+      print('🔧 DEBUG: Setting up ${selectedSupplements.length} supplements');
+      
       final prefs = await SharedPreferences.getInstance();
       
       final supplements = selectedSupplements.map((name) {
@@ -290,22 +365,46 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
           'id': _generateId(),
           'name': name,
           'dosage': _getDefaultDosage(name),
+          'frequency': 'Daily',
+          'preferred_time': '9:00 AM',
+          'notes': '',
+          // UI fields
           'color': _getSupplementColor(name).value,
           'icon': _getSupplementIcon(name).codePoint,
-          'notes': '',
           'created_at': DateTime.now().toIso8601String(),
         };
       }).toList();
 
       // Save user's supplement list locally
       await prefs.setString(_supplementPreferenceKey + '_list', jsonEncode(supplements));
+      
+      // CRITICAL: Save the setup flag
       await prefs.setBool(_supplementPreferenceKey, true);
+      
+      print('🔧 DEBUG: Saved setup flag to: $_supplementPreferenceKey');
+      print('🔧 DEBUG: Saved supplements list to: ${_supplementPreferenceKey}_list');
+      
+      // Verify the save worked
+      final verifySetup = prefs.getBool(_supplementPreferenceKey);
+      final verifyList = prefs.getString(_supplementPreferenceKey + '_list');
+      print('🔧 DEBUG: Verification - setup flag: $verifySetup');
+      print('🔧 DEBUG: Verification - list exists: ${verifyList != null}');
 
-      // Save preferences to database
+      // Save preferences to database (background)
       try {
+        final supplementsForBackend = supplements.map((supplement) {
+          return {
+            'name': supplement['name'],
+            'dosage': supplement['dosage'],
+            'frequency': supplement['frequency'],
+            'preferred_time': supplement['preferred_time'],
+            'notes': supplement['notes'],
+          };
+        }).toList();
+
         await SupplementRepository.saveSupplementPreferences(
           widget.userProfile.id!,
-          supplements,
+          supplementsForBackend,
         );
         print('✅ Saved supplement preferences to database');
       } catch (e) {
@@ -333,19 +432,84 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${supplements.length} supplements added and saved to database!'),
+            content: Text('${supplements.length} supplements added and saved!'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      print('Error setting up supplements: $e');
+      print('❌ Error setting up supplements: $e');
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _loadUserSupplements() async {
+  // Helper method for background database save
+  Future<void> _saveSupplementsToDatabase(List<Map<String, dynamic>> supplements) async {
     try {
+      final supplementsForBackend = supplements.map((supplement) {
+        return {
+          'name': supplement['name'],
+          'dosage': supplement['dosage'],
+          'frequency': supplement['frequency'],
+          'preferred_time': supplement['preferred_time'],
+          'notes': supplement['notes'],
+        };
+      }).toList();
+
+      await SupplementRepository.saveSupplementPreferences(
+        widget.userProfile.id!,
+        supplementsForBackend,
+      );
+    } catch (e) {
+      print('❌ Database save failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _loadUserSupplements() async {
+  try {
+    print('📋 Loading user supplements for user ID: ${widget.userProfile.id}');
+    
+    // First, try to load from database
+    final dbPreferences = await SupplementRepository.getSupplementPreferences(widget.userProfile.id!);
+    print('📋 Received ${dbPreferences.length} preferences from repository');
+      
+      if (dbPreferences.isNotEmpty) {
+        print('✅ Loaded ${dbPreferences.length} supplements from database');
+        
+        // Convert database format to local format
+        final supplements = dbPreferences.map((pref) {
+          return {
+            'id': pref['id'] ?? _generateId(),
+            'name': pref['supplement_name'],
+            'dosage': pref['dosage'],
+            'frequency': pref['frequency'] ?? 'Daily',
+            'preferred_time': pref['preferred_time'] ?? '9:00 AM',
+            'notes': pref['notes'] ?? '',
+            // Add local UI fields with defaults
+            'color': _getSupplementColor(pref['supplement_name']).value,
+            'icon': _getSupplementIcon(pref['supplement_name']).codePoint,
+            'created_at': pref['created_at'] ?? DateTime.now().toIso8601String(),
+          };
+        }).toList();
+        
+        // Save to local storage for offline access
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_supplementPreferenceKey + '_list', jsonEncode(supplements));
+        await prefs.setBool(_supplementPreferenceKey, true);
+        
+        setState(() {
+          _userSupplements = supplements;
+          _hasSetupSupplements = true;
+        });
+        
+        print('💾 Synced ${supplements.length} supplements to local storage');
+        return;
+      }
+      
+      print('📱 No database preferences found, checking local storage...');
+      
+      // Fallback to local storage if database is empty
       final prefs = await SharedPreferences.getInstance();
       final supplementsJson = prefs.getString(_supplementPreferenceKey + '_list');
       
@@ -355,9 +519,33 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
           _userSupplements = supplementsList.cast<Map<String, dynamic>>();
           _hasSetupSupplements = true;
         });
+        print('📱 Loaded ${_userSupplements.length} supplements from local storage');
+      } else {
+        print('📝 No supplements found anywhere');
+        setState(() {
+          _hasSetupSupplements = false;
+          _userSupplements = [];
+        });
       }
     } catch (e) {
-      print('Error loading supplements: $e');
+      print('❌ Error in _loadUserSupplements: $e');
+      
+      // Fallback to local storage on error
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final supplementsJson = prefs.getString(_supplementPreferenceKey + '_list');
+        
+        if (supplementsJson != null) {
+          final List<dynamic> supplementsList = jsonDecode(supplementsJson);
+          setState(() {
+            _userSupplements = supplementsList.cast<Map<String, dynamic>>();
+            _hasSetupSupplements = true;
+          });
+          print('📱 Fallback: Loaded ${_userSupplements.length} supplements from local storage');
+        }
+      } catch (localError) {
+        print('❌ Failed to load from local storage too: $localError');
+      }
     }
   }
 
@@ -425,6 +613,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       case 'zinc': return '15 mg';
       case 'protein powder': return '30g';
       case 'creatine': return '5g';
+      case 'probiotics': return '15b cfu';
       case 'biotin': return '2500 mcg';
       case 'coq10': return '100 mg';
       case 'turmeric': return '500 mg';
@@ -477,14 +666,21 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       );
     }
 
-    if (!_hasSetupSupplements) {
+    // Check if supplements are disabled
+    if (!_hasSetupSupplements && _userSupplements.isEmpty) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Supplements'),
           backgroundColor: Colors.teal,
           foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: _showReEnableSupplementDialog,
+            ),
+          ],
         ),
-        body: const Center(child: CircularProgressIndicator()),
+        body: _buildDisabledState(),
       );
     }
 
@@ -520,20 +716,20 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         children: [
           Expanded(
             child: _userSupplements.isEmpty
-          ? _buildEmptyState()
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTodaysSummary(takenCount, totalCount),
-                  const SizedBox(height: 20),
-                  _buildSupplementsList(),
-                  const SizedBox(height: 20),
-                  _buildQuickActions(),
-                ],
-              ),
-            ),
+                ? _buildEmptyState()
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTodaysSummary(takenCount, totalCount),
+                        const SizedBox(height: 20),
+                        _buildSupplementsList(),
+                        const SizedBox(height: 20),
+                        _buildQuickActions(),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -545,46 +741,156 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     );
   }
 
-  Widget _buildDatabaseStatus() {
-    return FutureBuilder<String>(
-      future: DatabaseService.getConnectionStatus(),
-      builder: (context, snapshot) {
-        final status = snapshot.data ?? 'Checking...';
-        final isConnected = status == 'Connected';
-        
-        return Container(
-          margin: const EdgeInsets.all(8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isConnected ? Colors.green.shade100 : Colors.orange.shade100,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isConnected ? Colors.green : Colors.orange,
-              width: 1,
+  Widget _buildDisabledState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.block, size: 80, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            'Supplement Tracking Disabled',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600,
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 8),
+          Text(
+            'You chose not to track supplements',
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _showReEnableSupplementDialog,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Enable Supplement Tracking'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showReEnableSupplementDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
             children: [
-              Icon(
-                isConnected ? Icons.cloud_done : Icons.cloud_off,
-                size: 16,
-                color: isConnected ? Colors.green : Colors.orange,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'DB: $status',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isConnected ? Colors.green.shade700 : Colors.orange.shade700,
-                ),
+              Icon(Icons.medication, color: Colors.teal, size: 28),
+              const SizedBox(width: 12),
+              const Text(
+                'Enable Supplement Tracking?',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
+          content: const Text(
+            'Would you like to start tracking your daily supplements?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Not Now',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _reEnableSupplementTracking();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Enable Tracking'),
+            ),
+          ],
         );
       },
     );
   }
+
+  Future<void> _reEnableSupplementTracking() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Clear the disabled flag
+      await prefs.remove('${_supplementPreferenceKey}_disabled');
+      
+      // Reset setup flag to allow fresh setup
+      await prefs.setBool(_supplementPreferenceKey, false);
+      
+      // Clear any old supplement data
+      await prefs.remove(_supplementPreferenceKey + '_list');
+      
+      print('🔧 Re-enabled supplement tracking');
+      
+      // Show the setup wizard
+      _showFirstTimeSetupDialog();
+      
+    } catch (e) {
+      print('❌ Error re-enabling supplement tracking: $e');
+    }
+  }
+
+
+  // Widget _buildDatabaseStatus() {
+  //   return FutureBuilder<String>(
+  //     future: DatabaseService.getConnectionStatus(),
+  //     builder: (context, snapshot) {
+  //       final status = snapshot.data ?? 'Checking...';
+  //       final isConnected = status == 'Connected';
+        
+  //       return Container(
+  //         margin: const EdgeInsets.all(8),
+  //         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  //         decoration: BoxDecoration(
+  //           color: isConnected ? Colors.green.shade100 : Colors.orange.shade100,
+  //           borderRadius: BorderRadius.circular(12),
+  //           border: Border.all(
+  //             color: isConnected ? Colors.green : Colors.orange,
+  //             width: 1,
+  //           ),
+  //         ),
+  //         child: Row(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             Icon(
+  //               isConnected ? Icons.cloud_done : Icons.cloud_off,
+  //               size: 16,
+  //               color: isConnected ? Colors.green : Colors.orange,
+  //             ),
+  //             const SizedBox(width: 4),
+  //             Text(
+  //               'DB: $status',
+  //               style: TextStyle(
+  //                 fontSize: 12,
+  //                 color: isConnected ? Colors.green.shade700 : Colors.orange.shade700,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
 
   Widget _buildEmptyState() {
     return Center(
@@ -920,7 +1226,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       if (supplement.isNotEmpty) {
         // Use SupplementRepository which handles API vs Direct DB automatically
         await SupplementRepository.logSupplementIntake(
-          userId: widget.userProfile.id!,
+          userId: widget.userProfile.id,
           date: _todaysDate,
           supplementName: supplementName,
           taken: taken,
@@ -1030,9 +1336,11 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       'id': _generateId(),
       'name': name,
       'dosage': dosage,
+      'frequency': 'Daily',
+      'preferred_time': '9:00 AM',
+      'notes': notes,
       'color': Colors.teal.value,
       'icon': Icons.medication.codePoint,
-      'notes': notes,
       'created_at': DateTime.now().toIso8601String(),
     };
 
@@ -1041,18 +1349,36 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       _todaysTaken[name] = false;
     });
 
-    // Save updated supplement list
+    // Save updated supplement list locally
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_supplementPreferenceKey + '_list', jsonEncode(_userSupplements));
     await _saveTodaysStatus();
 
+    // Save to database
+    try {
+      final supplementForBackend = {
+        'name': newSupplement['name'],
+        'dosage': newSupplement['dosage'],
+        'frequency': newSupplement['frequency'],
+        'preferred_time': newSupplement['preferred_time'],
+        'notes': newSupplement['notes'],
+      };
+
+      await SupplementRepository.saveSupplementPreferences(
+        widget.userProfile.id!,
+        [supplementForBackend], 
+      );
+    } catch (e) {
+      print('❌ Failed to save new supplement to database: $e');
+    }
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-         content: Text('Supplement added successfully!'),
-         backgroundColor: Colors.green,
-       ),
-     );
-   }
- }
+          content: Text('Supplement added successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
 }

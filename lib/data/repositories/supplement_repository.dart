@@ -12,6 +12,22 @@ class SupplementRepository {
            _random.nextInt(9999).toString().padLeft(4, '0');
   }
 
+  static Future<List<Map<String, dynamic>>> getSupplementPreferences(String userId) async {
+    try {
+      if (kIsWeb) {
+        final response = await _apiService.getSupplementPreferences(userId);
+        print('📋 Retrieved ${response.length} supplement preferences via API');
+        return response;
+      } else {
+        print('⚠️ Mobile database support not implemented yet');
+        return [];
+      }
+    } catch (e) {
+      print('❌ Error getting supplement preferences: $e');
+      return [];
+    }
+  }
+
   // Save supplement preferences
   static Future<void> saveSupplementPreferences(
     String userId, 

@@ -522,6 +522,36 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getSupplementPreferences(String userId) async {
+    try {
+      print('[ApiService] Getting supplement preferences for user: $userId');
+      print('[ApiService] URL: $baseUrl/supplements/preferences/$userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/supplements/preferences/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Get preferences response status: ${response.statusCode}');
+      print('[ApiService] Get preferences response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['success'] == true && data['preferences'] != null) {
+          print('[ApiService] Successfully parsed ${data['preferences'].length} preferences');
+          return List<Map<String, dynamic>>.from(data['preferences']);
+        }
+        return [];
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get supplement preferences');
+      }
+    } catch (e) {
+      print('[ApiService] Error getting supplement preferences: $e');
+      return []; // Return empty list on error instead of throwing
+    }
+  }
 
   // Log daily supplement intake
   Future<Map<String, dynamic>> logSupplementIntake(Map<String, dynamic> logData) async {
