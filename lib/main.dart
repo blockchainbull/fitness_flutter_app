@@ -7,7 +7,7 @@ import 'package:user_onboarding/data/services/database_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize database service
   try {
     print('🚀 Initializing database service...');

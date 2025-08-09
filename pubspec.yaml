@@ -12,8 +12,8 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   http: ^0.13.5 
-  intl: ^0.18.0  # Keep this version as is
-  shared_preferences: ^2.0.15
+  intl: ^0.18.1
+  shared_preferences: ^2.2.2
   # PostgreSQL dependencies
   postgres: ^2.6.1
   dotenv: ^4.1.0

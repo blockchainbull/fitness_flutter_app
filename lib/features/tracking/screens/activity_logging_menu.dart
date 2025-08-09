@@ -46,7 +46,7 @@ class ActivityLoggingMenu extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
+                      crossAxisCount: 3,
                       childAspectRatio: 1.1,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
@@ -188,19 +188,19 @@ class ActivityLoggingMenu extends StatelessWidget {
           MaterialPageRoute(builder: (context) => page),
         ),
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                color.withOpacity(0.1),
-                color.withOpacity(0.05),
-              ],
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withOpacity(0.1),
+                  color.withOpacity(0.05),
+                ],
+              ),
             ),
-          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

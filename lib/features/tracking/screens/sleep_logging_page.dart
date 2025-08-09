@@ -1,12 +1,155 @@
 // lib/features/tracking/screens/sleep_logging_page.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/features/home/widgets/sleep_quality_tracker.dart';
+import 'package:user_onboarding/data/models/sleep_entry.dart';
+import 'package:user_onboarding/data/repositories/sleep_repository.dart';
+import 'package:user_onboarding/features/tracking/screens/sleep_history_page.dart';
+import 'package:user_onboarding/data/services/database_service.dart';
 
-class SleepLoggingPage extends StatelessWidget {
+class SleepLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
 
   const SleepLoggingPage({Key? key, required this.userProfile}) : super(key: key);
+
+  @override
+  _SleepLoggingPageState createState() => _SleepLoggingPageState();
+}
+
+class _SleepLoggingPageState extends State<SleepLoggingPage> {
+  final SleepRepository _sleepRepository = SleepRepository();
+  final TextEditingController _notesController = TextEditingController();
+  
+  DateTime _selectedDate = DateTime.now();
+  TimeOfDay? _bedtime;
+  TimeOfDay? _wakeTime;
+  double _qualityScore = 0.7;
+  bool _isLoading = false;
+  List<String> _sleepIssues = [];
+  
+  SleepEntry? _existingEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeFromUserProfile();
+    _loadExistingEntry();
+  }
+
+  void _initializeFromUserProfile() {
+    // Set defaults from user's onboarding data
+    _bedtime = _parseTimeString(widget.userProfile.bedtime);
+    _wakeTime = _parseTimeString(widget.userProfile.wakeupTime);
+    _sleepIssues = List.from(widget.userProfile.sleepIssues);
+    
+    print('🛏️ Initialized with user defaults:');
+    print('  Bedtime: ${widget.userProfile.bedtime} -> $_bedtime');
+    print('  Wake time: ${widget.userProfile.wakeupTime} -> $_wakeTime');
+    print('  Sleep hours: ${widget.userProfile.sleepHours}');
+    print('  Sleep issues: ${widget.userProfile.sleepIssues}');
+  }
+
+  TimeOfDay? _parseTimeString(String? timeString) {
+    if (timeString == null || timeString.isEmpty) return null;
+    
+    try {
+      // Handle various time formats from onboarding
+      String cleanTime = timeString.trim();
+      
+      // Remove seconds if present
+      if (cleanTime.split(':').length == 3) {
+        cleanTime = cleanTime.substring(0, cleanTime.lastIndexOf(':'));
+      }
+      
+      // Handle AM/PM format
+      if (cleanTime.contains('AM') || cleanTime.contains('PM')) {
+        final parts = cleanTime.split(' ');
+        final timePart = parts[0];
+        final period = parts[1].toUpperCase();
+        
+        final timeParts = timePart.split(':');
+        int hour = int.parse(timeParts[0]);
+        final minute = int.parse(timeParts[1]);
+        
+        if (period == 'PM' && hour != 12) {
+          hour += 12;
+        } else if (period == 'AM' && hour == 12) {
+          hour = 0;
+        }
+        
+        return TimeOfDay(hour: hour, minute: minute);
+      } else {
+        // Handle 24-hour format
+        final parts = cleanTime.split(':');
+        final hour = int.parse(parts[0]);
+        final minute = int.parse(parts[1]);
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+    } catch (e) {
+      print('Error parsing time string "$timeString": $e');
+      return null;
+    }
+  }
+
+  Future<void> _loadExistingEntry() async {
+    setState(() => _isLoading = true);
+    try {
+      final entry = await _sleepRepository.getSleepEntryByDate(
+        widget.userProfile.id,
+        _selectedDate
+      );
+      if (entry != null) {
+        setState(() {
+          _existingEntry = entry;
+          _bedtime = _parseTimeOfDay(entry.bedtime);
+          _wakeTime = _parseTimeOfDay(entry.wakeTime);
+          _qualityScore = entry.qualityScore;
+          _sleepIssues = List.from(entry.sleepIssues);
+          _notesController.text = entry.notes ?? '';
+        });
+      } else {
+        // No existing entry, keep defaults from user profile
+        _initializeFromUserProfile();
+      }
+    } catch (e) {
+      print('Error loading existing entry: $e');
+      // Don't show error to user for missing entries, just use defaults
+    }
+    setState(() => _isLoading = false);
+  }
+
+  TimeOfDay? _parseTimeOfDay(DateTime? dateTime) {
+    if (dateTime == null) return null;
+    return TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
+  }
+
+  double _calculateTotalHours() {
+    if (_bedtime == null || _wakeTime == null) return widget.userProfile.sleepHours;
+    
+    DateTime bedDateTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _bedtime!.hour,
+      _bedtime!.minute,
+    );
+    
+    DateTime wakeDateTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day + (_wakeTime!.hour < _bedtime!.hour ? 1 : 0),
+      _wakeTime!.hour,
+      _wakeTime!.minute,
+    );
+    
+    return wakeDateTime.difference(bedDateTime).inMinutes / 60.0;
+  }
+
+  // Estimate deep sleep based on research (typically 13-23% of total sleep)
+  double _estimateDeepSleep() {
+    final totalHours = _calculateTotalHours();
+    return totalHours * 0.18; // Use 18% as a conservative estimate
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,46 +160,185 @@ class SleepLoggingPage extends StatelessWidget {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.bedtime),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Sleep timer coming soon!')),
-              );
-            },
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SleepHistoryPage(userProfile: widget.userProfile),
+              ),
+            ),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDateSelector(),
+                const SizedBox(height: 20),
+                _buildDefaultsInfo(),
+                _buildDatabaseStatus(),
+                const SizedBox(height: 20),
+                _buildTimeInputs(),
+                const SizedBox(height: 20),
+                _buildQualitySlider(),
+                const SizedBox(height: 20),
+                _buildSleepIssuesSection(),
+                const SizedBox(height: 20),
+                _buildNotesSection(),
+                const SizedBox(height: 20),
+                _buildSleepSummary(),
+                const SizedBox(height: 30),
+                _buildSaveButton(),
+              ],
+            ),
+          ),
+    );
+  }
+
+  Widget _buildDefaultsInfo() {
+    return Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
           children: [
-            const Text(
-              'Sleep Quality',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+            Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Using your profile defaults. Feel free to adjust for today.',
+                style: TextStyle(
+                  color: Colors.blue.shade700,
+                  fontSize: 14,
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            
-            // Use existing SleepQualityTracker widget
-            const SleepQualityTracker(
-              sleepHours: 7.5,
-              sleepQuality: 0.85,
-              deepSleepPercentage: 0.22,
-              remSleepPercentage: 0.18,
-            ),
-            
-            const SizedBox(height: 30),
-            _buildSleepInsights(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSleepInsights() {
+  Widget _buildSaveButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _saveSleepEntry,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.purple,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        child: Text(
+          _existingEntry != null ? 'Update Sleep Entry' : 'Save Sleep Entry',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateSelector() {
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.calendar_today, color: Colors.purple),
+        title: const Text('Sleep Date'),
+        subtitle: Text(DateFormat('EEEE, MMM dd, yyyy').format(_selectedDate)),
+        onTap: () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: _selectedDate,
+            firstDate: DateTime.now().subtract(const Duration(days: 365)),
+            lastDate: DateTime.now(),
+          );
+          if (picked != null) {
+            setState(() {
+              _selectedDate = picked;
+              _existingEntry = null;
+            });
+            _loadExistingEntry();
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildTimeInputs() {
+    return Column(
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Sleep Times',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    if (_existingEntry == null)
+                      Text(
+                        'From your profile',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Bedtime', style: TextStyle(fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: _selectBedtime,
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple.shade100),
+                            child: Text(
+                              _bedtime?.format(context) ?? 'Select',
+                              style: const TextStyle(color: Colors.purple),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Wake Time', style: TextStyle(fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: _selectWakeTime,
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple.shade100),
+                            child: Text(
+                              _wakeTime?.format(context) ?? 'Select',
+                              style: const TextStyle(color: Colors.purple),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQualitySlider() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -64,23 +346,173 @@ class SleepLoggingPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Sleep Insights',
+              'How did you sleep?',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _getQualityLabel(_qualityScore),
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                color: _getQualityColor(_qualityScore),
+                fontWeight: FontWeight.w500,
+                fontSize: 16,
               ),
             ),
-            const SizedBox(height: 12),
-            _buildInsightRow('Bedtime consistency', '85%', Colors.green),
-            _buildInsightRow('Sleep efficiency', '92%', Colors.blue),
-            _buildInsightRow('Weekly average', '7.3h', Colors.purple),
+            const SizedBox(height: 8),
+            Slider(
+              value: _qualityScore,
+              min: 0.0,
+              max: 1.0,
+              divisions: 10,
+              activeColor: Colors.purple,
+              onChanged: (value) {
+                setState(() {
+                  _qualityScore = value;
+                });
+              },
+            ),
+            Text(
+              'Rate your sleep quality from very poor to excellent',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInsightRow(String label, String value, Color color) {
+  Widget _buildSleepIssuesSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Sleep Issues (if any)',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            if (_sleepIssues.isNotEmpty)
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: _sleepIssues.map((issue) => Chip(
+                  label: Text(issue),
+                  backgroundColor: Colors.orange.shade100,
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  onDeleted: () {
+                    setState(() {
+                      _sleepIssues.remove(issue);
+                    });
+                  },
+                )).toList(),
+              )
+            else
+              Text(
+                'No sleep issues reported',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _addSleepIssue,
+              icon: const Icon(Icons.add),
+              label: const Text('Add sleep issue'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotesSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Notes (optional)',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _notesController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Any additional notes about your sleep...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSleepSummary() {
+    final totalHours = _calculateTotalHours();
+    final estimatedDeepSleep = _estimateDeepSleep();
+    
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Sleep Summary',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _buildSummaryRow('Total Sleep', '${totalHours.toStringAsFixed(1)} hours'),
+            _buildSummaryRow('Quality', _getQualityLabel(_qualityScore)),
+            _buildSummaryRow('Est. Deep Sleep*', '${estimatedDeepSleep.toStringAsFixed(1)} hours'),
+            if (_sleepIssues.isNotEmpty)
+              _buildSummaryRow('Issues', '${_sleepIssues.length} reported'),
+            const SizedBox(height: 8),
+            Text(
+              '*Deep sleep is estimated based on total sleep duration',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatabaseStatus() {
+    return Card(
+      color: DatabaseService.isAvailable ? Colors.green.shade50 : Colors.orange.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: [
+            Icon(
+              DatabaseService.isAvailable ? Icons.cloud_done : Icons.cloud_off,
+              color: DatabaseService.isAvailable ? Colors.green : Colors.orange,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              DatabaseService.isAvailable ? 'Synced to cloud' : 'Offline mode',
+              style: TextStyle(
+                fontSize: 12,
+                color: DatabaseService.isAvailable ? Colors.green.shade700 : Colors.orange.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -89,13 +521,180 @@ class SleepLoggingPage extends StatelessWidget {
           Text(label),
           Text(
             value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _selectBedtime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _bedtime ?? const TimeOfDay(hour: 22, minute: 0),
+    );
+    if (picked != null) {
+      setState(() {
+        _bedtime = picked;
+      });
+    }
+  }
+
+  Future<void> _selectWakeTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _wakeTime ?? const TimeOfDay(hour: 7, minute: 0),
+    );
+    if (picked != null) {
+      setState(() {
+        _wakeTime = picked;
+      });
+    }
+  }
+
+  void _addSleepIssue() {
+    final commonIssues = [
+      'Trouble falling asleep',
+      'Woke up frequently',
+      'Woke up too early',
+      'Restless sleep',
+      'Nightmares',
+      'Sleep talking',
+      'Snoring',
+      'Too hot/cold',
+      'Noise disturbance',
+      'Light disturbance',
+      'Stress/anxiety',
+      'Physical discomfort',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Sleep Issue'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Common issues:'),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: commonIssues.length,
+                    itemBuilder: (context, index) {
+                      final issue = commonIssues[index];
+                      return ListTile(
+                        title: Text(issue),
+                        onTap: () {
+                          if (!_sleepIssues.contains(issue)) {
+                            setState(() {
+                              _sleepIssues.add(issue);
+                            });
+                          }
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _saveSleepEntry() async {
+    if (_bedtime == null || _wakeTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select both bedtime and wake time')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final bedDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _bedtime!.hour,
+        _bedtime!.minute,
+      );
+      
+      final wakeDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day + (_wakeTime!.hour < _bedtime!.hour ? 1 : 0),
+        _wakeTime!.hour,
+        _wakeTime!.minute,
+      );
+
+      final sleepEntry = SleepEntry(
+        id: _existingEntry?.id,
+        userId: widget.userProfile.id,
+        date: _selectedDate,
+        bedtime: bedDateTime,
+        wakeTime: wakeDateTime,
+        totalHours: _calculateTotalHours(),
+        qualityScore: _qualityScore,
+        deepSleepHours: _estimateDeepSleep(), // Use estimated deep sleep
+        sleepIssues: _sleepIssues,
+        notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+        createdAt: _existingEntry?.createdAt ?? DateTime.now(),
+      );
+
+      if (_existingEntry != null) {
+        await _sleepRepository.updateSleepEntry(sleepEntry);
+      } else {
+        await _sleepRepository.createSleepEntry(sleepEntry);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sleep entry ${_existingEntry != null ? 'updated' : 'saved'} successfully!')),
+      );
+
+      _loadExistingEntry(); // Reload to get updated data
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving sleep entry: $e')),
+      );
+    }
+
+    setState(() => _isLoading = false);
+  }
+
+  String _getQualityLabel(double score) {
+    if (score >= 0.9) return 'Excellent';
+    if (score >= 0.7) return 'Good';
+    if (score >= 0.5) return 'Fair';
+    if (score >= 0.3) return 'Poor';
+    return 'Very Poor';
+  }
+
+  Color _getQualityColor(double score) {
+    if (score >= 0.9) return Colors.green;
+    if (score >= 0.7) return Colors.lightGreen;
+    if (score >= 0.5) return Colors.orange;
+    if (score >= 0.3) return Colors.deepOrange;
+    return Colors.red;
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 }

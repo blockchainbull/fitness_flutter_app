@@ -35,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final userId = await _dataManager.loginUser(
+      final userId = await _dataManager.login(
         _emailController.text.trim(),
         _passwordController.text,
       );

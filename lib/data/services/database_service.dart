@@ -19,9 +19,9 @@ class DatabaseService {
     if (_isInitialized) return;
 
     try {
-      // Skip for web platform
       if (kIsWeb) {
         debugPrint('PostgreSQL connection not available for web');
+        _isInitialized = false;
         return;
       }
       
@@ -34,7 +34,7 @@ class DatabaseService {
       final username = env['DB_USERNAME'] ?? 'postgres';
       final password = env['DB_PASSWORD'] ?? 'postgres';
 
-      // Create connection
+      
       _connection = PostgreSQLConnection(
         host,
         port,
@@ -47,14 +47,14 @@ class DatabaseService {
       // Open connection
       await _connection!.open();
       
-      // Create tables if they don't exist
       await _createTables();
       
       _isInitialized = true;
       debugPrint('PostgreSQL connection initialized successfully');
     } catch (e) {
       debugPrint('Failed to initialize PostgreSQL connection: $e');
-      rethrow;
+      _isInitialized = false; 
+      _connection = null; 
     }
   }
 
@@ -171,42 +171,60 @@ class DatabaseService {
 
   // Execute a query and return the results
   static Future<List<Map<String, dynamic>>> query(String query, [Map<String, dynamic>? parameters]) async {
-    if (_connection == null) {
+    // Check if connection is available and initialized
+    if (!_isInitialized || _connection == null) {
       throw Exception('Database connection not initialized');
     }
 
-    final results = await _connection!.mappedResultsQuery(
-      query,
-      substitutionValues: parameters,
-    );
+    try {
+      final results = await _connection!.mappedResultsQuery(
+        query,
+        substitutionValues: parameters,
+      );
 
-    if (results.isEmpty) {
-      return [];
+      if (results.isEmpty) {
+        return [];
+      }
+
+      // Convert PostgreSQL results to a simpler Map structure
+      List<Map<String, dynamic>> mappedResults = [];
+      for (var row in results) {
+        var flattenedRow = <String, dynamic>{};
+        row.forEach((tableName, tableRow) {
+          flattenedRow.addAll(tableRow);
+        });
+        mappedResults.add(flattenedRow);
+      }
+
+      return mappedResults;
+    } catch (e) {
+      debugPrint('Database query error: $e');
+      // Mark connection as failed for future operations
+      _isInitialized = false;
+      _connection = null;
+      throw Exception('Database connection not initialized');
     }
-
-    // Convert PostgreSQL results to a simpler Map structure
-    List<Map<String, dynamic>> mappedResults = [];
-    for (var row in results) {
-      var flattenedRow = <String, dynamic>{};
-      row.forEach((tableName, tableRow) {
-        flattenedRow.addAll(tableRow);
-      });
-      mappedResults.add(flattenedRow);
-    }
-
-    return mappedResults;
   }
 
   // Execute a query without returning results
-  static Future<int> execute(String query, [Map<String, dynamic>? parameters]) async {
-    if (_connection == null) {
+ static Future<int> execute(String query, [Map<String, dynamic>? parameters]) async {
+    // Check if connection is available and initialized
+    if (!_isInitialized || _connection == null) {
       throw Exception('Database connection not initialized');
     }
 
-    return await _connection!.execute(
-      query,
-      substitutionValues: parameters,
-    );
+    try {
+      return await _connection!.execute(
+        query,
+        substitutionValues: parameters,
+      );
+    } catch (e) {
+      debugPrint('Database execute error: $e');
+      // Mark connection as failed for future operations
+      _isInitialized = false;
+      _connection = null;
+      throw Exception('Database connection not initialized');
+    }
   }
 
   // Check database connection
@@ -227,6 +245,15 @@ class DatabaseService {
     }
   }
 
+  static bool get isAvailable => _isInitialized && _connection != null;
+  
+  // Add a method to attempt reconnection
+  static Future<void> reconnect() async {
+    _isInitialized = false;
+    _connection = null;
+    await initialize();
+  }
+
   static Future<String> getConnectionStatus() async {
     if (!_isInitialized) {
       return 'Not initialized';
@@ -243,6 +270,114 @@ class DatabaseService {
       return 'Connected';
     } catch (e) {
       return 'Connection failed: $e';
+    }
+  }
+
+  // water logging functions
+  static Future<List<Map<String, dynamic>>> queryWater(String sql, [List<dynamic>? arguments]) async {
+    if (_connection == null) {
+      throw Exception('Database connection not initialized');
+    }
+
+    try {
+      // Handle parameter substitution for PostgreSQL
+      Map<String, dynamic> substitutionValues = {};
+      String modifiedSql = sql;
+      
+      if (arguments != null) {
+        for (int i = 0; i < arguments.length; i++) {
+          substitutionValues['param$i'] = arguments[i];
+          modifiedSql = modifiedSql.replaceAll('\$${i + 1}', '@param$i');
+        }
+      }
+
+      final results = await _connection!.query(modifiedSql, substitutionValues: substitutionValues);
+      
+      // Convert PostgreSQLResultRow to Map<String, dynamic>
+      return results.map((row) {
+        final Map<String, dynamic> map = {};
+        for (int i = 0; i < row.length; i++) {
+          map[row.columnDescriptions[i].columnName] = row[i];
+        }
+        return map;
+      }).toList();
+    } catch (e) {
+      debugPrint('Water tracking query error: $e');
+      rethrow;
+    }
+  }
+
+  // New method specifically for water tracking execute operations
+  static Future<void> executeWater(String sql, [List<dynamic>? arguments]) async {
+    if (_connection == null) {
+      throw Exception('Database connection not initialized');
+    }
+
+    try {
+      // Handle parameter substitution for PostgreSQL
+      Map<String, dynamic> substitutionValues = {};
+      String modifiedSql = sql;
+      
+      if (arguments != null) {
+        for (int i = 0; i < arguments.length; i++) {
+          substitutionValues['param$i'] = arguments[i];
+          modifiedSql = modifiedSql.replaceAll('\$${i + 1}', '@param$i');
+        }
+      }
+
+      await _connection!.execute(modifiedSql, substitutionValues: substitutionValues);
+    } catch (e) {
+      debugPrint('Water tracking execute error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> createWaterTrackingTable() async {
+    try {
+      await executeWater(r'''
+        CREATE TABLE IF NOT EXISTS daily_water (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL,
+          date TIMESTAMP WITH TIME ZONE NOT NULL,
+          glasses_consumed INTEGER DEFAULT 0,
+          total_ml DECIMAL DEFAULT 0.0,
+          target_ml DECIMAL DEFAULT 2000.0,
+          notes TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_daily_water_user_date 
+        ON daily_water(user_id, date);
+        
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_water_user_date_unique 
+        ON daily_water(user_id, (date::date));
+      ''');
+      debugPrint('✅ Water tracking table created successfully');
+    } catch (e) {
+      debugPrint('❌ Error creating water tracking table: $e');
+      // Try without unique constraint
+      try {
+        await executeWater(r'''
+          CREATE TABLE IF NOT EXISTS daily_water (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL,
+            date TIMESTAMP WITH TIME ZONE NOT NULL,
+            glasses_consumed INTEGER DEFAULT 0,
+            total_ml DECIMAL DEFAULT 0.0,
+            target_ml DECIMAL DEFAULT 2000.0,
+            notes TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
+          
+          CREATE INDEX IF NOT EXISTS idx_daily_water_user_date 
+          ON daily_water(user_id, date);
+        ''');
+        debugPrint('✅ Water tracking table created without unique constraint');
+      } catch (e2) {
+        debugPrint('❌ Failed to create water tracking table: $e2');
+      }
     }
   }
 

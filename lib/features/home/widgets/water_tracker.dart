@@ -1,302 +1,219 @@
 // lib/features/home/widgets/water_tracker.dart
-
 import 'package:flutter/material.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/data/models/water_entry.dart';
+import 'package:user_onboarding/data/repositories/water_repository.dart';
 
 class WaterTracker extends StatefulWidget {
   final UserProfile userProfile;
-  final VoidCallback? onWaterUpdated;
-  
-  const WaterTracker({
-    Key? key,
-    required this.userProfile,
-    this.onWaterUpdated,
-  }) : super(key: key);
-  
+
+  const WaterTracker({Key? key, required this.userProfile}) : super(key: key);
+
   @override
   State<WaterTracker> createState() => _WaterTrackerState();
 }
 
-class _WaterTrackerState extends State<WaterTracker> with SingleTickerProviderStateMixin {
-  late int _waterGoal;
-  late int _waterConsumed;
-  bool _isUpdating = false;
-  
-  // Animation controller for the adding glass effect
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  
+class _WaterTrackerState extends State<WaterTracker> {
+  WaterEntry? _todayEntry;
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  static const double mlPerGlass = 250.0;
+  static const double defaultTarget = 2000.0;
+
   @override
   void initState() {
     super.initState();
-    // Get water intake goal and consumed values from user profile or use defaults
-    _waterGoal = 10; // Default goal of 10 glasses
-    _waterConsumed = 0; // Start with 0 consumed
-    
-    // Setup animation
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-    
-    // Load data from user profile
-    _loadWaterData();
+    _loadTodayEntry();
   }
-  
-  void _loadWaterData() {
-    // If a water intake record for today exists, load it
-    // For now, we'll just use the waterConsumed field from UserProfile
-    // In a real app, you might want to store daily water records
-    setState(() {
-      _waterConsumed = widget.userProfile.waterIntake.toInt();
-    });
-  }
-  
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-  
-  Future<void> _addWaterGlass() async {
-    if (_isUpdating || _waterConsumed >= _waterGoal) return;
+
+  Future<void> _loadTodayEntry() async {
+    if (widget.userProfile.id == null) return;
     
-    setState(() {
-      _isUpdating = true;
-    });
-    
-    // Play animation
-    _animationController.forward().then((_) {
-      _animationController.reverse();
-    });
+    setState(() => _isLoading = true);
     
     try {
-      // Update local state
+      final entry = await WaterRepository.getTodayWaterEntry(widget.userProfile.id!);
       setState(() {
-        _waterConsumed += 1;
+        _todayEntry = entry ?? WaterEntry(
+          userId: widget.userProfile.id!,
+          date: DateTime.now(),
+          glassesConsumed: 0,
+          totalMl: 0.0,
+          targetMl: defaultTarget,
+        );
+        _isLoading = false;
       });
-      
-      // Update user profile
-      final updatedProfile = widget.userProfile.copyWith(
-        waterIntake: _waterConsumed.toDouble(),
-      );
-      
-      // Save to database
-      final dataManager = DataManager();
-      await dataManager.updateUserProfile(updatedProfile);
-      
-      // Notify parent if needed
-      if (widget.onWaterUpdated != null) {
-        widget.onWaterUpdated!();
-      }
     } catch (e) {
-      // Show error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update water intake: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      
-      // Rollback if failed
+      print('Error loading today\'s water entry: $e');
       setState(() {
-        _waterConsumed -= 1;
-      });
-    } finally {
-      setState(() {
-        _isUpdating = false;
+        _todayEntry = WaterEntry(
+          userId: widget.userProfile.id!,
+          date: DateTime.now(),
+          glassesConsumed: 0,
+          totalMl: 0.0,
+          targetMl: defaultTarget,
+        );
+        _isLoading = false;
       });
     }
   }
-  
+
+  Future<void> _saveWaterEntry() async {
+    if (_todayEntry == null || _isSaving) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      await WaterRepository.saveWaterEntry(_todayEntry!);
+    } catch (e) {
+      print('Error saving water entry: $e');
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  void _addGlass() {
+    if (_todayEntry == null) return;
+    
+    setState(() {
+      _todayEntry = _todayEntry!.copyWith(
+        glassesConsumed: _todayEntry!.glassesConsumed + 1,
+        totalMl: (_todayEntry!.glassesConsumed + 1) * mlPerGlass,
+        updatedAt: DateTime.now(),
+      );
+    });
+    
+    _saveWaterEntry();
+  }
+
+  void _removeGlass() {
+    if (_todayEntry == null || _todayEntry!.glassesConsumed <= 0) return;
+    
+    setState(() {
+      _todayEntry = _todayEntry!.copyWith(
+        glassesConsumed: _todayEntry!.glassesConsumed - 1,
+        totalMl: (_todayEntry!.glassesConsumed - 1) * mlPerGlass,
+        updatedAt: DateTime.now(),
+      );
+    });
+    
+    _saveWaterEntry();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final progress = (_waterConsumed / _waterGoal).clamp(0.0, 1.0);
+    if (_isLoading) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_todayEntry == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('Unable to load water data'),
+        ),
+      );
+    }
+
+    final progress = _todayEntry!.totalMl / _todayEntry!.targetMl;
     
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.water_drop,
-                color: Colors.blue,
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Water Intake',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.water_drop, color: Colors.blue),
+                const SizedBox(width: 8),
+                const Text(
+                  'Water Intake',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                '${(progress * 100).toInt()}%',
-                style: TextStyle(
-                  color: Colors.blue.shade700,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '$_waterConsumed/$_waterGoal glasses',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          // Progress bar
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                children: [
-                  // Background track
-                  Container(
-                    height: 10,
-                    width: constraints.maxWidth,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(5),
+            const SizedBox(height: 16),
+            
+            // Progress bar
+            LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              backgroundColor: Colors.blue.shade100,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress >= 1.0 ? Colors.green : Colors.blue,
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Stats
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_todayEntry!.glassesConsumed} glasses',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  '${_todayEntry!.totalMl.toInt()}ml / ${_todayEntry!.targetMl.toInt()}ml',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Controls
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _todayEntry!.glassesConsumed > 0 ? _removeGlass : null,
+                    icon: const Icon(Icons.remove),
+                    label: const Text('Remove'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade100,
+                      foregroundColor: Colors.red.shade700,
                     ),
                   ),
-                  // Foreground progress
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    height: 10,
-                    width: constraints.maxWidth * progress,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.blue.shade300, Colors.blue.shade700],
-                      ),
-                      borderRadius: BorderRadius.circular(5),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _addGlass,
+                    icon: _isSaving 
+                        ? const SizedBox(
+                            width: 16, 
+                            height: 16, 
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add),
+                    label: Text(_isSaving ? 'Saving...' : 'Add Glass'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade100,
+                      foregroundColor: Colors.blue.shade700,
                     ),
                   ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-          
-          // Water drop icons
-          Center(
-            child: Wrap(
-              spacing: 8,
-              children: List.generate(_waterGoal, (index) {
-                bool isFilled = index < _waterConsumed;
-                return AnimatedBuilder(
-                  animation: _animationController,
-                  builder: (context, child) {
-                    // Apply scale animation only to the latest filled drop
-                    final shouldAnimate = index == _waterConsumed - 1 && _isUpdating;
-                    final scale = shouldAnimate ? _scaleAnimation.value : 1.0;
-                    
-                    return Transform.scale(
-                      scale: scale,
-                      child: Icon(
-                        Icons.water_drop,
-                        color: isFilled 
-                            ? Colors.blue 
-                            : Colors.blue.withOpacity(0.2),
-                        size: 24,
-                      ),
-                    );
-                  },
-                );
-              }),
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          // Add glass button
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: _waterConsumed < _waterGoal ? _addWaterGlass : null,
-              icon: const Icon(Icons.add, size: 16),
-              label: Text(_waterConsumed < _waterGoal ? 'Add Glass' : 'Goal Completed!'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
                 ),
-                disabledBackgroundColor: Colors.grey.shade300,
-              ),
+              ],
             ),
-          ),
-          
-          // Reset button (optional - you might want to add this)
-          if (_waterConsumed > 0)
-            Center(
-              child: TextButton(
-                onPressed: () async {
-                  // Show confirmation dialog
-                  final shouldReset = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Reset Water Intake'),
-                      content: const Text('Are you sure you want to reset your water intake for today?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Reset'),
-                        ),
-                      ],
-                    ),
-                  );
-                  
-                  if (shouldReset == true) {
-                    setState(() {
-                      _waterConsumed = 0;
-                    });
-                    
-                    // Update user profile
-                    final updatedProfile = widget.userProfile.copyWith(
-                      waterIntake: 0.0,
-                    );
-                    
-                    // Save to database
-                    final dataManager = DataManager();
-                    await dataManager.updateUserProfile(updatedProfile);
-                    
-                    // Notify parent if needed
-                    if (widget.onWaterUpdated != null) {
-                      widget.onWaterUpdated!();
-                    }
-                  }
-                },
-                child: const Text('Reset'),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

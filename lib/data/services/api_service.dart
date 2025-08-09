@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
+import 'package:user_onboarding/data/models/water_entry.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -94,33 +95,48 @@ class ApiService {
     try {
       print('[ApiService] Attempting login for: $email');
       
+      final uri = Uri.parse('$baseUrl/auth/login');
+      print('[ApiService] Login URL: $uri');
+      
+      final body = jsonEncode({
+        'email': email,
+        'password': password,
+      });
+      print('[ApiService] Login request body: $body');
+      
+      // Add timeout to prevent hanging
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/auth/login'), 
+        uri,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        body: body,
+      ).timeout(
+        const Duration(seconds: 10), // 10 second timeout
+        onTimeout: () {
+          print('[ApiService] ❌ Login request timed out after 10 seconds');
+          throw Exception('Login request timed out');
+        },
       );
 
       print('[ApiService] Login response status: ${response.statusCode}');
+      print('[ApiService] Login response headers: ${response.headers}');
       print('[ApiService] Login response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
           'success': data['success'] ?? true,
-          'userId': data['user']?['id'] ?? data['userId'], 
           'user': data['user'],
+          'message': data['message'] ?? 'Login successful',
         };
       } else {
         final errorData = jsonDecode(response.body);
+        print('[ApiService] ❌ Login failed: ${errorData}');
         throw Exception(errorData['detail'] ?? 'Login failed');
       }
     } catch (e) {
-      print('[ApiService] Login error: $e');
+      print('[ApiService] ❌ Login error: $e');
       rethrow;
     }
   }
@@ -641,6 +657,96 @@ class ApiService {
     } catch (e) {
       print('[ApiService] Error getting supplement status: $e');
       return {}; // Return empty map on error instead of throwing
+    }
+  }
+
+  // Water logging/entry 
+  Future<String> saveWaterEntry(WaterEntry waterEntry) async {
+    try {
+      print('[ApiService] Saving water entry: ${waterEntry.glassesConsumed} glasses');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/water'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(waterEntry.toMap()),
+      );
+
+      print('[ApiService] Water entry response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final entryId = data['id'] ?? waterEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+        print('[ApiService] Water entry saved with ID: $entryId');
+        return entryId;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to save water entry');
+      }
+    } catch (e) {
+      print('[ApiService] Water entry error: $e');
+      rethrow;
+    }
+  }
+
+  // Get water history
+  Future<List<WaterEntry>> getWaterHistory(String userId, {int limit = 30}) async {
+    try {
+      print('[ApiService] Getting water history for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/water/$userId?limit=$limit'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Water history response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['entries'] != null && data['entries'] is List) {
+          return (data['entries'] as List)
+              .map((item) => WaterEntry.fromMap(item))
+              .toList();
+        }
+        return [];
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get water history');
+      }
+    } catch (e) {
+      print('[ApiService] Water history error: $e');
+      return [];
+    }
+  }
+
+  // Get today's water entry
+  Future<WaterEntry?> getTodayWaterEntry(String userId) async {
+    try {
+      print('[ApiService] Getting today\'s water for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/water/$userId/today'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Today\'s water response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['entry'] != null) {
+          return WaterEntry.fromMap(data['entry']);
+        }
+        return null;
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get today\'s water entry');
+      }
+    } catch (e) {
+      print('[ApiService] Today\'s water error: $e');
+      return null;
     }
   }
 

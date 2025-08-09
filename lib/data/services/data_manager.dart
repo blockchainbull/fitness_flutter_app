@@ -636,7 +636,7 @@ class DataManager {
     }
   }
 
-  // FIXED: Synchronize local data with remote
+  // Synchronize local data with remote
   Future<void> synchronizeData() async {
     try {
       _log('Starting data synchronization');
@@ -744,7 +744,7 @@ class DataManager {
       }
       
       
-      final keysToRemove = <String>[];
+    final keysToRemove = <String>[];
       for (String key in prefs.getKeys()) {
         if (!key.contains('supplement_')) {
           keysToRemove.add(key);
@@ -764,45 +764,55 @@ class DataManager {
   }
 
   // Login user method
-  Future<String?> loginUser(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       _log('Starting login for: $email');
       
-      final prefs = await SharedPreferences.getInstance();
+      // Check connectivity first
       final isConnected = await _connectivityService.isConnected();
-      
       if (!isConnected) {
-        _log('No internet connection for login');
         throw Exception('No internet connection');
       }
       
-      // Call login API
-      final response = await _apiService.loginUser(email, password);
+      // Attempt login with timeout
+      final result = await _apiService.loginUser(email, password).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          _log('Login timed out after 15 seconds');
+          throw Exception('Login request timed out. Please check your connection.');
+        },
+      );
       
-      if (response['success'] == true) {
-        final userId = response['userId'];
+      if (result['success'] == true && result['user'] != null) {
+        final userData = result['user'];
         
-        // Save login info locally
-        await prefs.setString(userIdKey, userId);
-        await prefs.setBool(onboardingCompletedKey, true);
+        // Save user data locally
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(userIdKey, userData['id']);
+        await prefs.setString('user_email', email);
+        await prefs.setBool('is_logged_in', true);
         
-        // Try to get and save user profile
-        try {
-          final userProfile = await _apiService.getUserProfileById(userId);
-          await prefs.setString(userProfileKey, jsonEncode(userProfile.toMap()));
-          _log('User profile saved after login');
-        } catch (e) {
-          _log('Could not save user profile after login: $e');
-        }
-        
-        _log('Login successful for: $email');
-        return userId;
+        _log('Login successful for user: ${userData['id']}');
+        return {
+          'success': true,
+          'user': userData,
+          'message': 'Login successful',
+        };
+      } else {
+        throw Exception(result['message'] ?? 'Login failed');
       }
-      
-      return null;
     } catch (e) {
       _log('Login failed: $e');
-      rethrow;
+      
+      // Clear any cached login state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', false);
+      
+      return {
+        'success': false,
+        'error': e.toString(),
+        'message': 'Login failed: $e',
+      };
     }
   }
 
