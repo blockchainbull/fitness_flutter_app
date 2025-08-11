@@ -14,6 +14,10 @@ class ApiService {
     ? 'http://localhost:8000/api/health'  // For local development
     : 'https://your-production-api.com/api/health';  // For production
 
+//  static final String baseUrl = kDebugMode 
+//    ? 'http://10.0.2.2:8000/api/health'  // Android emulator
+//    : 'https://your-production-api.com/api/health';
+
   factory ApiService() {
     return _instance;
   }
@@ -747,6 +751,138 @@ class ApiService {
     } catch (e) {
       print('[ApiService] Today\'s water error: $e');
       return null;
+    }
+  }
+
+  // Sleep logging endpoint
+
+  // Create sleep entry
+  Future<Map<String, dynamic>> createSleepEntry(Map<String, dynamic> sleepData) async {
+    try {
+      print('[ApiService] Creating sleep entry for date: ${sleepData['date']}');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/sleep/entries'),  // This becomes /api/health/sleep/entries
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(sleepData),
+      );
+
+      print('[ApiService] Sleep entry response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('[ApiService] Sleep entry saved successfully');
+        return data;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to create sleep entry');
+      }
+    } catch (e) {
+      print('[ApiService] Sleep entry error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getSleepEntryByDate(String userId, String date) async {
+    try {
+      print('[ApiService] Getting sleep entry for user: $userId, date: $date');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/sleep/entries/$userId/$date'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        throw Exception('Failed to get sleep entry');
+      }
+    } catch (e) {
+      print('[ApiService] Get sleep entry error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSleepEntry(String entryId, Map<String, dynamic> updateData) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/sleep/entries/$entryId'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(updateData),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to update sleep entry');
+      }
+    } catch (e) {
+      print('[ApiService] Update sleep entry error: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSleepHistory(String userId, {int limit = 30}) async {
+    try {
+      print('[ApiService] Getting sleep history for user: $userId');
+      
+      // Make sure to use the correct URL
+      final url = '$baseUrl/sleep/entries/$userId?limit=$limit';
+      print('[ApiService] Request URL: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Sleep history response status: ${response.statusCode}');
+      print('[ApiService] Sleep history response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        // The backend returns an array directly
+        final dynamic decodedBody = jsonDecode(response.body);
+        print('[ApiService] Decoded body type: ${decodedBody.runtimeType}');
+        
+        if (decodedBody is List) {
+          final List<Map<String, dynamic>> result = [];
+          for (var item in decodedBody) {
+            result.add(Map<String, dynamic>.from(item));
+          }
+          print('[ApiService] Returning ${result.length} entries');
+          return result;
+        } else {
+          print('[ApiService] ERROR: Response is not a List, it is: ${decodedBody.runtimeType}');
+          return [];
+        }
+      } else {
+        print('[ApiService] Failed to get sleep history. Status: ${response.statusCode}');
+        print('[ApiService] Error body: ${response.body}');
+        return [];
+      }
+    } catch (e, stackTrace) {
+      print('[ApiService] Sleep history error: $e');
+      print('[ApiService] Stack trace: $stackTrace');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getSleepStats(String userId, {int days = 30}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/sleep/stats/$userId?days=$days'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {};
+      }
+    } catch (e) {
+      print('[ApiService] Sleep stats error: $e');
+      return {};
     }
   }
 

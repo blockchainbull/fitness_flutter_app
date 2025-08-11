@@ -12,6 +12,11 @@ class SleepEntry {
   final String? notes;
   final DateTime createdAt;
 
+  @override
+  String toString() {
+    return 'SleepEntry(id: $id, userId: $userId, date: $date, totalHours: $totalHours)';
+  }
+
   SleepEntry({
     this.id,
     required this.userId,
@@ -43,20 +48,42 @@ class SleepEntry {
   }
 
   factory SleepEntry.fromMap(Map<String, dynamic> map) {
+    // Get userId and ensure it's not null
+    final String? userIdValue = map['user_id']?.toString() ?? map['userId']?.toString();
+    if (userIdValue == null || userIdValue.isEmpty) {
+      throw ArgumentError('userId is required but was not found in map: $map');
+    }
+
     return SleepEntry(
-      id: map['id'],
-      userId: map['user_id'],
-      date: DateTime.parse(map['date']),
-      bedtime: map['bedtime'] != null ? DateTime.parse(map['bedtime']) : null,
-      wakeTime: map['wake_time'] != null ? DateTime.parse(map['wake_time']) : null,
-      totalHours: (map['total_hours'] ?? 0.0).toDouble(),
-      qualityScore: (map['quality_score'] ?? 0.0).toDouble(),
-      deepSleepHours: (map['deep_sleep_hours'] ?? 0.0).toDouble(),
-      sleepIssues: map['sleep_issues'] != null 
-          ? (map['sleep_issues'] as String).split(',').where((s) => s.isNotEmpty).toList()
-          : [],
-      notes: map['notes'],
-      createdAt: DateTime.parse(map['created_at']),
+      id: map['id']?.toString(),
+      userId: userIdValue,
+      date: map['date'] != null 
+        ? (map['date'] is String 
+            ? DateTime.parse(map['date']) 
+            : map['date'] as DateTime)
+        : DateTime.now(),
+      bedtime: map['bedtime'] != null 
+        ? (map['bedtime'] is String 
+            ? DateTime.parse(map['bedtime']) 
+            : map['bedtime'] as DateTime)
+        : null,
+      wakeTime: map['wake_time'] != null 
+        ? (map['wake_time'] is String 
+            ? DateTime.parse(map['wake_time']) 
+            : map['wake_time'] as DateTime)
+        : null,
+      totalHours: (map['total_hours'] ?? 0).toDouble(),
+      qualityScore: (map['quality_score'] ?? 0).toDouble(),
+      deepSleepHours: (map['deep_sleep_hours'] ?? 0).toDouble(),
+      sleepIssues: map['sleep_issues'] != null
+        ? List<String>.from(map['sleep_issues'])
+        : [],
+      notes: map['notes']?.toString(),
+      createdAt: map['created_at'] != null 
+        ? (map['created_at'] is String 
+            ? DateTime.parse(map['created_at']) 
+            : map['created_at'] as DateTime)
+        : DateTime.now(),
     );
   }
 

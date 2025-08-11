@@ -72,6 +72,12 @@ class _SleepHistoryPageState extends State<SleepHistoryPage> {
   Widget _buildStatsSection() {
     if (_stats.isEmpty) return const SizedBox.shrink();
 
+    // Handle both snake_case (from API) and camelCase field names
+    final avgSleep = _stats['avg_sleep'] ?? _stats['avgSleep'] ?? 0.0;
+    final avgQuality = _stats['avg_quality'] ?? _stats['avgQuality'] ?? 0.0;
+    final avgDeepSleep = _stats['avg_deep_sleep'] ?? _stats['avgDeepSleep'] ?? 0.0;
+    final entriesCount = _stats['entries_count'] ?? _stats['entriesCount'] ?? 0;
+
     return Container(
       margin: const EdgeInsets.all(16),
       child: Card(
@@ -90,14 +96,14 @@ class _SleepHistoryPageState extends State<SleepHistoryPage> {
                   Expanded(
                     child: _buildStatItem(
                       'Avg Sleep',
-                      '${_stats['avgSleep'].toStringAsFixed(1)}h',
+                      '${avgSleep.toStringAsFixed(1)}h',
                       Colors.blue,
                     ),
                   ),
                   Expanded(
                     child: _buildStatItem(
                       'Avg Quality',
-                      '${(_stats['avgQuality'] * 100).toStringAsFixed(0)}%',
+                      '${(avgQuality * 100).toStringAsFixed(0)}%',
                       Colors.green,
                     ),
                   ),
@@ -109,14 +115,14 @@ class _SleepHistoryPageState extends State<SleepHistoryPage> {
                   Expanded(
                     child: _buildStatItem(
                       'Avg Deep Sleep',
-                      '${_stats['avgDeepSleep'].toStringAsFixed(1)}h',
+                      '${avgDeepSleep.toStringAsFixed(1)}h',
                       Colors.purple,
                     ),
                   ),
                   Expanded(
                     child: _buildStatItem(
                       'Entries',
-                      '${_stats['entriesCount']}',
+                      '$entriesCount',
                       Colors.orange,
                     ),
                   ),

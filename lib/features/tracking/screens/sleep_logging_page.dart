@@ -28,6 +28,7 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
   List<String> _sleepIssues = [];
   
   SleepEntry? _existingEntry;
+  bool _hasEntryForToday = false;
 
   @override
   void initState() {
@@ -47,6 +48,45 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
     print('  Wake time: ${widget.userProfile.wakeupTime} -> $_wakeTime');
     print('  Sleep hours: ${widget.userProfile.sleepHours}');
     print('  Sleep issues: ${widget.userProfile.sleepIssues}');
+  }
+
+  Future<void> _loadExistingEntry() async {
+    setState(() => _isLoading = true);
+    try {
+      final entry = await _sleepRepository.getSleepEntryByDate(
+        widget.userProfile.id,
+        _selectedDate
+      );
+      if (entry != null) {
+        setState(() {
+          _existingEntry = entry;
+          _hasEntryForToday = true;
+          _bedtime = _parseTimeOfDay(entry.bedtime);
+          _wakeTime = _parseTimeOfDay(entry.wakeTime);
+          _qualityScore = entry.qualityScore;
+          _sleepIssues = List.from(entry.sleepIssues);
+          _notesController.text = entry.notes ?? '';
+        });
+
+        print('✅ Loaded existing entry for ${_selectedDate.toIso8601String().split('T')[0]}');
+      } else {
+        print('📝 No existing entry for ${_selectedDate.toIso8601String().split('T')[0]}');
+        setState(() {
+          _hasEntryForToday = false;
+          _existingEntry = null;
+          // Use profile defaults only when there's no existing entry
+          _initializeFromUserProfile();
+        });
+      }
+    } catch (e) {
+      print('Error loading existing entry: $e');
+      // Continue with defaults if loading fails
+      setState(() {
+        _hasEntryForToday = false;
+        _existingEntry = null;
+      });
+    }
+    setState(() => _isLoading = false);
   }
 
   TimeOfDay? _parseTimeString(String? timeString) {
@@ -91,33 +131,6 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
     }
   }
 
-  Future<void> _loadExistingEntry() async {
-    setState(() => _isLoading = true);
-    try {
-      final entry = await _sleepRepository.getSleepEntryByDate(
-        widget.userProfile.id,
-        _selectedDate
-      );
-      if (entry != null) {
-        setState(() {
-          _existingEntry = entry;
-          _bedtime = _parseTimeOfDay(entry.bedtime);
-          _wakeTime = _parseTimeOfDay(entry.wakeTime);
-          _qualityScore = entry.qualityScore;
-          _sleepIssues = List.from(entry.sleepIssues);
-          _notesController.text = entry.notes ?? '';
-        });
-      } else {
-        // No existing entry, keep defaults from user profile
-        _initializeFromUserProfile();
-      }
-    } catch (e) {
-      print('Error loading existing entry: $e');
-      // Don't show error to user for missing entries, just use defaults
-    }
-    setState(() => _isLoading = false);
-  }
-
   TimeOfDay? _parseTimeOfDay(DateTime? dateTime) {
     if (dateTime == null) return null;
     return TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
@@ -152,7 +165,7 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sleep Tracking'),
@@ -172,30 +185,158 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        : _hasEntryForToday && _isToday(_selectedDate)
+          ? _buildAlreadyLoggedView()
+          : _buildLoggingForm(),
+    );
+  }
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && 
+           date.month == now.month && 
+           date.day == now.day;
+  }
+
+  Widget _buildAlreadyLoggedView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.check_circle,
+              size: 80,
+              color: Colors.green,
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              "Today's Sleep Logged!",
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You logged ${_calculateTotalHours().toStringAsFixed(1)} hours of sleep',
+              style: const TextStyle(fontSize: 16),
+            ),
+            Text(
+              'Quality: ${(_qualityScore * 100).toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontSize: 16,
+                color: _getQualityColor(_qualityScore),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Check back tomorrow to log your next sleep entry',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildDateSelector(),
-                const SizedBox(height: 20),
-                _buildDefaultsInfo(),
-                _buildDatabaseStatus(),
-                const SizedBox(height: 20),
-                _buildTimeInputs(),
-                const SizedBox(height: 20),
-                _buildQualitySlider(),
-                const SizedBox(height: 20),
-                _buildSleepIssuesSection(),
-                const SizedBox(height: 20),
-                _buildNotesSection(),
-                const SizedBox(height: 20),
-                _buildSleepSummary(),
-                const SizedBox(height: 30),
-                _buildSaveButton(),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SleepHistoryPage(userProfile: widget.userProfile),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.history),
+                  label: const Text('View History'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _hasEntryForToday = false;
+                    });
+                  },
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Edit Entry'),
+                ),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                  _loadExistingEntry();
+                });
+              },
+              child: const Text('Log Previous Day'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoggingForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDateSelector(),
+          const SizedBox(height: 20),
+          if (_existingEntry != null)
+            _buildEditingNotice(),
+          _buildDefaultsInfo(),
+          _buildDatabaseStatus(),
+          const SizedBox(height: 20),
+          _buildTimeInputs(),
+          const SizedBox(height: 20),
+          _buildQualitySlider(),
+          const SizedBox(height: 20),
+          _buildSleepIssuesSection(),
+          const SizedBox(height: 20),
+          _buildNotesSection(),
+          const SizedBox(height: 20),
+          _buildSleepSummary(),
+          const SizedBox(height: 30),
+          _buildSaveButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditingNotice() {
+    return Card(
+      color: Colors.orange.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Icon(Icons.edit, color: Colors.orange.shade700, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Editing existing entry for ${DateFormat('MMM dd').format(_selectedDate)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

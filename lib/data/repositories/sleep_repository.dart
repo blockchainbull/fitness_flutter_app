@@ -1,152 +1,97 @@
-// lib/data/repositories/sleep_repository.dart
 import 'package:user_onboarding/data/models/sleep_entry.dart';
-import 'package:user_onboarding/data/services/database_service.dart';
+import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 class SleepRepository {
   final _uuid = const Uuid();
+  final ApiService _apiService = ApiService();
   static const String _sleepEntriesKey = 'sleep_entries';
 
-  // Helper method to ensure database is ready
-  Future<bool> _ensureDatabaseConnection() async {
-    if (!DatabaseService.isAvailable) {
-      print('🔄 Database not available, attempting to reconnect...');
-      try {
-        await DatabaseService.initialize();
-        if (DatabaseService.isAvailable) {
-          print('✅ Database reconnected successfully');
-          return true;
-        }
-      } catch (e) {
-        print('❌ Database reconnection failed: $e');
-      }
-      return false;
-    }
-    return true;
-  }
-
-  // Create sleep entry with better error handling
+  // Create sleep entry using API
   Future<SleepEntry> createSleepEntry(SleepEntry entry) async {
     final id = _uuid.v4();
     final entryWithId = entry.copyWith(id: id);
     
-    // Try to ensure database connection first
-    final hasDatabase = await _ensureDatabaseConnection();
-    
-    if (hasDatabase) {
-      try {
-        await DatabaseService.execute('''
-          INSERT INTO daily_sleep (
-            id, user_id, date, bedtime, wake_time, 
-            total_hours, quality_score, deep_sleep_hours, 
-            sleep_issues, notes, created_at
-          ) VALUES (
-            @id, @userId, @date, @bedtime, @wakeTime,
-            @totalHours, @qualityScore, @deepSleepHours,
-            @sleepIssues, @notes, @createdAt
-          )
-        ''', {
-          'id': id,
-          'userId': entry.userId,
-          'date': entry.date.toIso8601String(),
-          'bedtime': entry.bedtime?.toIso8601String(),
-          'wakeTime': entry.wakeTime?.toIso8601String(),
-          'totalHours': entry.totalHours,
-          'qualityScore': entry.qualityScore,
-          'deepSleepHours': entry.deepSleepHours,
-          'sleepIssues': entry.sleepIssues.join(','),
-          'notes': entry.notes,
-          'createdAt': entry.createdAt.toIso8601String(),
-        });
-        
-        print('✅ Sleep entry saved to database');
-        // Also save to local storage as backup
-        await _saveToLocalStorage(entryWithId);
-        return entryWithId;
-      } catch (e) {
-        print('⚠️ Database save failed, using local storage: $e');
-      }
-    } else {
-      print('📱 Database unavailable, using local storage only');
-    }
-    
-    // Fallback to local storage
+    // Always save to local storage first
     await _saveToLocalStorage(entryWithId);
     print('✅ Sleep entry saved to local storage');
+    
+    // Try to sync with backend
+    try {
+      final response = await _apiService.createSleepEntry({
+        'user_id': entry.userId,
+        'date': "${entry.date.year}-${entry.date.month.toString().padLeft(2, '0')}-${entry.date.day.toString().padLeft(2, '0')}",
+        'bedtime': entry.bedtime?.toIso8601String(),
+        'wake_time': entry.wakeTime?.toIso8601String(),
+        'total_hours': entry.totalHours,
+        'quality_score': entry.qualityScore,
+        'deep_sleep_hours': entry.deepSleepHours,
+      });
+      
+      print('✅ Sleep entry synced to backend');
+      
+      // Update local entry with server ID if different
+      if (response['id'] != null && response['id'] != id) {
+        final serverEntry = entryWithId.copyWith(id: response['id']);
+        await _saveToLocalStorage(serverEntry);
+        return serverEntry;
+      }
+    } catch (e) {
+      // Check if it's a duplicate entry error
+      if (e.toString().contains('already exists')) {
+        print('⚠️ Entry already exists, updating instead');
+        // Try to update instead
+        return await updateSleepEntry(entryWithId);
+      } else {
+        print('📱 Backend unavailable, will sync later: $e');
+      }
+    }
+    
     return entryWithId;
   }
 
-  // Update sleep entry with better error handling
+  // Update sleep entry using API
   Future<SleepEntry> updateSleepEntry(SleepEntry entry) async {
-    final hasDatabase = await _ensureDatabaseConnection();
-    
-    if (hasDatabase) {
-      try {
-        final rowsAffected = await DatabaseService.execute('''
-          UPDATE daily_sleep SET
-            bedtime = @bedtime,
-            wake_time = @wakeTime,
-            total_hours = @totalHours,
-            quality_score = @qualityScore,
-            deep_sleep_hours = @deepSleepHours,
-            sleep_issues = @sleepIssues,
-            notes = @notes,
-            created_at = @createdAt
-          WHERE id = @id
-        ''', {
-          'id': entry.id,
-          'bedtime': entry.bedtime?.toIso8601String(),
-          'wakeTime': entry.wakeTime?.toIso8601String(),
-          'totalHours': entry.totalHours,
-          'qualityScore': entry.qualityScore,
-          'deepSleepHours': entry.deepSleepHours,
-          'sleepIssues': entry.sleepIssues.join(','),
-          'notes': entry.notes,
-          'createdAt': entry.createdAt.toIso8601String(),
-        });
-        
-        if (rowsAffected > 0) {
-          print('✅ Sleep entry updated in database');
-          await _updateInLocalStorage(entry);
-          return entry;
-        }
-      } catch (e) {
-        print('⚠️ Database update failed, using local storage: $e');
-      }
-    }
-    
-    // Fallback to local storage
+    // Update local storage first
     await _updateInLocalStorage(entry);
     print('✅ Sleep entry updated in local storage');
+    
+    // Try to sync with backend
+    try {
+      if (entry.id != null) {
+        await _apiService.updateSleepEntry(entry.id!, {
+          'bedtime': entry.bedtime?.toIso8601String(),
+          'wake_time': entry.wakeTime?.toIso8601String(),
+          'total_hours': entry.totalHours,
+          'quality_score': entry.qualityScore,
+          'deep_sleep_hours': entry.deepSleepHours,
+        });
+        print('✅ Sleep entry synced to backend');
+      }
+    } catch (e) {
+      print('📱 Backend update failed, using local storage: $e');
+    }
+    
     return entry;
   }
 
-  // Get sleep entry by date with better error handling
+  // Get sleep entry by date using API
   Future<SleepEntry?> getSleepEntryByDate(String userId, DateTime date) async {
-    final hasDatabase = await _ensureDatabaseConnection();
-    
-    if (hasDatabase) {
-      try {
-        final results = await DatabaseService.query('''
-          SELECT * FROM daily_sleep 
-          WHERE user_id = @userId 
-          AND DATE(date) = DATE(@date)
-          ORDER BY created_at DESC
-          LIMIT 1
-        ''', {
-          'userId': userId,
-          'date': date.toIso8601String(),
-        });
-
-        if (results.isNotEmpty) {
-          print('✅ Sleep entry found in database');
-          return SleepEntry.fromMap(results.first);
-        }
-      } catch (e) {
-        print('⚠️ Database query failed: $e');
+    try {
+      final dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      
+      print('[SleepRepository] Getting sleep entry for date: $dateStr');
+      
+      final response = await _apiService.getSleepEntryByDate(userId, dateStr);
+      
+      if (response != null) {
+        print('✅ Sleep entry found in backend');
+        return SleepEntry.fromMap(response);
       }
+    } catch (e) {
+      print('⚠️ Backend query failed: $e');
     }
     
     // Fallback to local storage
@@ -155,185 +100,199 @@ class SleepRepository {
       print('✅ Sleep entry found in local storage');
     }
     return localEntry;
-  }
+}
 
-  // Get sleep history with better error handling
+  // Get sleep history using API
   Future<List<SleepEntry>> getSleepHistory(String userId, {int limit = 30}) async {
-    final hasDatabase = await _ensureDatabaseConnection();
+    print('📊 Getting sleep history for user: $userId');
     
-    if (hasDatabase) {
-      try {
-        final results = await DatabaseService.query('''
-          SELECT * FROM daily_sleep 
-          WHERE user_id = @userId 
-          ORDER BY date DESC
-          LIMIT @limit
-        ''', {
-          'userId': userId,
-          'limit': limit,
-        });
-
-        if (results.isNotEmpty) {
-          print('✅ Sleep history loaded from database (${results.length} entries)');
-          return results.map((row) => SleepEntry.fromMap(row)).toList();
+    // Try backend first
+    try {
+      final response = await _apiService.getSleepHistory(userId, limit: limit);
+      
+      print('[SleepRepository] Raw API response: $response');
+      print('[SleepRepository] Response type: ${response.runtimeType}');
+      print('[SleepRepository] Response length: ${response.length}');
+      
+      if (response.isNotEmpty) {
+        print('[SleepRepository] First entry raw data: ${response.first}');
+        
+        // Parse each entry
+        final entries = <SleepEntry>[];
+        for (var data in response) {
+          try {
+            print('[SleepRepository] Parsing entry: $data');
+            final entry = SleepEntry.fromMap(data);
+            entries.add(entry);
+            print('[SleepRepository] Successfully parsed entry with id: ${entry.id}');
+          } catch (e) {
+            print('[SleepRepository] ❌ Error parsing entry: $e');
+            print('[SleepRepository] Problematic data: $data');
+          }
         }
-      } catch (e) {
-        print('⚠️ Database history query failed: $e');
+        
+        print('✅ Sleep history loaded from backend: ${entries.length} entries');
+        return entries;
+      } else {
+        print('[SleepRepository] API returned empty list');
       }
+    } catch (e) {
+      print('⚠️ Backend history failed with error: $e');
+      print('⚠️ Error type: ${e.runtimeType}');
     }
     
     // Fallback to local storage
-    final localHistory = await _getHistoryFromLocalStorage(userId, limit: limit);
-    print('✅ Sleep history loaded from local storage (${localHistory.length} entries)');
-    return localHistory;
-  }
+    print('📱 Falling back to local storage');
+    final localEntries = await _getFromLocalStorage(userId, limit: limit);
+    print('📱 Local storage returned ${localEntries.length} entries');
+    return localEntries;
+}
 
-  // Get sleep stats with better error handling
+  // Get sleep stats using API
   Future<Map<String, dynamic>> getSleepStats(String userId, {int days = 30}) async {
-    final hasDatabase = await _ensureDatabaseConnection();
-    
-    if (hasDatabase) {
-      try {
-        final results = await DatabaseService.query('''
-          SELECT 
-            AVG(total_hours) as avg_sleep,
-            AVG(quality_score) as avg_quality,
-            AVG(deep_sleep_hours) as avg_deep_sleep,
-            COUNT(*) as entries_count,
-            MIN(date) as first_entry,
-            MAX(date) as last_entry
-          FROM daily_sleep 
-          WHERE user_id = @userId 
-          AND date >= @since
-        ''', {
-          'userId': userId,
-          'since': DateTime.now().subtract(Duration(days: days)).toIso8601String(),
-        });
-
-        if (results.isNotEmpty) {
-          final row = results.first;
-          print('✅ Sleep stats loaded from database');
-          return {
-            'avgSleep': (row['avg_sleep'] ?? 0.0).toDouble(),
-            'avgQuality': (row['avg_quality'] ?? 0.0).toDouble(),
-            'avgDeepSleep': (row['avg_deep_sleep'] ?? 0.0).toDouble(),
-            'entriesCount': row['entries_count'] ?? 0,
-            'firstEntry': row['first_entry'],
-            'lastEntry': row['last_entry'],
-          };
-        }
-      } catch (e) {
-        print('⚠️ Database stats query failed: $e');
+    try {
+      final stats = await _apiService.getSleepStats(userId, days: days);
+      
+      if (stats.isNotEmpty) {
+        print('✅ Sleep stats loaded from backend');
+        return stats;
       }
+    } catch (e) {
+      print('⚠️ Backend stats failed: $e');
     }
     
-    // Fallback to local storage
-    final localStats = await _getStatsFromLocalStorage(userId, days: days);
-    print('✅ Sleep stats loaded from local storage');
-    return localStats;
+    // Calculate from local storage
+    return await _calculateLocalStats(userId, days: days);
   }
 
-  // Rest of the local storage methods remain the same...
+  // Local storage methods remain the same
   Future<void> _saveToLocalStorage(SleepEntry entry) async {
     final prefs = await SharedPreferences.getInstance();
-    final entries = await _getLocalStorageEntries();
+    final entriesJson = prefs.getString(_sleepEntriesKey);
+    List<Map<String, dynamic>> entries = [];
     
-    // Remove existing entry for the same date/user if it exists
+    if (entriesJson != null) {
+      entries = List<Map<String, dynamic>>.from(json.decode(entriesJson));
+    }
+    
+    // Remove existing entry for the same date if any
     entries.removeWhere((e) => 
-      e['user_id'] == entry.userId && 
-      e['date'].toString().substring(0, 10) == entry.date.toIso8601String().substring(0, 10)
+      (e['user_id'] == entry.userId || e['userId'] == entry.userId) &&  // Check both formats
+      DateTime.parse(e['date']).day == entry.date.day &&
+      DateTime.parse(e['date']).month == entry.date.month &&
+      DateTime.parse(e['date']).year == entry.date.year
     );
     
-    entries.add(entry.toMap());
-    await prefs.setString(_sleepEntriesKey, jsonEncode(entries));
+    // Ensure consistent format when saving
+    final entryMap = entry.toMap();
+    // Make sure we save with snake_case to match backend
+    if (entryMap['userId'] != null && entryMap['user_id'] == null) {
+      entryMap['user_id'] = entryMap['userId'];
+      entryMap.remove('userId');
+    }
+    
+    entries.add(entryMap);
+    await prefs.setString(_sleepEntriesKey, json.encode(entries));
   }
 
   Future<void> _updateInLocalStorage(SleepEntry entry) async {
     final prefs = await SharedPreferences.getInstance();
-    final entries = await _getLocalStorageEntries();
-    final index = entries.indexWhere((e) => e['id'] == entry.id);
-    if (index != -1) {
-      entries[index] = entry.toMap();
-    } else {
-      entries.add(entry.toMap());
+    final entriesJson = prefs.getString(_sleepEntriesKey);
+    
+    if (entriesJson != null) {
+      List<Map<String, dynamic>> entries = List<Map<String, dynamic>>.from(json.decode(entriesJson));
+      
+      final index = entries.indexWhere((e) => e['id'] == entry.id);
+      if (index != -1) {
+        entries[index] = entry.toMap();
+        await prefs.setString(_sleepEntriesKey, json.encode(entries));
+      } else {
+        await _saveToLocalStorage(entry);
+      }
     }
-    await prefs.setString(_sleepEntriesKey, jsonEncode(entries));
   }
 
   Future<SleepEntry?> _getFromLocalStorageByDate(String userId, DateTime date) async {
-    final entries = await _getLocalStorageEntries();
-    final dateString = date.toIso8601String().substring(0, 10); // YYYY-MM-DD
+    final prefs = await SharedPreferences.getInstance();
+    final entriesJson = prefs.getString(_sleepEntriesKey);
     
-    for (final entryMap in entries) {
-      if (entryMap['user_id'] == userId) {
-        final entryDateString = entryMap['date'].toString().substring(0, 10);
-        if (entryDateString == dateString) {
-          return SleepEntry.fromMap(entryMap);
-        }
+    if (entriesJson != null) {
+      List<Map<String, dynamic>> entries = List<Map<String, dynamic>>.from(json.decode(entriesJson));
+      
+      final entry = entries.firstWhere(
+        (e) => e['userId'] == userId && 
+               DateTime.parse(e['date']).day == date.day &&
+               DateTime.parse(e['date']).month == date.month &&
+               DateTime.parse(e['date']).year == date.year,
+        orElse: () => {},
+      );
+      
+      if (entry.isNotEmpty) {
+        return SleepEntry.fromMap(entry);
       }
     }
+    
     return null;
   }
 
-  Future<List<SleepEntry>> _getHistoryFromLocalStorage(String userId, {int limit = 30}) async {
-    final entries = await _getLocalStorageEntries();
-    final userEntries = entries
-        .where((e) => e['user_id'] == userId)
-        .map((e) => SleepEntry.fromMap(e))
-        .toList();
+  Future<List<SleepEntry>> _getFromLocalStorage(String userId, {int limit = 30}) async {
+    print('[SleepRepository] Getting from local storage for user: $userId');
     
-    userEntries.sort((a, b) => b.date.compareTo(a.date));
-    return userEntries.take(limit).toList();
+    final prefs = await SharedPreferences.getInstance();
+    final entriesJson = prefs.getString(_sleepEntriesKey);
+    
+    print('[SleepRepository] Local storage raw data: $entriesJson');
+    
+    if (entriesJson != null) {
+      List<Map<String, dynamic>> entries = List<Map<String, dynamic>>.from(json.decode(entriesJson));
+      
+      print('[SleepRepository] Found ${entries.length} total entries in local storage');
+      
+      
+      final userEntries = entries
+          .where((e) => 
+              e['user_id'] == userId ||  // Check snake_case
+              e['userId'] == userId)      // Check camelCase
+          .map((e) => SleepEntry.fromMap(e))
+          .take(limit)
+          .toList();
+      
+      print('[SleepRepository] Filtered to ${userEntries.length} entries for user $userId');
+      
+      return userEntries;
+    }
+    
+    print('[SleepRepository] No local storage data found');
+    return [];
   }
 
-  Future<Map<String, dynamic>> _getStatsFromLocalStorage(String userId, {int days = 30}) async {
-    final entries = await _getLocalStorageEntries();
-    final since = DateTime.now().subtract(Duration(days: days));
+  Future<Map<String, dynamic>> _calculateLocalStats(String userId, {int days = 30}) async {
+    final entries = await _getFromLocalStorage(userId, limit: days);
     
-    final userEntries = entries
-        .where((e) => e['user_id'] == userId)
-        .map((e) => SleepEntry.fromMap(e))
-        .where((e) => e.date.isAfter(since))
-        .toList();
-    
-    if (userEntries.isEmpty) {
+    if (entries.isEmpty) {
       return {
-        'avgSleep': 0.0,
-        'avgQuality': 0.0,
-        'avgDeepSleep': 0.0,
-        'entriesCount': 0,
-        'firstEntry': null,
-        'lastEntry': null,
+        'avg_sleep': 0.0,
+        'avg_quality': 0.0,
+        'avg_deep_sleep': 0.0,
+        'entries_count': 0,
       };
     }
-
-    final avgSleep = userEntries.map((e) => e.totalHours).reduce((a, b) => a + b) / userEntries.length;
-    final avgQuality = userEntries.map((e) => e.qualityScore).reduce((a, b) => a + b) / userEntries.length;
-    final avgDeepSleep = userEntries.map((e) => e.deepSleepHours).reduce((a, b) => a + b) / userEntries.length;
     
-    userEntries.sort((a, b) => a.date.compareTo(b.date));
+    double totalSleep = 0;
+    double totalQuality = 0;
+    double totalDeepSleep = 0;
+    
+    for (final entry in entries) {
+      totalSleep += entry.totalHours;
+      totalQuality += entry.qualityScore;
+      totalDeepSleep += entry.deepSleepHours;
+    }
     
     return {
-      'avgSleep': avgSleep,
-      'avgQuality': avgQuality,
-      'avgDeepSleep': avgDeepSleep,
-      'entriesCount': userEntries.length,
-      'firstEntry': userEntries.first.date.toIso8601String(),
-      'lastEntry': userEntries.last.date.toIso8601String(),
+      'avg_sleep': totalSleep / entries.length,
+      'avg_quality': totalQuality / entries.length,
+      'avg_deep_sleep': totalDeepSleep / entries.length,
+      'entries_count': entries.length,
     };
-  }
-
-  Future<List<Map<String, dynamic>>> _getLocalStorageEntries() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(_sleepEntriesKey);
-    if (jsonString == null) return [];
-    
-    try {
-      final List<dynamic> decoded = jsonDecode(jsonString);
-      return decoded.cast<Map<String, dynamic>>();
-    } catch (e) {
-      print('Error decoding sleep entries: $e');
-      return [];
-    }
   }
 }
