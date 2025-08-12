@@ -886,4 +886,121 @@ class ApiService {
     }
   }
 
+  //Meal logging Funtions
+  // Analyze and log a meal
+  Future<Map<String, dynamic>> analyzeMeal(Map<String, dynamic> mealData) async {
+    try {
+      print('[ApiService] Analyzing meal: ${mealData['food_item']}');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/meals/analyze'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(mealData),
+      );
+
+      print('[ApiService] Meal analysis response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to analyze meal');
+      }
+    } catch (e) {
+      print('[ApiService] Meal analysis error: $e');
+      rethrow;
+    }
+  }
+
+  // Get meal history
+  Future<List<Map<String, dynamic>>> getMealHistory(
+    String userId, {
+    String? date,
+    int limit = 20,
+  }) async {
+    try {
+      String url = '$baseUrl/meals/history/$userId?limit=$limit';
+      if (date != null) {
+        url += '&date=$date';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['meals'] ?? []);
+      } else {
+        throw Exception('Failed to get meal history');
+      }
+    } catch (e) {
+      print('[ApiService] Get meal history error: $e');
+      return [];
+    }
+  }
+
+  // Get daily nutrition summary
+  Future<Map<String, dynamic>> getDailySummary(
+    String userId, {
+    String? date,
+  }) async {
+    try {
+      String url = '$baseUrl/meals/daily-summary/$userId';
+      if (date != null) {
+        url += '?date=$date';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to get daily summary');
+      }
+    } catch (e) {
+      print('[ApiService] Get daily summary error: $e');
+      rethrow;
+    }
+  }
+
+  // Delete a meal
+  Future<bool> deleteMeal(String mealId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/meals/$mealId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('[ApiService] Delete meal error: $e');
+      return false;
+    }
+  }
+
+  // Update a meal
+  Future<Map<String, dynamic>> updateMeal(String mealId, Map<String, dynamic> updateData) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/meals/$mealId'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(updateData),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to update meal');
+      }
+    } catch (e) {
+      print('[ApiService] Update meal error: $e');
+      return {'success': false};
+    }
+  }
+
 }
