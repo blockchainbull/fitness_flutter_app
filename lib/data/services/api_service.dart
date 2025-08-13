@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:user_onboarding/data/models/period_entry.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
@@ -1003,4 +1004,88 @@ class ApiService {
     }
   }
 
+  // Period Logging Functions
+  Future<String> savePeriodEntry(PeriodEntry entry) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/health/period'),  // Fixed URL
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'id': entry.id,
+          'user_id': entry.userId,
+          'start_date': entry.startDate.toIso8601String(),
+          'end_date': entry.endDate?.toIso8601String(),
+          'flow_intensity': entry.flowIntensity,
+          'symptoms': entry.symptoms,
+          'mood': entry.mood,
+          'notes': entry.notes,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        return data['id'] ?? entry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+      } else {
+        throw Exception('Failed to save period entry: ${response.body}');
+      }
+    } catch (e) {
+      print('Error saving period entry to API: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<PeriodEntry>> getPeriodHistory(String userId, {int limit = 12}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/health/period/$userId?limit=$limit'),  // Fixed URL
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => PeriodEntry.fromMap(json)).toList();
+      } else {
+        throw Exception('Failed to fetch period history: ${response.body}');
+      }
+    } catch (e) {
+      print('Error fetching period history from API: $e');
+      return [];
+    }
+  }
+
+  Future<PeriodEntry?> getCurrentPeriod(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/health/period/$userId/current'),  // Fixed URL
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data != null) {
+          return PeriodEntry.fromMap(data);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching current period from API: $e');
+      return null;
+    }
+  }
+
+  Future<void> deletePeriodEntry(String entryId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/health/period/$entryId'),  // Fixed URL
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Failed to delete period entry: ${response.body}');
+      }
+    } catch (e) {
+      print('Error deleting period entry from API: $e');
+      rethrow;
+    }
+  }
 }

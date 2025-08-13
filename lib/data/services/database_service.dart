@@ -381,4 +381,55 @@ class DatabaseService {
     }
   }
 
+  // Period Logging Functions
+  static Future<void> insertPeriod(String query, List<dynamic> values) async {
+    if (!_isInitialized || _connection == null) {
+      throw Exception('Database not initialized');
+    }
+    
+    try {
+      await _connection!.query(query, substitutionValues: {
+        for (int i = 0; i < values.length; i++) 
+          '${i + 1}': values[i]
+      });
+    } catch (e) {
+      print('Error inserting period: $e');
+      rethrow;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> queryPeriods(
+    String query, 
+    List<dynamic> values
+  ) async {
+    if (!_isInitialized || _connection == null) {
+      throw Exception('Database not initialized');
+    }
+    
+    try {
+      final results = await _connection!.query(
+        query,
+        substitutionValues: {
+          for (int i = 0; i < values.length; i++) 
+            '${i + 1}': values[i]
+        },
+      );
+      
+      return results.map((row) {
+        final map = <String, dynamic>{};
+        for (int i = 0; i < row.length; i++) {
+          if (results.columnDescriptions != null && 
+              i < results.columnDescriptions!.length) {
+            map[results.columnDescriptions![i].columnName] = row[i];
+          }
+        }
+        return map;
+      }).toList();
+    } catch (e) {
+      print('Error querying periods: $e');
+      return [];
+    }
+  }
+
+
 }

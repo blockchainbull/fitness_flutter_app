@@ -15,8 +15,9 @@ class UserProfile {
   final String activityLevel;
   
   final bool? hasPeriods;
-  final String? lastPeriodDate;
+   final DateTime? lastPeriodDate;
   final int? cycleLength;
+  final int? periodLength;
   final bool? cycleLengthRegular;
   final String? pregnancyStatus;
   final String? periodTrackingPreference;
@@ -58,6 +59,7 @@ class UserProfile {
     this.hasPeriods,
     this.lastPeriodDate,
     this.cycleLength,
+     this.periodLength,
     this.cycleLengthRegular,
     this.pregnancyStatus,
     this.periodTrackingPreference,
@@ -111,8 +113,9 @@ class UserProfile {
       activityLevel: map['activityLevel'] ?? '',
       
       hasPeriods: map['hasPeriods'],
-      lastPeriodDate: map['lastPeriodDate'],
+      lastPeriodDate: _parseDateTime(map['lastPeriodDate'] ?? map['last_period_date']),
       cycleLength: map['cycleLength'],
+      periodLength: map['periodLength'] ?? map['period_length'] ?? 5,
       cycleLengthRegular: map['cycleLengthRegular'],
       pregnancyStatus: map['pregnancyStatus'],
       periodTrackingPreference: map['periodTrackingPreference'],
@@ -164,6 +167,7 @@ class UserProfile {
       hasPeriods: data['hasPeriods'] ?? data['has_periods'],
       lastPeriodDate: data['lastPeriodDate'] ?? data['last_period_date'],
       cycleLength: data['cycleLength'] ?? data['cycle_length'],
+      periodLength: data['periodLength'] ?? data['periodLength'],
       cycleLengthRegular: data['cycleLengthRegular'] ?? data['cycle_length_regular'],
       pregnancyStatus: data['pregnancyStatus'] ?? data['pregnancy_status'],
       periodTrackingPreference: data['periodTrackingPreference'] ?? data['period_tracking_preference'],
@@ -210,8 +214,9 @@ class UserProfile {
       'activityLevel': activityLevel,
       
       'hasPeriods': hasPeriods,
-      'lastPeriodDate': lastPeriodDate,
+      'lastPeriodDate': lastPeriodDate?.toIso8601String(),
       'cycleLength': cycleLength,
+      'periodLength': periodLength,
       'cycleLengthRegular': cycleLengthRegular,
       'pregnancyStatus': pregnancyStatus,
       'periodTrackingPreference': periodTrackingPreference,
@@ -243,6 +248,21 @@ class UserProfile {
     return map;
   }
 
+  // Helper method to parse DateTime from various formats
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        print('Error parsing date: $value');
+        return null;
+      }
+    }
+    return null;
+  }
+
   Map<String, dynamic> toOnboardingFormat() {
     return {
       'basicInfo': {
@@ -263,8 +283,9 @@ class UserProfile {
       if (gender.toLowerCase() == 'female' && hasPeriods != null)
         'periodCycle': {
           'hasPeriods': hasPeriods,
-          'lastPeriodDate': lastPeriodDate,
+          'lastPeriodDate': lastPeriodDate?.toIso8601String(),
           'cycleLength': cycleLength,
+          'periodLength': periodLength,
           'cycleLengthRegular': cycleLengthRegular,
           'pregnancyStatus': pregnancyStatus,
           'trackingPreference': periodTrackingPreference,
@@ -315,8 +336,9 @@ class UserProfile {
     String? activityLevel,
     
     bool? hasPeriods,
-    String? lastPeriodDate,
+    DateTime? lastPeriodDate,
     int? cycleLength,
+    int? periodLength,
     bool? cycleLengthRegular,
     String? pregnancyStatus,
     String? periodTrackingPreference,
@@ -358,6 +380,7 @@ class UserProfile {
       hasPeriods: hasPeriods ?? this.hasPeriods,
       lastPeriodDate: lastPeriodDate ?? this.lastPeriodDate,
       cycleLength: cycleLength ?? this.cycleLength,
+      periodLength: periodLength ?? this.periodLength,
       cycleLengthRegular: cycleLengthRegular ?? this.cycleLengthRegular,
       pregnancyStatus: pregnancyStatus ?? this.pregnancyStatus,
       periodTrackingPreference: periodTrackingPreference ?? this.periodTrackingPreference,
