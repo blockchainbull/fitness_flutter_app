@@ -357,65 +357,187 @@ class _PeriodLoggingPageState extends State<PeriodLoggingPage> {
   }
 
   Widget _buildCycleOverview(int cycleDay, DateTime ovulationDate) {
-    final ovulationDay = ovulationDate.difference(
-      DateTime.now().subtract(Duration(days: cycleDay - 1))
-    ).inDays;
+    // Calculate key days in the cycle
+    final firstDayOfCycle = DateTime.now().subtract(Duration(days: cycleDay - 1));
+    final ovulationDay = ovulationDate.difference(firstDayOfCycle).inDays + 1;
+    
+    // Add adaptive sizing for different cycle lengths
+    final bool isLongCycle = _cycleLength > 35;
+    final double barWidth = isLongCycle ? 20 : 30;
+  
+    // Add cycle regularity indicator
+    final bool isRegular = _cycleLength >= 26 && _cycleLength <= 32;
+
+    // Fertile window is typically 5 days before ovulation + ovulation day
+    final fertileStartDay = ovulationDay - 5;
+    final fertileEndDay = ovulationDay;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Cycle Overview',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
+        if (!isRegular)
         Container(
-          height: 48,
+          padding: EdgeInsets.all(8),
+          margin: EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Row(
-            children: List.generate(28, (index) {
-              final day = index + 1;
-              final isPeriodDay = day <= _periodLength;
-              final isCurrentDay = day == cycleDay;
-              final isOvulationDay = day == ovulationDay;
-              
-              return Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 1),
-                  decoration: BoxDecoration(
-                    color: isCurrentDay
-                        ? const Color(0xFFE91E63)
-                        : isPeriodDay
-                            ? Colors.pink[200]
-                            : isOvulationDay
-                                ? Colors.blue[200]
-                                : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: isCurrentDay
-                      ? const Center(
-                          child: CircleAvatar(
-                            radius: 4,
-                            backgroundColor: Colors.white,
-                          ),
-                        )
-                      : null,
-                ),
-              );
-            }),
+            children: [
+              Icon(Icons.info_outline, size: 16, color: Colors.orange),
+              SizedBox(width: 8),
+              Text(
+                _cycleLength < 26 
+                  ? 'Short cycle detected - consider consulting a healthcare provider'
+                  : 'Long cycle detected - this may be normal for you',
+                style: TextStyle(fontSize: 12, color: Colors.orange[700]),
+              ),
+            ],
           ),
         ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Cycle Overview',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Day $cycleDay of $_cycleLength',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
+        
+        // Legend
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildLegend('Period', Colors.pink[200]!),
-            const SizedBox(width: 24),
-            _buildLegend('Ovulation', Colors.blue[200]!),
-            const SizedBox(width: 24),
-            _buildLegend('Today', const Color(0xFFE91E63)),
+            _buildLegendItem('Period', const Color(0xFFE91E63)),
+            const SizedBox(width: 16),
+            _buildLegendItem('Fertile', Colors.lightBlue[300]!),
+            const SizedBox(width: 16),
+            _buildLegendItem('Ovulation', Colors.blue),
+            const SizedBox(width: 16),
+            _buildLegendItem('Today', Colors.purple),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        // Cycle bars with scroll view for better display
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Container(
+            height: 80,
+            child: Row(
+              children: List.generate(_cycleLength, (index) {
+                final day = index + 1;
+                final isPeriodDay = day <= _periodLength;
+                final isCurrentDay = day == cycleDay;
+                final isOvulationDay = day == ovulationDay;
+                final isFertileDay = day >= fertileStartDay && day <= fertileEndDay;
+                final cycleDate = firstDayOfCycle.add(Duration(days: index));
+                
+                return GestureDetector(
+                  onTap: () => _showDayDetails(day, cycleDate, isOvulationDay, isFertileDay, isPeriodDay),
+                  child: Container(
+                    width: 30,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Day number
+                        Text(
+                          '$day',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: isCurrentDay ? FontWeight.bold : FontWeight.normal,
+                            color: isCurrentDay ? Colors.purple : Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        
+                        // Bar
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _getBarColor(
+                              isPeriodDay: isPeriodDay,
+                              isCurrentDay: isCurrentDay,
+                              isOvulationDay: isOvulationDay,
+                              isFertileDay: isFertileDay,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            border: isCurrentDay 
+                                ? Border.all(color: Colors.purple, width: 2)
+                                : null,
+                          ),
+                          child: Center(
+                            child: isOvulationDay 
+                                ? Icon(Icons.egg, size: 16, color: Colors.white)
+                                : isCurrentDay
+                                    ? Icon(Icons.circle, size: 8, color: Colors.white)
+                                    : null,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        
+                        // Date (show for important days)
+                        if (isCurrentDay || isOvulationDay || day == 1 || day == _cycleLength)
+                          Text(
+                            DateFormat('d/M').format(cycleDate),
+                            style: TextStyle(
+                              fontSize: 8,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Information cards
+        Row(
+          children: [
+            Expanded(
+              child: _buildInfoCard(
+                'Ovulation',
+                DateFormat('MMM dd').format(ovulationDate),
+                Icons.egg,
+                Colors.blue,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildInfoCard(
+                'Fertile Window',
+                '${DateFormat('MMM dd').format(firstDayOfCycle.add(Duration(days: fertileStartDay - 1)))} - ${DateFormat('MMM dd').format(ovulationDate)}',
+                Icons.favorite,
+                Colors.lightBlue[300]!,
+              ),
+            ),
           ],
         ),
       ],
@@ -575,6 +697,202 @@ class _PeriodLoggingPageState extends State<PeriodLoggingPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getBarColor({
+    required bool isPeriodDay,
+    required bool isCurrentDay,
+    required bool isOvulationDay,
+    required bool isFertileDay,
+  }) {
+    if (isCurrentDay && isPeriodDay) return Colors.purple;
+    if (isPeriodDay) return const Color(0xFFE91E63);
+    if (isOvulationDay) return Colors.blue;
+    if (isFertileDay) return Colors.lightBlue[300]!;
+    return Colors.grey[300]!;
+  }
+
+  void _showDayDetails(int day, DateTime date, bool isOvulation, bool isFertile, bool isPeriod) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Cycle Day $day',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _getBarColor(
+                      isPeriodDay: isPeriod,
+                      isCurrentDay: day == _getCurrentCycleDay(),
+                      isOvulationDay: isOvulation,
+                      isFertileDay: isFertile,
+                    ).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    DateFormat('EEEE, MMM dd').format(date),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            
+            if (isPeriod) ...[
+              _buildDetailRow(Icons.water_drop, 'Period Day', 'Day ${day} of $_periodLength', const Color(0xFFE91E63)),
+              const SizedBox(height: 12),
+            ],
+            
+            if (isOvulation) ...[
+              _buildDetailRow(Icons.egg, 'Ovulation Day', 'Most fertile day', Colors.blue),
+              const SizedBox(height: 12),
+              _buildDetailRow(Icons.info_outline, 'Note', 'Best time for conception', Colors.orange),
+              const SizedBox(height: 12),
+            ],
+            
+            if (isFertile && !isOvulation) ...[
+              _buildDetailRow(Icons.favorite, 'Fertile Window', 'High fertility', Colors.lightBlue[300]!),
+              const SizedBox(height: 12),
+            ],
+            
+            if (!isPeriod && !isFertile) ...[
+              _buildDetailRow(Icons.check_circle, 'Regular Day', 'Low fertility', Colors.grey),
+              const SizedBox(height: 12),
+            ],
+            
+            // Next period prediction
+            if (day == _getCurrentCycleDay()) ...[
+              const Divider(height: 24),
+              _buildDetailRow(
+                Icons.calendar_today, 
+                'Next Period', 
+                'Expected ${DateFormat('MMM dd').format(_calculateNextPeriod())}',
+                Colors.pink,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

@@ -1008,7 +1008,7 @@ class ApiService {
   Future<String> savePeriodEntry(PeriodEntry entry) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/health/period'),  // Fixed URL
+        Uri.parse('$baseUrl/period'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'id': entry.id,
@@ -1037,7 +1037,7 @@ class ApiService {
   Future<List<PeriodEntry>> getPeriodHistory(String userId, {int limit = 12}) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/health/period/$userId?limit=$limit'),  // Fixed URL
+        Uri.parse('$baseUrl/period/$userId?limit=$limit'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -1056,7 +1056,7 @@ class ApiService {
   Future<PeriodEntry?> getCurrentPeriod(String userId) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/health/period/$userId/current'),  // Fixed URL
+        Uri.parse('$baseUrl/period/$userId/current'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -1076,7 +1076,7 @@ class ApiService {
   Future<void> deletePeriodEntry(String entryId) async {
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/api/health/period/$entryId'),  // Fixed URL
+        Uri.parse('$baseUrl/period/$entryId'),
         headers: {'Content-Type': 'application/json'},
       );
 
