@@ -1088,4 +1088,91 @@ class ApiService {
       rethrow;
     }
   }
+
+  // Exercise Logging Functions
+  Future<Map<String, dynamic>> logExercise(Map<String, dynamic> exerciseData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/exercise/log'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(exerciseData),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to log exercise: ${response.body}');
+      }
+    } catch (e) {
+      print('Error logging exercise: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getExerciseLogs(
+    String userId, {
+    String? startDate,
+    String? endDate,
+    String? exerciseType,
+    int limit = 50,
+  }) async {
+    try {
+      final queryParams = {
+        'limit': limit.toString(),
+        if (startDate != null) 'start_date': startDate,
+        if (endDate != null) 'end_date': endDate,
+        if (exerciseType != null) 'exercise_type': exerciseType,
+      };
+
+      final uri = Uri.parse('$baseUrl/exercise/logs/$userId')
+          .replace(queryParameters: queryParams);
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['logs']);
+      } else {
+        throw Exception('Failed to get exercise logs: ${response.body}');
+      }
+    } catch (e) {
+      print('Error getting exercise logs: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getExerciseStats(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/exercise/stats/$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to get exercise stats: ${response.body}');
+      }
+    } catch (e) {
+      print('Error getting exercise stats: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteExerciseLog(String exerciseId, String userId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/exercise/log/$exerciseId?user_id=$userId'),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete exercise: ${response.body}');
+      }
+    } catch (e) {
+      print('Error deleting exercise: $e');
+      rethrow;
+    }
+  }
+
 }
