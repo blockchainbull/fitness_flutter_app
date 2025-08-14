@@ -6,6 +6,7 @@ import 'package:user_onboarding/data/models/period_entry.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
+import 'package:user_onboarding/data/models/step_entry.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -1172,6 +1173,89 @@ class ApiService {
     } catch (e) {
       print('Error deleting exercise: $e');
       rethrow;
+    }
+  }
+
+  // steps Logging Functions
+  Future<StepEntry?> getTodaySteps(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/steps/$userId/today'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return StepEntry.fromJson(data);
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Failed to get today steps: $e');
+    }
+  }
+
+  Future<List<StepEntry>> getStepsInRange(String userId, DateTime startDate, DateTime endDate) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/steps/$userId/range?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => StepEntry.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      throw Exception('Failed to get steps in range: $e');
+    }
+  }
+
+  Future<void> saveStepEntry(StepEntry entry) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/steps'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(entry.toJson()),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to save step entry: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Failed to save step entry: $e');
+    }
+  }
+
+  Future<List<StepEntry>> getAllSteps(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/steps/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => StepEntry.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      throw Exception('Failed to get all steps: $e');
+    }
+  }
+
+  Future<void> deleteStepEntry(String userId, DateTime date) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/steps/$userId/${date.toIso8601String()}'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Failed to delete step entry: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Failed to delete step entry: $e');
     }
   }
 
