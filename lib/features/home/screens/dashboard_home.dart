@@ -9,6 +9,7 @@ import 'package:user_onboarding/features/home/widgets/workout_item.dart';
 import 'package:user_onboarding/features/home/widgets/daily_calendar.dart';
 import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
+import 'package:user_onboarding/features/reports/screens/today_report_screen.dart';
 
 
 class DashboardHome extends StatefulWidget {
@@ -290,8 +291,13 @@ class _DashboardHomeState extends State<DashboardHome> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Analytics coming soon!')),
+                    Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TodayReportScreen(
+                        userProfile: widget.userProfile,
+                      ),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.analytics),
