@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/features/tracking/screens/exercise_history_page.dart';
 
 class ExerciseLoggingPage extends StatefulWidget {
@@ -100,11 +101,33 @@ class _ExerciseLoggingPageState extends State<ExerciseLoggingPage> {
       };
 
       await _apiService.logExercise(exerciseData);
+  
+      // Save to SharedPreferences for offline access
+      final prefs = await SharedPreferences.getInstance();
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      
+      await prefs.setBool('exercise_logged_$dateStr', true);
+      
+      final currentMinutes = prefs.getInt('exercise_minutes_$dateStr') ?? 0;
+      await prefs.setInt('exercise_minutes_$dateStr', 
+          currentMinutes + int.parse(_durationController.text));
+      
+      final currentCalories = prefs.getDouble('exercise_calories_$dateStr') ?? 0;
+      final newCalories = _caloriesController.text.isNotEmpty 
+          ? double.parse(_caloriesController.text) 
+          : 0.0;
+      await prefs.setDouble('exercise_calories_$dateStr', currentCalories + newCalories);
+      
+      final currentCount = prefs.getInt('exercise_count_$dateStr') ?? 0;
+      await prefs.setInt('exercise_count_$dateStr', currentCount + 1);
       
       _showSuccessSnackBar('Exercise logged successfully!');
       _clearForm();
       await _loadExerciseData(); // Reload data
-      
+
+
+
+
     } catch (e) {
       _showErrorSnackBar('Failed to log exercise');
     } finally {

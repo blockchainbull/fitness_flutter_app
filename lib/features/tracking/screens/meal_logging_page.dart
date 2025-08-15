@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_history_page.dart';
 import 'package:intl/intl.dart';
 

@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
-import 'package:user_onboarding/data/services/database_service.dart';
 import 'package:user_onboarding/data/repositories/supplement_repository.dart';
 import 'package:user_onboarding/features/tracking/screens/supplement_history_page.dart';
 import 'package:intl/intl.dart';
@@ -1177,7 +1176,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     );
   }
 
-  void _toggleSupplement(String supplementName) async {
+  Future<void> _toggleSupplement(String supplementName) async {
     final wasTaken = _todaysTaken[supplementName] ?? false;
     final nowTaken = !wasTaken;
     
@@ -1188,8 +1187,15 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     // Save daily status locally
     await _saveTodaysStatus();
     
+    // ALSO save individual key for report screen compatibility
+    final prefs = await SharedPreferences.getInstance();
+    final dateStr = _todaysDate; // Use _todaysDate which is already a string
+    final supplementKey = 'supplement_${supplementName}_$dateStr';
+    await prefs.setBool(supplementKey, nowTaken);
+    print('Saved individual key: $supplementKey = $nowTaken');
+    
     // Save historical record to database
-    await _saveToDatabase(supplementName, nowTaken);
+    await _saveToDatabase(supplementName, nowTaken); // No need to pass date
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1227,7 +1233,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         // Use SupplementRepository which handles API vs Direct DB automatically
         await SupplementRepository.logSupplementIntake(
           userId: widget.userProfile.id,
-          date: _todaysDate,
+          date: _todaysDate, // This is already a String in the format 'yyyy-MM-dd'
           supplementName: supplementName,
           taken: taken,
           dosage: supplement['dosage'],
@@ -1251,9 +1257,20 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     
     await _saveTodaysStatus();
     
-    // Save all to database
+    // Save individual keys for report screen
+    final prefs = await SharedPreferences.getInstance();
+    final dateStr = _todaysDate; // Use _todaysDate which is already formatted
+    
+    // Save all to database and SharedPreferences
     for (var supplement in _userSupplements) {
-      await _saveToDatabase(supplement['name'], true);
+      final supplementName = supplement['name'];
+      
+      // Save to database
+      await _saveToDatabase(supplementName, true);
+      
+      // Save individual key for compatibility
+      final supplementKey = 'supplement_${supplementName}_$dateStr';
+      await prefs.setBool(supplementKey, true);
     }
     
     if (mounted) {
@@ -1261,10 +1278,11 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         const SnackBar(
           content: Text('All supplements marked as taken!'),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 1),
         ),
       );
     }
-  }
+}
 
   void _showAddSupplementDialog() {
     final nameController = TextEditingController();

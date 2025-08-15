@@ -5,6 +5,7 @@ import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/features/profile/screens/edit_profile_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
 class WeightLoggingPage extends StatefulWidget {
@@ -133,6 +134,17 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
       );
 
       await _dataManager.saveWeightEntry(weightEntry);
+      
+      // Save to SharedPreferences for backward compatibility
+      final prefs = await SharedPreferences.getInstance();
+      final dateStr = DateFormat('yyyy-MM-dd').format(dateTime);
+      await prefs.setBool('weight_logged_$dateStr', true);
+      await prefs.setDouble('weight_$dateStr', weight);
+      await prefs.setString('weight_time_$dateStr', dateTime.toIso8601String());
+      if (notes.trim().isNotEmpty) {
+        await prefs.setString('weight_notes_$dateStr', notes.trim());
+      }
+      print('✅ Weight saved to SharedPreferences: $dateStr = ${weight}kg');
       
       // Update user's current weight in profile only if this is the most recent entry
       final now = DateTime.now();

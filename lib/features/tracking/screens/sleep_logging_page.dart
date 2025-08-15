@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/sleep_entry.dart';
 import 'package:user_onboarding/data/repositories/sleep_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/features/tracking/screens/sleep_history_page.dart';
 import 'package:user_onboarding/data/services/database_service.dart';
 
@@ -790,7 +791,7 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
         wakeTime: wakeDateTime,
         totalHours: _calculateTotalHours(),
         qualityScore: _qualityScore,
-        deepSleepHours: _estimateDeepSleep(), // Use estimated deep sleep
+        deepSleepHours: _estimateDeepSleep(),
         sleepIssues: _sleepIssues,
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
         createdAt: _existingEntry?.createdAt ?? DateTime.now(),
@@ -802,15 +803,45 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
         await _sleepRepository.createSleepEntry(sleepEntry);
       }
 
+      // Save to SharedPreferences for backward compatibility
+      final prefs = await SharedPreferences.getInstance();
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final totalHours = _calculateTotalHours();
+      
+      await prefs.setBool('sleep_logged_$dateStr', true);
+      await prefs.setDouble('sleep_hours_$dateStr', totalHours);
+      await prefs.setDouble('sleep_quality_$dateStr', _qualityScore);
+      await prefs.setString('sleep_bedtime_$dateStr', bedDateTime.toIso8601String());
+      await prefs.setString('sleep_waketime_$dateStr', wakeDateTime.toIso8601String());
+      
+      // Save sleep issues as a joined string
+      if (_sleepIssues.isNotEmpty) {
+        await prefs.setString('sleep_issues_$dateStr', _sleepIssues.join(','));
+      }
+      
+      // Save notes if present
+      if (_notesController.text.isNotEmpty) {
+        await prefs.setString('sleep_notes_$dateStr', _notesController.text);
+      }
+      
+      print('✅ Sleep saved to SharedPreferences: $dateStr = ${totalHours}h');
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sleep entry ${_existingEntry != null ? 'updated' : 'saved'} successfully!')),
+        SnackBar(
+          content: Text('Sleep entry ${_existingEntry != null ? 'updated' : 'saved'} successfully!'),
+          backgroundColor: Colors.green,
+        ),
       );
 
       _loadExistingEntry(); // Reload to get updated data
 
     } catch (e) {
+      print('❌ Error saving sleep entry: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving sleep entry: $e')),
+        SnackBar(
+          content: Text('Error saving sleep entry: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
 
