@@ -221,16 +221,30 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
   
   Future<void> _loadDailySummary() async {
     try {
+      final userId = widget.userProfile.id ?? '';
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      
       final summary = await _apiService.getDailySummary(
-        widget.userProfile.id!,
-        date: DateTime.now().toIso8601String(),
+        userId,
+        date: todayStr,
       );
       
-      setState(() {
-        _dailySummary = summary;
-      });
+      // Only set state if we got valid data
+      if (summary != null && summary['success'] == true) {
+        setState(() {
+          _dailySummary = summary;
+        });
+      } else {
+        print('Invalid daily summary response');
+        setState(() {
+          _dailySummary = null;
+        });
+      }
     } catch (e) {
       print('Error loading daily summary: $e');
+      setState(() {
+        _dailySummary = null;
+      });
     }
   }
   
@@ -547,7 +561,9 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
          crossAxisAlignment: CrossAxisAlignment.start,
          children: [
            // Daily Summary Card
-           if (_dailySummary != null)
+           if (_dailySummary != null && 
+                _dailySummary!['totals'] != null &&
+                _dailySummary!['goals'] != null)
              _buildDailySummaryCard(),
            
            // Meal Input Form
@@ -735,146 +751,170 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
    );
  }
  
- Widget _buildDailySummaryCard() {
-   final totals = _dailySummary!['totals'];
-   final goals = _dailySummary!['goals'];
-   
-   final calorieProgress = (totals['calories'] / goals['calories']).clamp(0.0, 1.0);
-   final proteinProgress = (totals['protein_g'] / goals['protein_g']).clamp(0.0, 1.0);
-   
-   return Container(
-     margin: const EdgeInsets.all(16),
-     padding: const EdgeInsets.all(20),
-     decoration: BoxDecoration(
-       gradient: LinearGradient(
-         colors: [Colors.green.shade400, Colors.green.shade600],
-         begin: Alignment.topLeft,
-         end: Alignment.bottomRight,
-       ),
-       borderRadius: BorderRadius.circular(16),
-       boxShadow: [
-         BoxShadow(
-           color: Colors.green.withOpacity(0.3),
-           blurRadius: 10,
-           offset: const Offset(0, 5),
-         ),
-       ],
-     ),
-     child: Column(
-       crossAxisAlignment: CrossAxisAlignment.start,
-       children: [
-         Row(
-           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-           children: [
-             const Text(
-               'Today\'s Progress',
-               style: TextStyle(
-                 color: Colors.white,
-                 fontSize: 20,
-                 fontWeight: FontWeight.bold,
-               ),
-             ),
-             Text(
-               DateFormat('MMM d').format(DateTime.now()),
-               style: const TextStyle(
-                 color: Colors.white70,
-                 fontSize: 14,
-               ),
-             ),
-           ],
-         ),
-         const SizedBox(height: 20),
-         
-         // Calories
-         _buildProgressRow(
-           'Calories',
-           totals['calories'].toInt(),
-           goals['calories'].toInt(),
-           calorieProgress,
-           Icons.local_fire_department,
-         ),
-         const SizedBox(height: 16),
-         
-         // Protein
-         _buildProgressRow(
-           'Protein',
-           totals['protein_g'].toInt(),
-           goals['protein_g'].toInt(),
-           proteinProgress,
-           Icons.fitness_center,
-           unit: 'g',
-         ),
-         const SizedBox(height: 16),
-         
-         // Meals count
-         Row(
-           children: [
-             Icon(Icons.restaurant, color: Colors.white.withOpacity(0.8)),
-             const SizedBox(width: 8),
-             Text(
-               '${totals['meals_count']} meals logged today',
-               style: TextStyle(
-                 color: Colors.white.withOpacity(0.9),
-                 fontSize: 14,
-               ),
-             ),
-           ],
-         ),
-       ],
-     ),
-   );
- }
- 
- Widget _buildProgressRow(
-   String label,
-   int current,
-   int goal,
-   double progress,
-   IconData icon, {
-   String unit = '',
- }) {
-   return Column(
-     crossAxisAlignment: CrossAxisAlignment.start,
-     children: [
-       Row(
-         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-         children: [
-           Row(
-             children: [
-               Icon(icon, color: Colors.white.withOpacity(0.8), size: 20),
-               const SizedBox(width: 8),
-               Text(
-                 label,
-                 style: TextStyle(
-                   color: Colors.white.withOpacity(0.9),
-                   fontSize: 14,
-                 ),
-               ),
-             ],
-           ),
-           Text(
-             '$current$unit / $goal$unit',
-             style: const TextStyle(
-               color: Colors.white,
-               fontSize: 14,
-               fontWeight: FontWeight.bold,
-             ),
-           ),
-         ],
-       ),
-       const SizedBox(height: 8),
-       LinearProgressIndicator(
-         value: progress,
-         backgroundColor: Colors.white.withOpacity(0.3),
-         valueColor: AlwaysStoppedAnimation<Color>(
-           progress > 0.9 ? Colors.amber : Colors.white,
-         ),
-         minHeight: 6,
-       ),
-     ],
-   );
- }
- 
+  Widget _buildDailySummaryCard() {
+    // Safety check for null or invalid data
+    if (_dailySummary == null) {
+      return const SizedBox.shrink();
+    }
+    
+    final totals = _dailySummary!['totals'] as Map<String, dynamic>? ?? {};
+    final goals = _dailySummary!['goals'] as Map<String, dynamic>? ?? {};
+    
+    // Safely extract values with defaults
+    final calories = (totals['calories'] as num?)?.toDouble() ?? 0.0;
+    final calorieGoal = (goals['calories'] as num?)?.toDouble() ?? 2000.0;
+    final protein = (totals['protein_g'] as num?)?.toDouble() ?? 0.0;
+    final proteinGoal = (goals['protein_g'] as num?)?.toDouble() ?? 50.0;
+    final carbs = (totals['carbs_g'] as num?)?.toDouble() ?? 0.0;
+    final carbsGoal = (goals['carbs_g'] as num?)?.toDouble() ?? 250.0;
+    final fat = (totals['fat_g'] as num?)?.toDouble() ?? 0.0;
+    final fatGoal = (goals['fat_g'] as num?)?.toDouble() ?? 65.0;
+    
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green.shade400, Colors.green.shade600],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Today\'s Summary',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Calories progress
+          _buildNutrientProgress(
+            'Calories',
+            calories,
+            calorieGoal,
+            Icons.local_fire_department,
+          ),
+          const SizedBox(height: 12),
+          
+          // Macros
+          Row(
+            children: [
+              Expanded(
+                child: _buildMacroProgress('Protein', protein, proteinGoal),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMacroProgress('Carbs', carbs, carbsGoal),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMacroProgress('Fat', fat, fatGoal),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNutrientProgress(
+    String label,
+    double value,
+    double goal,
+    IconData icon,
+  ) {
+    final percentage = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              '${value.toInt()} / ${goal.toInt()}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            value: percentage,
+            backgroundColor: Colors.white.withOpacity(0.3),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            minHeight: 8,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMacroProgress(String label, double value, double goal) {
+    final percentage = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
+    
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${value.toInt()}g',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            value: percentage,
+            backgroundColor: Colors.white.withOpacity(0.3),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            minHeight: 4,
+          ),
+        ),
+      ],
+    );
+  }
+
  Widget _buildQuickAddSection() {
    final quickItems = [
      {'name': 'Water', 'icon': Icons.water_drop, 'quantity': '1 glass'},

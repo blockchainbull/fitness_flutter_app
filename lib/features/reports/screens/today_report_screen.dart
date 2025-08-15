@@ -72,117 +72,215 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       setState(() => isLoading = false);
     }
   }
-  
+
   Future<TrackingStatus> _getMealStatus(SharedPreferences prefs, String date) async {
     try {
-      // Try to get meal data from API first
+      // Get meal data from API
       final apiService = ApiService();
       final userId = widget.userProfile.id ?? '';
       
-      // Get today's meals from database
-      final meals = await apiService.getMealHistory(
+      print('🔍 [_getMealStatus] Fetching meals for user: $userId, date: $date');
+      
+      // Get daily summary which includes meals
+      final dailySummary = await apiService.getDailySummary(
         userId,
         date: DateFormat('yyyy-MM-dd').format(selectedDate),
       );
       
-      // Count meals by type
-      int breakfast = 0;
-      int lunch = 0;
-      int dinner = 0;
-      int snacks = 0;
-      double totalCalories = 0;
+      print('📊 [_getMealStatus] Daily summary response: $dailySummary');
       
-      for (var meal in meals) {
-        final mealType = meal['meal_type']?.toString().toLowerCase() ?? '';
-        totalCalories += (meal['calories'] ?? 0).toDouble();
+      // Check if response is valid
+      if (dailySummary != null && dailySummary['success'] == true) {
+        // The meals data is a Map, not a List!
+        final mealsData = dailySummary['meals'] as Map<String, dynamic>? ?? {};
         
-        switch (mealType) {
-          case 'breakfast':
-            breakfast++;
-            break;
-          case 'lunch':
-            lunch++;
-            break;
-          case 'dinner':
-            dinner++;
-            break;
-          case 'snack':
-          case 'snacks':
-            snacks++;
-            break;
+        // Extract the counts directly from the API response
+        final totalMeals = (mealsData['total_count'] as num?)?.toInt() ?? 0;
+        final breakfast = (mealsData['breakfast'] as num?)?.toInt() ?? 0;
+        final lunch = (mealsData['lunch'] as num?)?.toInt() ?? 0;
+        final dinner = (mealsData['dinner'] as num?)?.toInt() ?? 0;
+        final snacks = (mealsData['snacks'] as num?)?.toInt() ?? 0;
+        final totalCalories = (mealsData['calories_consumed'] as num?)?.toDouble() ?? 0.0;
+        
+        print('✅ [_getMealStatus] Total meals from API: $totalMeals');
+        print('   Breakfast: $breakfast, Lunch: $lunch, Dinner: $dinner, Snacks: $snacks');
+        
+        // BUT the counts are all 0, so let's also fetch the actual meal list
+        if (totalMeals > 0 && breakfast == 0 && lunch == 0 && dinner == 0 && snacks == 0) {
+          // The meal type counts aren't working, let's get the actual meals
+          final meals = await apiService.getMealHistory(
+            userId,
+            date: DateFormat('yyyy-MM-dd').format(selectedDate),
+          );
+          
+          // Recount from the actual meals
+          int actualBreakfast = 0;
+          int actualLunch = 0;
+          int actualDinner = 0;
+          int actualSnacks = 0;
+          
+          for (var meal in meals) {
+            final mealType = meal['meal_type']?.toString() ?? '';
+            switch (mealType) {
+              case 'Breakfast':
+                actualBreakfast++;
+                break;
+              case 'Lunch':
+                actualLunch++;
+                break;
+              case 'Dinner':
+                actualDinner++;
+                break;
+              case 'Snack':
+                actualSnacks++;
+                break;
+            }
+          }
+          
+          // Store in SharedPreferences as backup
+          await prefs.setInt('meal_count_$date', totalMeals);
+          await prefs.setDouble('meal_calories_$date', totalCalories);
+          
+          return TrackingStatus(
+            category: 'Meals',
+            icon: Icons.restaurant,
+            color: Colors.green,
+            completed: totalMeals,
+            total: 3,
+            details: {
+              'Breakfast': actualBreakfast,
+              'Lunch': actualLunch,
+              'Dinner': actualDinner,
+              'Snacks': actualSnacks,
+              'Calories': totalCalories.toInt(),
+              'Status': totalMeals >= 3 ? 'Complete' : 'In Progress',
+            },
+            unit: 'meals',
+            isComplete: totalMeals >= 3,
+            excludeFromProgress: false,
+          );
         }
-      }
-      
-      // Consider a meal logged if any food was logged for that meal type
-      final breakfastLogged = breakfast > 0;
-      final lunchLogged = lunch > 0;
-      final dinnerLogged = dinner > 0;
-      
-      int completed = 0;
-      if (breakfastLogged) completed++;
-      if (lunchLogged) completed++;
-      if (dinnerLogged) completed++;
-      
-      // If we got data from API, also save to SharedPreferences for offline
-      if (meals.isNotEmpty) {
-        await prefs.setBool('meal_breakfast_$date', breakfastLogged);
-        await prefs.setBool('meal_lunch_$date', lunchLogged);
-        await prefs.setBool('meal_dinner_$date', dinnerLogged);
-        await prefs.setBool('meal_snacks_$date', snacks > 0);
+        
+        // Store in SharedPreferences as backup
+        await prefs.setInt('meal_count_$date', totalMeals);
         await prefs.setDouble('meal_calories_$date', totalCalories);
+        
+        return TrackingStatus(
+          category: 'Meals',
+          icon: Icons.restaurant,
+          color: Colors.green,
+          completed: totalMeals,
+          total: 3,
+          details: {
+            'Breakfast': breakfast,
+            'Lunch': lunch,
+            'Dinner': dinner,
+            'Snacks': snacks,
+            'Calories': totalCalories.toInt(),
+            'Status': totalMeals >= 3 ? 'Complete' : 'In Progress',
+          },
+          unit: 'meals',
+          isComplete: totalMeals >= 3,
+          excludeFromProgress: false,
+        );
+      } else {
+        // If daily summary fails, fall back to getMealHistory
+        throw Exception('Daily summary not available');
       }
-      
-      return TrackingStatus(
-        category: 'Meals',
-        icon: Icons.restaurant,
-        color: Colors.green,
-        completed: completed,
-        total: 3, // Breakfast, Lunch, Dinner
-        details: {
-          'Breakfast': breakfastLogged,
-          'Lunch': lunchLogged,
-          'Dinner': dinnerLogged,
-          'Snacks': snacks > 0,
-          'Calories': '${totalCalories.toInt()} cal',
-          'Items': meals.length,
-        },
-        unit: 'meals',
-        isComplete: completed >= 3,
-        excludeFromProgress: false,
-      );
       
     } catch (e) {
-      print('Error getting meals from API: $e');
+      print('⚠️ [_getMealStatus] Falling back to getMealHistory due to: $e');
       
-      // Fallback to SharedPreferences
-      final breakfast = prefs.getBool('meal_breakfast_$date') ?? false;
-      final lunch = prefs.getBool('meal_lunch_$date') ?? false;
-      final dinner = prefs.getBool('meal_dinner_$date') ?? false;
-      final snacks = prefs.getBool('meal_snacks_$date') ?? false;
-      final calories = prefs.getDouble('meal_calories_$date') ?? 0;
-      
-      int completed = 0;
-      if (breakfast) completed++;
-      if (lunch) completed++;
-      if (dinner) completed++;
-      
-      return TrackingStatus(
-        category: 'Meals',
-        icon: Icons.restaurant,
-        color: Colors.green,
-        completed: completed,
-        total: 3,
-        details: {
-          'Breakfast': breakfast,
-          'Lunch': lunch,
-          'Dinner': dinner,
-          'Snacks': snacks,
-          'Calories': calories > 0 ? '${calories.toInt()} cal' : 'Not tracked',
-        },
-        unit: 'meals',
-        isComplete: completed >= 3,
-        excludeFromProgress: false,
-      );
+      // Fallback: Get meals directly from meal history
+      try {
+        final apiService = ApiService();
+        final userId = widget.userProfile.id ?? '';
+        
+        final meals = await apiService.getMealHistory(
+          userId,
+          date: DateFormat('yyyy-MM-dd').format(selectedDate),
+        );
+        
+        print('📋 [_getMealStatus] Meal history response: ${meals.length} meals');
+        
+        // Count meals by type from meal history
+        int breakfast = 0;
+        int lunch = 0;
+        int dinner = 0;
+        int snacks = 0;
+        double totalCalories = 0;
+        
+        for (var meal in meals) {
+          final mealType = meal['meal_type']?.toString() ?? '';
+          final calories = (meal['calories'] as num?)?.toDouble() ?? 0;
+          totalCalories += calories;
+          
+          switch (mealType) {
+            case 'Breakfast':
+              breakfast++;
+              break;
+            case 'Lunch':
+              lunch++;
+              break;
+            case 'Dinner':
+              dinner++;
+              break;
+            case 'Snack':
+              snacks++;
+              break;
+          }
+        }
+        
+        final totalMeals = meals.length;
+        print('✅ [_getMealStatus] Total meals counted: $totalMeals');
+        
+        // Store in SharedPreferences
+        await prefs.setInt('meal_count_$date', totalMeals);
+        await prefs.setDouble('meal_calories_$date', totalCalories);
+        
+        return TrackingStatus(
+          category: 'Meals',
+          icon: Icons.restaurant,
+          color: Colors.green,
+          completed: totalMeals,
+          total: 3,
+          details: {
+            'Breakfast': breakfast,
+            'Lunch': lunch,
+            'Dinner': dinner,
+            'Snacks': snacks,
+            'Calories': totalCalories.toInt(),
+            'Status': totalMeals >= 3 ? 'Complete' : 'In Progress',
+          },
+          unit: 'meals',
+          isComplete: totalMeals >= 3,
+          excludeFromProgress: false,
+        );
+        
+      } catch (e2) {
+        print('❌ [_getMealStatus] getMealHistory also failed: $e2');
+        
+        // Final fallback to SharedPreferences
+        final mealCount = prefs.getInt('meal_count_$date') ?? 0;
+        final calories = prefs.getDouble('meal_calories_$date') ?? 0;
+        
+        print('📦 [_getMealStatus] Using cached data: $mealCount meals');
+        
+        return TrackingStatus(
+          category: 'Meals',
+          icon: Icons.restaurant,
+          color: Colors.green,
+          completed: mealCount,
+          total: 3,
+          details: {
+            'Calories': calories.toInt(),
+            'Status': mealCount >= 3 ? 'Complete' : 'In Progress',
+          },
+          unit: 'meals',
+          isComplete: mealCount >= 3,
+          excludeFromProgress: false,
+        );
+      }
     }
   }
   
@@ -317,38 +415,31 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
   
   Future<TrackingStatus> _getExerciseStatus(SharedPreferences prefs, String date) async {
     try {
-      // Try to get exercise data from API first
       final apiService = ApiService();
       final userId = widget.userProfile.id ?? '';
       
-      // Get today's exercises from database
-      final exercises = await apiService.getExerciseLogs(
+      // Get exercise history for today
+      final exercises = await apiService.getExerciseHistory(
         userId,
-        startDate: DateFormat('yyyy-MM-dd').format(selectedDate),
-        endDate: DateFormat('yyyy-MM-dd').format(selectedDate),
+        date: DateFormat('yyyy-MM-dd').format(selectedDate),
       );
       
-      // Calculate total minutes and calories
+      // Calculate totals
       int totalMinutes = 0;
       double totalCalories = 0;
-      List<String> exerciseNames = [];
       
       for (var exercise in exercises) {
-        totalMinutes += (exercise['duration_minutes'] ?? 0) as int;
-        totalCalories += (exercise['calories_burned'] ?? 0).toDouble();
-        exerciseNames.add(exercise['exercise_name'] ?? 'Unknown');
+        totalMinutes += (exercise['duration_minutes'] as int? ?? 0);
+        totalCalories += (exercise['calories_burned'] as num? ?? 0).toDouble();
       }
       
       final targetMinutes = 30;
-      final hasEntry = exercises.isNotEmpty;
+      final sessionCount = exercises.length;
       
-      // Save to SharedPreferences for offline access
-      if (hasEntry) {
-        await prefs.setBool('exercise_logged_$date', true);
-        await prefs.setInt('exercise_minutes_$date', totalMinutes);
-        await prefs.setDouble('exercise_calories_$date', totalCalories);
-        await prefs.setInt('exercise_count_$date', exercises.length);
-      }
+      // Store in SharedPreferences as backup
+      await prefs.setInt('exercise_minutes_$date', totalMinutes);
+      await prefs.setDouble('exercise_calories_$date', totalCalories);
+      await prefs.setInt('exercise_count_$date', sessionCount);
       
       return TrackingStatus(
         category: 'Exercise',
@@ -359,24 +450,19 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
         details: {
           'Duration': '$totalMinutes min',
           'Target': '$targetMinutes min',
-          'Calories': '${totalCalories.toInt()} cal',
-          'Sessions': exercises.length,
-          'Activities': exerciseNames.take(2).join(', ') + 
-                      (exerciseNames.length > 2 ? '...' : ''),
-          'Status': hasEntry 
-              ? (totalMinutes >= targetMinutes ? 'Complete' : 'In Progress')
-              : 'Pending',
+          'Calories': totalCalories > 0 ? '${totalCalories.toInt()} cal' : 'Not tracked',
+          'Sessions': sessionCount,
+          'Status': totalMinutes >= targetMinutes ? 'Complete' : 'In Progress',
         },
         unit: 'min',
-        isComplete: hasEntry && totalMinutes >= targetMinutes,
+        isComplete: totalMinutes >= targetMinutes,
         excludeFromProgress: false,
       );
       
     } catch (e) {
-      print('Error getting exercise from API: $e');
+      print('Error in _getExerciseStatus: $e');
       
-      // Fallback to SharedPreferences
-      final hasEntry = prefs.getBool('exercise_logged_$date') ?? false;
+      // Fallback to SharedPreferences if API fails
       final minutes = prefs.getInt('exercise_minutes_$date') ?? 0;
       final calories = prefs.getDouble('exercise_calories_$date') ?? 0;
       final count = prefs.getInt('exercise_count_$date') ?? 0;
@@ -393,12 +479,10 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
           'Target': '$targetMinutes min',
           'Calories': calories > 0 ? '${calories.toInt()} cal' : 'Not tracked',
           'Sessions': count,
-          'Status': hasEntry 
-              ? (minutes >= targetMinutes ? 'Complete' : 'In Progress')
-              : 'Pending',
+          'Status': minutes >= targetMinutes ? 'Complete' : 'In Progress',
         },
         unit: 'min',
-        isComplete: hasEntry && minutes >= targetMinutes,
+        isComplete: minutes >= targetMinutes,
         excludeFromProgress: false,
       );
     }
@@ -700,10 +784,10 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: _selectDate,
-          ),
+              IconButton(
+                icon: const Icon(Icons.calendar_today),
+                onPressed: _selectDate,
+              ),
         ],
       ),
       body: isLoading

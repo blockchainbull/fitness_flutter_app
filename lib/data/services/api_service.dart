@@ -954,19 +954,30 @@ class ApiService {
         url += '?date=$date';
       }
 
+      print('[ApiService] Getting daily summary: $url');
+
       final response = await http.get(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] Daily summary response status: ${response.statusCode}');
+      print('[ApiService] Daily summary response body: ${response.body}');
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
+        print('[ApiService] Failed to get daily summary');
         throw Exception('Failed to get daily summary');
       }
     } catch (e) {
       print('[ApiService] Get daily summary error: $e');
-      rethrow;
+      // Return empty but valid response instead of rethrowing
+      return {
+        'success': false,
+        'meals': [],
+        'totals': {},
+      };
     }
   }
 
@@ -1093,21 +1104,24 @@ class ApiService {
   // Exercise Logging Functions
   Future<Map<String, dynamic>> logExercise(Map<String, dynamic> exerciseData) async {
     try {
+      print('[ApiService] Logging exercise: ${exerciseData['exercise_name']}');
+      
       final response = await http.post(
         Uri.parse('$baseUrl/exercise/log'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode(exerciseData),
       );
+
+      print('[ApiService] Exercise log response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to log exercise: ${response.body}');
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to log exercise');
       }
     } catch (e) {
-      print('Error logging exercise: $e');
+      print('[ApiService] Exercise log error: $e');
       rethrow;
     }
   }
@@ -1148,16 +1162,17 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/exercise/stats/$userId'),
+        headers: {'Content-Type': 'application/json'},
       );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to get exercise stats: ${response.body}');
+        return {};
       }
     } catch (e) {
-      print('Error getting exercise stats: $e');
-      rethrow;
+      print('[ApiService] Exercise stats error: $e');
+      return {};
     }
   }
 
@@ -1173,6 +1188,96 @@ class ApiService {
     } catch (e) {
       print('Error deleting exercise: $e');
       rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getExerciseHistory(
+    String userId, {
+    String? date,
+    int limit = 20,
+  }) async {
+    try {
+      String url = '$baseUrl/exercise/history/$userId?limit=$limit';
+      if (date != null) {
+        url += '&date=$date';
+      }
+
+      print('[ApiService] Fetching exercise history: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Exercise history response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['exercises'] ?? []);
+      } else {
+        print('[ApiService] Failed to get exercise history: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('[ApiService] Get exercise history error: $e');
+      return [];
+    }
+  }
+
+  // Add method to get weekly summary
+  Future<Map<String, dynamic>> getWeeklyExerciseSummary(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/exercise/weekly-summary/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {};
+      }
+    } catch (e) {
+      print('[ApiService] Weekly summary error: $e');
+      return {};
+    }
+  }
+
+  // Add method to delete exercise
+  Future<bool> deleteExercise(String exerciseId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/exercise/$exerciseId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('[ApiService] Delete exercise error: $e');
+      return false;
+    }
+  }
+
+  // Add method to update exercise
+  Future<Map<String, dynamic>> updateExercise(
+    String exerciseId, 
+    Map<String, dynamic> updateData
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/exercise/$exerciseId'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(updateData),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to update exercise');
+      }
+    } catch (e) {
+      print('[ApiService] Update exercise error: $e');
+      return {'success': false};
     }
   }
 
