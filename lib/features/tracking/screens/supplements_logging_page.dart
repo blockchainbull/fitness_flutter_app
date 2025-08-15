@@ -1066,7 +1066,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              IconData(supplement['icon'] as int, fontFamily: 'MaterialIcons'),
+              _getIconFromCode(supplement['icon'] as int),
               color: color,
               size: 24,
             ),
@@ -1399,4 +1399,20 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       );
     }
   }
+
+  IconData _getIconFromCode(int codePoint) {
+    // Create a map of common icon codes to actual IconData constants
+    switch (codePoint) {
+      case 0xe5d0: return Icons.wb_sunny;  // vitamin d
+      case 0xe63a: return Icons.water;      // omega-3
+      case 0xe25c: return Icons.fitness_center; // protein powder
+      case 0xe3a6: return Icons.nightlight_round; // magnesium
+      case 0xe32a: return Icons.health_and_safety; // probiotics
+      case 0xe190: return Icons.bloodtype; // iron
+      case 0xe3f3: return Icons.local_hospital; // calcium
+      case 0xe3b8: return Icons.medication; // default
+      default: return Icons.medication;
+    }
+  }
+
 }
