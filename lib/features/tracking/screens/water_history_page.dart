@@ -180,7 +180,7 @@ class _WaterHistoryPageState extends State<WaterHistoryPage> {
         Text(
           value,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
