@@ -46,7 +46,7 @@ class ActivityLoggingMenu extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
+                      crossAxisCount: 2,
                       childAspectRatio: 1.1,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
