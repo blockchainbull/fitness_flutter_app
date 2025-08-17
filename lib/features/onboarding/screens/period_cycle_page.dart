@@ -15,6 +15,7 @@ class PeriodCyclePage extends StatefulWidget {
 }
 
 class _PeriodCyclePageState extends State<PeriodCyclePage> {
+  int _periodLength = 5;
   bool? _hasPeriods;
   DateTime? _lastPeriodDate;
   int _cycleLength = 28;
@@ -41,6 +42,12 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
     super.initState();
     // Initialize from existing form data if available
     _hasPeriods = widget.formData['hasPeriods'];
+    _lastPeriodDate = widget.formData['lastPeriodDate'] != null 
+        ? DateTime.tryParse(widget.formData['lastPeriodDate']) 
+        : null;
+    _cycleLength = widget.formData['cycleLength'] ?? 28;
+    _periodLength = widget.formData['periodLength'] ?? 5; // Initialize period length
+    _cycleLengthRegular = widget.formData['cycleLengthRegular'] ?? true;
     _trackingPreference = widget.formData['trackingPreference'] ?? '';
     _pregnancyStatus = widget.formData['pregnancyStatus'] ?? '';
   }
@@ -210,33 +217,125 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
             const SizedBox(height: 12),
             Row(
               children: [
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                    ),
-                    controller: TextEditingController(text: _cycleLength.toString()),
+                Expanded(
+                  child: Slider(
+                    value: _cycleLength.toDouble(),
+                    min: 21,
+                    max: 35,
+                    divisions: 14, // 35 - 21 = 14 divisions for each day
+                    label: '$_cycleLength days',
+                    activeColor: Colors.blue,
                     onChanged: (value) {
                       setState(() {
-                        _cycleLength = int.tryParse(value) ?? 28;
+                        _cycleLength = value.round();
                       });
                       widget.onDataChanged('cycleLength', _cycleLength);
                     },
                   ),
                 ),
-                const SizedBox(width: 12),
-                const Text('days'),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$_cycleLength days',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
               ],
             ),
             const Text(
-              'Typical range: 21-35 days',
+              'Typical range: 21-35 days (28 days average)',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey,
               ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // ADD PERIOD LENGTH FIELD HERE
+            const Text(
+              'How long does your period usually last?',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Slider(
+                    value: _periodLength.toDouble(),
+                    min: 1,
+                    max: 10,
+                    divisions: 9,
+                    label: '$_periodLength days',
+                    activeColor: Colors.pink,
+                    onChanged: (value) {
+                      setState(() {
+                        _periodLength = value.round();
+                      });
+                      widget.onDataChanged('periodLength', _periodLength);
+                    },
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.pink[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$_periodLength days',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.pink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Text(
+              'Typical range: 3-7 days',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Is cycle regular?
+            Row(
+              children: [
+                const Text(
+                  'Is your cycle regular?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Switch(
+                  value: _cycleLengthRegular,
+                  onChanged: (value) {
+                    setState(() {
+                      _cycleLengthRegular = value;
+                    });
+                    widget.onDataChanged('cycleLengthRegular', value);
+                  },
+                  activeColor: Colors.blue,
+                ),
+              ],
             ),
             
             const SizedBox(height: 24),
@@ -333,6 +432,18 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
               ),
             ),
           )).toList(),
+          
+          const SizedBox(height: 32),
+          
+          // Make sure all data is saved when form is valid
+          if (_isFormValid)
+            const Text(
+              '✓ All required information provided',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 14,
+              ),
+            ),
         ],
       ),
     );

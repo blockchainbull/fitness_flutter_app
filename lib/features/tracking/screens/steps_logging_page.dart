@@ -1,6 +1,7 @@
 // lib/features/tracking/screens/steps_logging_page.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/step_entry.dart';
 import 'package:user_onboarding/data/repositories/step_repository.dart';
@@ -20,6 +21,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   StepEntry? _todayEntry;
   List<StepEntry> _weeklyHistory = [];
   bool _isLoading = true;
+  int _userStepGoal = 10000; // Default goal
   
   final TextEditingController _manualStepsController = TextEditingController();
   final TextEditingController _goalController = TextEditingController();
@@ -28,7 +30,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   @override
   void initState() {
     super.initState();
-    _loadStepData();
+    _checkAndShowGoalModal();
   }
 
   @override
@@ -36,6 +38,151 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
     _manualStepsController.dispose();
     _goalController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkAndShowGoalModal() async {
+    // Load step data first
+    await _loadStepData();
+    
+    final prefs = await SharedPreferences.getInstance();
+    final hasSetStepGoal = prefs.getBool('has_set_step_goal_${widget.userProfile.id}') ?? false;
+    
+    // Show modal only if:
+    // 1. User hasn't set goal before
+    // 2. No weekly history exists (new user)
+    if (!hasSetStepGoal && _weeklyHistory.isEmpty && mounted) {
+      await _showStepGoalSetupModal();
+    }
+  }
+
+  Future<void> _showStepGoalSetupModal() async {
+    final TextEditingController goalSetupController = TextEditingController(
+      text: _todayEntry?.goal.toString() ?? '10000'
+    );
+    
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: Column(
+            children: [
+              Icon(
+                Icons.flag,
+                size: 48,
+                color: Theme.of(context).primaryColor,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Set Your Daily Step Goal',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'How many steps would you like to walk each day?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: goalSetupController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: InputDecoration(
+                  hintText: '10000',
+                  suffixText: 'steps',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Recommended: 10,000 steps per day',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final goal = int.tryParse(goalSetupController.text) ?? 10000;
+                
+                setState(() {
+                  _userStepGoal = goal;
+                  _goalController.text = goal.toString();
+                });
+                
+                // Save the goal to today's step entry
+                if (_todayEntry != null) {
+                  final updatedEntry = _todayEntry!.copyWith(goal: goal);
+                  await StepRepository.saveStepEntry(updatedEntry);
+                  setState(() {
+                    _todayEntry = updatedEntry;
+                  });
+                }
+                
+                // Mark as set in SharedPreferences
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('has_set_step_goal_${widget.userProfile.id}', true);
+                
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Set Goal',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _loadStepData() async {
@@ -55,18 +202,29 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
         DateTime.now(),
       );
 
+      // Get the most recent goal from history if today doesn't have one
+      int defaultGoal = _userStepGoal;
+      if (todayEntry == null && weeklyData.isNotEmpty) {
+        // Use the most recent goal from history
+        defaultGoal = weeklyData.first.goal;
+      } else if (todayEntry != null) {
+        // Use today's goal
+        defaultGoal = todayEntry.goal;
+      }
+
       setState(() {
         _todayEntry = todayEntry ?? StepEntry(
           userId: widget.userProfile.id!,
           date: DateTime.now(),
           steps: 0,
-          goal: 10000,
+          goal: defaultGoal, // Use the determined goal
           caloriesBurned: 0.0,
           distanceKm: 0.0,
           activeMinutes: 0,
         );
         _weeklyHistory = weeklyData;
         _goalController.text = _todayEntry!.goal.toString();
+        _userStepGoal = defaultGoal;
         _isLoading = false;
       });
     } catch (e) {

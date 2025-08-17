@@ -15,7 +15,7 @@ class UserProfile {
   final String activityLevel;
   
   final bool? hasPeriods;
-   final DateTime? lastPeriodDate;
+  final DateTime? lastPeriodDate;
   final int? cycleLength;
   final int? periodLength;
   final bool? cycleLengthRegular;
