@@ -104,30 +104,34 @@ class ApiService {
       final uri = Uri.parse('$baseUrl/auth/login');
       print('[ApiService] Login URL: $uri');
       
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      
       final body = jsonEncode({
         'email': email,
         'password': password,
       });
-      print('[ApiService] Login request body: $body');
       
-      // Add timeout to prevent hanging
+      print('[ApiService] Headers: $headers');
+      print('[ApiService] Body: $body');
+      
       final response = await http.post(
         uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: body,
       ).timeout(
-        const Duration(seconds: 10), // 10 second timeout
+        const Duration(seconds: 30),
         onTimeout: () {
-          print('[ApiService] ❌ Login request timed out after 10 seconds');
-          throw Exception('Login request timed out');
+          print('[ApiService] ❌ Request timed out');
+          throw Exception('Request timed out');
         },
       );
 
-      print('[ApiService] Login response status: ${response.statusCode}');
-      print('[ApiService] Login response headers: ${response.headers}');
-      print('[ApiService] Login response body: ${response.body}');
+      print('[ApiService] Response status: ${response.statusCode}');
+      print('[ApiService] Response headers: ${response.headers}');
+      print('[ApiService] Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

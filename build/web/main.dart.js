@@ -46256,8 +46256,8 @@ s=p.r
 if(s!=null&&s.a!=null)return
 r=this.w
 if(r){p.z=B.bf
-q=p.ic(1,B.a9t,B.LP)}else{p.z=B.bf
-q=p.ic(0,B.L0,B.LW)}q.cG(new A.arY(this,r),t.H)},
+q=p.ic(1,B.a9t,B.LO)}else{p.z=B.bf
+q=p.ic(0,B.L0,B.LV)}q.cG(new A.arY(this,r),t.H)},
 aoU(a){this.B(new A.arZ(this,a))},
 E(a6){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a=this,a0=null,a1=a.a.r==null,a2=!a1,a3=A.qE(a6),a4=a3.gfU(),a5=a.a.e
 if(a5==null)a5=a0
@@ -48282,7 +48282,7 @@ alz(){if(this.c<=0)this.gWX().eG(0)},
 gWX(){var s=this,r=s.am$
 if(r===$){$.Mi()
 r!==$&&A.af()
-r=s.am$=new A.aBU(A.I(t.S,t.GG),B.Y,new A.F7(),s.galb(),s.galy(),B.LV)}return r}}
+r=s.am$=new A.aBU(A.I(t.S,t.GG),B.Y,new A.F7(),s.galb(),s.galy(),B.LU)}return r}}
 A.abc.prototype={
 $0(){var s=null
 return A.a([A.l7("Event",this.a,!0,B.cX,s,s,s,B.c1,!1,!0,!0,B.dI,s,t.qL)],t.D)},
@@ -52773,7 +52773,7 @@ else q.lW(B.y)
 if(q.a.ax)q.o6(B.D)
 else q.lW(B.D)
 s=q.a
-r=A.bD(p,B.LY,p,1,s.ax?1:0,q)
+r=A.bD(p,B.LX,p,1,s.ax?1:0,q)
 q.d=r
 q.Q=A.bU(B.a6,r,p)
 r=q.a
@@ -55675,7 +55675,7 @@ return new A.vk(A.P_(!0,s,!1),new A.bm(s,r),new A.bm(s,r),s,s)}}
 A.vk.prototype={
 ab(){var s,r=this
 r.ao()
-s=r.f=A.bD(null,B.M0,null,1,r.a.y?1:0,r)
+s=r.f=A.bD(null,B.M_,null,1,r.a.y?1:0,r)
 s.bG()
 s.cf$.F(0,r.gach())
 s.bG()
@@ -57612,7 +57612,7 @@ a0e(a,b,c,d,e,f,g,h,i,j,k){return this.xZ(0,b,c,!1,d,e,f,g,h,i,j,k)}}
 A.C8.prototype={
 tW(a){var s=this.ch
 s===$&&A.b()
-s.e=B.M_
+s.e=B.LZ
 s.bx(0)
 s=this.cx
 s===$&&A.b()
@@ -58434,7 +58434,7 @@ W(){return new A.V5(null,null)}}
 A.V5.prototype={
 ab(){var s,r=this,q=null
 r.ao()
-r.e=A.bD(q,B.LS,q,1,r.a.w?1:0,r)
+r.e=A.bD(q,B.LR,q,1,r.a.w?1:0,r)
 s=A.bD(q,B.dK,q,1,q,r)
 r.d=s
 r.f=A.bU(B.a6,s,new A.jk(B.a6))
@@ -59247,7 +59247,7 @@ d=d4.a.e
 c=A.p(g,d4.gaL().at,e,d5,d5,h,d,l.as,d5)
 l=f?1:0
 d4.gaL()
-b=A.a51(c,B.a6,B.LZ,l)}else b=d5
+b=A.a51(c,B.a6,B.LY,l)}else b=d5
 if(!d4.gaL().aM)a=d4.glk()?d4.gaL().xr:d4.gaL().b0
 else if(d4.a.r)a=d4.glk()?d4.gaL().y2:d4.gaL().y1
 else a=d4.glk()?d4.gaL().xr:d4.gaL().aV
@@ -61167,7 +61167,7 @@ W(){return new A.Yh(null,null)}}
 A.Yh.prototype={
 ab(){var s,r=this
 r.ao()
-s=A.bD(null,B.LX,null,1,null,r)
+s=A.bD(null,B.LW,null,1,null,r)
 r.d=s
 if(r.a.c==null)s.v3(0)},
 aE(a){var s,r,q=this
@@ -61275,7 +61275,7 @@ W(){return new A.Gt(null,null)}}
 A.Gt.prototype={
 ab(){var s=this
 s.ao()
-s.d=A.bD(null,B.M1,null,1,null,s)
+s.d=A.bD(null,B.M0,null,1,null,s)
 if(s.gb5().c==null)s.d.v3(0)},
 aE(a){var s,r=this
 r.aU(a)
@@ -62285,7 +62285,7 @@ s.aO$=null
 s.an()}}
 A.Sl.prototype={
 E(a){var s=this,r=null
-if(A.C(a).w===B.av)return new A.v9(8,B.eo,s.c,s.d,s.e===!0,B.Xn,3,r,B.jn,B.LQ,A.zB(),r,r,3,r)
+if(A.C(a).w===B.av)return new A.v9(8,B.eo,s.c,s.d,s.e===!0,B.Xn,3,r,B.jn,B.LP,A.zB(),r,r,3,r)
 return new A.yG(s.c,s.d,s.e,r,r,r,B.bI,B.hH,A.zB(),r,r,0,r)}}
 A.yG.prototype={
 W(){var s=null
@@ -65398,7 +65398,7 @@ l=A.bc(n?B.ru:B.rF,i,i,i)
 k=n?"Back":"More"
 m=A.a([new A.a1y(l,new A.aGk(j),k,m)],t.p)
 B.b.S(m,j.a.c)
-return new A.a1A(r,q,A.aPV(p.aEO(a,new A.a1w(o,n,m,i)),B.a7,B.LR),s)}}
+return new A.a1A(r,q,A.aPV(p.aEO(a,new A.a1w(o,n,m,i)),B.a7,B.LQ),s)}}
 A.aGk.prototype={
 $0(){var s=this.a
 s.B(new A.aGj(s))},
@@ -67687,7 +67687,7 @@ W(){return new A.pe(new A.ahe(),A.aP(t.S),B.W,null,null)}}
 A.pe.prototype={
 gasw(){this.a.toString
 this.f===$&&A.b()
-return B.LT},
+return B.LS},
 gagB(){this.a.toString
 this.f===$&&A.b()
 return!0},
@@ -100728,44 +100728,46 @@ case 5:return A.w(null,r)
 case 1:return A.v(p.at(-1),r)}})
 return A.x($async$GB,r)},
 Fn(a,b){return this.aBR(a,b)},
-aBR(a,b){var s=0,r=A.y(t.P),q,p=2,o=[],n,m,l,k,j,i,h,g,f,e,d,c
-var $async$Fn=A.u(function(a0,a1){if(a0===1){o.push(a1)
+aBR(a,a0){var s=0,r=A.y(t.P),q,p=2,o=[],n,m,l,k,j,i,h,g,f,e,d,c,b
+var $async$Fn=A.u(function(a1,a2){if(a1===1){o.push(a2)
 s=p}while(true)switch(s){case 0:p=4
 A.o("[ApiService] Attempting login for: "+a)
 n=A.c8("https://health-ai-backend-i28b.onrender.com/api/health/auth/login")
 A.o("[ApiService] Login URL: "+A.f(n))
-h=t.N
-m=B.x.ds(A.N(["email",a,"password",b],h,h),null)
-A.o("[ApiService] Login request body: "+A.f(m))
+g=t.N
+m=A.N(["Content-Type","application/json","Accept","application/json"],g,g)
+l=B.x.ds(A.N(["email",a,"password",a0],g,g),null)
+A.o("[ApiService] Headers: "+A.f(m))
+A.o("[ApiService] Body: "+A.f(l))
 s=7
-return A.k(A.kT(n,m,A.N(["Content-Type","application/json"],h,h)).va(0,B.LO,new A.a5c()),$async$Fn)
-case 7:l=a1
-A.o("[ApiService] Login response status: "+l.b)
-A.o("[ApiService] Login response headers: "+l.e.l(0))
-g=l
-A.o("[ApiService] Login response body: "+A.bH(A.bG(g.e)).aT(0,g.w))
-if(l.b===200){g=l
-k=B.x.bm(0,A.bH(A.bG(g.e)).aT(0,g.w),null)
-g=J.G(k,"success")
-if(g==null)g=!0
-f=J.G(k,"user")
-e=J.G(k,"message")
-h=A.N(["success",g,"user",f,"message",e==null?"Login successful":e],h,t.z)
-q=h
+return A.k(A.kT(n,l,m).va(0,B.M1,new A.a5c()),$async$Fn)
+case 7:k=a2
+A.o("[ApiService] Response status: "+k.b)
+A.o("[ApiService] Response headers: "+k.e.l(0))
+f=k
+A.o("[ApiService] Response body: "+A.bH(A.bG(f.e)).aT(0,f.w))
+if(k.b===200){f=k
+j=B.x.bm(0,A.bH(A.bG(f.e)).aT(0,f.w),null)
+f=J.G(j,"success")
+if(f==null)f=!0
+e=J.G(j,"user")
+d=J.G(j,"message")
+g=A.N(["success",f,"user",e,"message",d==null?"Login successful":d],g,t.z)
+q=g
 s=1
-break}else{h=l
-j=B.x.bm(0,A.bH(A.bG(h.e)).aT(0,h.w),null)
-A.o("[ApiService] \u274c Login failed: "+A.f(j))
-h=J.G(j,"detail")
-h=A.bM(h==null?"Login failed":h)
-throw A.h(h)}p=2
+break}else{g=k
+i=B.x.bm(0,A.bH(A.bG(g.e)).aT(0,g.w),null)
+A.o("[ApiService] \u274c Login failed: "+A.f(i))
+g=J.G(i,"detail")
+g=A.bM(g==null?"Login failed":g)
+throw A.h(g)}p=2
 s=6
 break
 case 4:p=3
-c=o.pop()
-i=A.L(c)
-A.o("[ApiService] \u274c Login error: "+A.f(i))
-throw c
+b=o.pop()
+h=A.L(b)
+A.o("[ApiService] \u274c Login error: "+A.f(h))
+throw b
 s=6
 break
 case 3:s=2
@@ -102144,8 +102146,8 @@ case 6:case 1:return A.w(q,r)
 case 2:return A.v(o.at(-1),r)}})
 return A.x($async$Aa,r)}}
 A.a5c.prototype={
-$0(){A.o("[ApiService] \u274c Login request timed out after 10 seconds")
-throw A.h(A.bM("Login request timed out"))},
+$0(){A.o("[ApiService] \u274c Request timed out")
+throw A.h(A.bM("Request timed out"))},
 $S:153}
 A.a5b.prototype={
 $1(a){return A.aUh(a)},
@@ -102916,7 +102918,7 @@ return A.k(n.a.jm(0),$async$l5)
 case 7:m=d
 if(!m){g=A.bM("No internet connection")
 throw A.h(g)}s=8
-return A.k(n.b.Fn(a,b).va(0,B.LU,new A.a7s(n)),$async$l5)
+return A.k(n.b.Fn(a,b).va(0,B.LT,new A.a7s(n)),$async$l5)
 case 8:l=d
 s=J.d(J.G(l,"success"),!0)&&J.G(l,"user")!=null?9:11
 break
@@ -114325,29 +114327,29 @@ B.Y=new A.bk(0)
 B.LN=new A.bk(1000)
 B.bh=new A.bk(1e5)
 B.dJ=new A.bk(1e6)
-B.LO=new A.bk(1e7)
-B.LP=new A.bk(12e4)
-B.LQ=new A.bk(12e5)
+B.LO=new A.bk(12e4)
+B.LP=new A.bk(12e5)
 B.ma=new A.bk(125e3)
-B.LR=new A.bk(14e4)
-B.LS=new A.bk(15e3)
+B.LQ=new A.bk(14e4)
+B.LR=new A.bk(15e3)
 B.dg=new A.bk(15e4)
-B.LT=new A.bk(15e5)
-B.LU=new A.bk(15e6)
-B.LV=new A.bk(16667)
+B.LS=new A.bk(15e5)
+B.LT=new A.bk(15e6)
+B.LU=new A.bk(16667)
 B.dK=new A.bk(167e3)
-B.LW=new A.bk(18e4)
-B.LX=new A.bk(18e5)
-B.LY=new A.bk(195e3)
-B.LZ=new A.bk(2e4)
+B.LV=new A.bk(18e4)
+B.LW=new A.bk(18e5)
+B.LX=new A.bk(195e3)
+B.LY=new A.bk(2e4)
 B.Q=new A.bk(2e5)
 B.jm=new A.bk(2e6)
-B.M_=new A.bk(225e3)
-B.M0=new A.bk(246e3)
+B.LZ=new A.bk(225e3)
+B.M_=new A.bk(246e3)
 B.jn=new A.bk(25e4)
-B.M1=new A.bk(2961926e3)
+B.M0=new A.bk(2961926e3)
 B.qL=new A.bk(300)
 B.bI=new A.bk(3e5)
+B.M1=new A.bk(3e7)
 B.qM=new A.bk(35e4)
 B.qN=new A.bk(375e3)
 B.M2=new A.bk(4e4)
