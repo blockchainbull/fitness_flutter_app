@@ -14,7 +14,7 @@ class ApiService {
   // Updated API base URL to match unified backend
   static final String baseUrl = kDebugMode 
     ? 'http://localhost:8000/api/health'  // For local development
-    : 'https://your-production-api.com/api/health';  // For production
+    : 'https://health-ai-backend-i28b.onrender.com/api/health';  // For production
 
 //  static final String baseUrl = kDebugMode 
 //    ? 'http://10.0.2.2:8000/api/health'  // Android emulator
