@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:user_onboarding/data/models/period_entry.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
@@ -16,9 +17,14 @@ class ApiService {
     ? 'http://localhost:8000/api/health'  // For local development
     : 'https://health-ai-backend-i28b.onrender.com/api/health';  // For production
 
-//  static final String baseUrl = kDebugMode 
-//    ? 'http://10.0.2.2:8000/api/health'  // Android emulator
-//    : 'https://your-production-api.com/api/health';
+  Map<String, String> get headers => {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+
+  //  static final String baseUrl = kDebugMode 
+  //    ? 'http://10.0.2.2:8000/api/health'  // Android emulator
+  //    : 'https://your-production-api.com/api/health';
 
   factory ApiService() {
     return _instance;
@@ -919,68 +925,87 @@ class ApiService {
   }
 
   // Get meal history
-  Future<List<Map<String, dynamic>>> getMealHistory(
-    String userId, {
-    String? date,
-    int limit = 20,
-  }) async {
+  Future<List<Map<String, dynamic>>> getMealHistory(String userId, {String? date}) async {
     try {
-      String url = '$baseUrl/meals/history/$userId?limit=$limit';
+      String url = '$baseUrl/meals/history/$userId';
       if (date != null) {
-        url += '&date=$date';
+        url += '?date=$date';
       }
-
+      
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['meals'] ?? []);
-      } else {
-        throw Exception('Failed to get meal history');
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['meals'] != null) {
+          final meals = List<Map<String, dynamic>>.from(data['meals']);
+          return meals;
+        }
       }
+      
+      throw Exception('Failed to load meal history');
     } catch (e) {
-      print('[ApiService] Get meal history error: $e');
+      print('❌ Error getting meal history: $e');
       return [];
     }
   }
 
   // Get daily nutrition summary
-  Future<Map<String, dynamic>> getDailySummary(
-    String userId, {
-    String? date,
-  }) async {
+  Future<Map<String, dynamic>> getDailySummary(String userId, {String? date}) async {
     try {
-      String url = '$baseUrl/meals/daily-summary/$userId';
-      if (date != null) {
-        url += '?date=$date';
-      }
-
-      print('[ApiService] Getting daily summary: $url');
-
+      final dateParam = date ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
       final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$baseUrl/daily-summary/$userId?date=$dateParam'),
+        headers: headers,
       );
 
-      print('[ApiService] Daily summary response status: ${response.statusCode}');
-      print('[ApiService] Daily summary response body: ${response.body}');
-
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        print('[ApiService] Failed to get daily summary');
-        throw Exception('Failed to get daily summary');
+        final data = json.decode(response.body);
+        
+        // Handle the response structure - check multiple possible paths
+        final mealsData = data['meals'] ?? data['totals'] ?? {};
+        final totalsData = data['totals'] ?? data['meals'] ?? {};
+        
+        final result = {
+          'totals': {
+            'calories': (totalsData['calories'] ?? 
+                        totalsData['total_calories'] ?? 
+                        totalsData['calories_consumed'] ?? 0.0).toDouble(),
+            'protein_g': (totalsData['protein_g'] ?? 
+                        totalsData['total_protein'] ?? 0.0).toDouble(),
+            'carbs_g': (totalsData['carbs_g'] ?? 
+                      totalsData['total_carbs'] ?? 0.0).toDouble(),
+            'fat_g': (totalsData['fat_g'] ?? 
+                    totalsData['total_fat'] ?? 0.0).toDouble(),
+            'fiber_g': (totalsData['fiber_g'] ?? 
+                      totalsData['total_fiber'] ?? 0.0).toDouble(),
+            'sugar_g': (totalsData['sugar_g'] ?? 
+                      totalsData['total_sugar'] ?? 0.0).toDouble(),
+            'sodium_mg': (totalsData['sodium_mg'] ?? 
+                        totalsData['total_sodium'] ?? 0.0).toDouble(),
+          },
+          'meals_count': mealsData['meals_count'] ?? mealsData['total_count'] ?? 0,
+        };
+        
+        return result;
       }
+      
+      throw Exception('Failed to load daily summary: ${response.statusCode}');
     } catch (e) {
-      print('[ApiService] Get daily summary error: $e');
-      // Return empty but valid response instead of rethrowing
+      print('❌ Error getting daily summary: $e');
       return {
-        'success': false,
-        'meals': [],
-        'totals': {},
+        'totals': {
+          'calories': 0.0,
+          'protein_g': 0.0,
+          'carbs_g': 0.0,
+          'fat_g': 0.0,
+          'fiber_g': 0.0,
+          'sugar_g': 0.0,
+          'sodium_mg': 0.0,
+        },
+        'meals_count': 0,
       };
     }
   }
@@ -1001,22 +1026,22 @@ class ApiService {
   }
 
   // Update a meal
-  Future<Map<String, dynamic>> updateMeal(String mealId, Map<String, dynamic> updateData) async {
+  Future<Map<String, dynamic>> updateMeal(String mealId, Map<String, dynamic> mealData) async {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/meals/$mealId'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(updateData),
+        headers: headers,
+        body: json.encode(mealData),
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Failed to update meal');
+        return json.decode(response.body);
       }
+      
+      throw Exception('Failed to update meal');
     } catch (e) {
-      print('[ApiService] Update meal error: $e');
-      return {'success': false};
+      print('Error updating meal: $e');
+      throw e;
     }
   }
 

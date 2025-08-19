@@ -19,8 +19,9 @@ class MealHistoryPage extends StatefulWidget {
 class _MealHistoryPageState extends State<MealHistoryPage> {
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _meals = [];
-  bool _isLoading = true;
+  Map<String, dynamic> _dailyTotals = {};
   DateTime _selectedDate = DateTime.now();
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -32,36 +33,74 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
     setState(() => _isLoading = true);
     
     try {
-      final meals = await _apiService.getMealHistory(
-        widget.userProfile.id!,
-        date: _selectedDate.toIso8601String(),
-        limit: 50,
-      );
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      
+      // Load both daily summary and individual meals
+      final summary = await _apiService.getDailySummary(widget.userProfile.id!, date: dateStr);
+      final meals = await _apiService.getMealHistory(widget.userProfile.id!, date: dateStr);
+      
+      print('📊 Summary loaded: $summary');
+      print('📊 Meals loaded: ${meals.length} meals');
       
       setState(() {
         _meals = meals;
-        _isLoading = false;
+        
+        // Use summary totals if available, otherwise calculate from meals
+        if (summary['totals'] != null) {
+          _dailyTotals = Map<String, dynamic>.from(summary['totals']);
+          print('📊 Using summary totals: $_dailyTotals');
+        } else {
+          _calculateDailyTotals();
+          print('📊 Calculated totals: $_dailyTotals');
+        }
       });
     } catch (e) {
+      print('❌ Error loading meals: $e');
+    } finally {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading meals: $e')),
-      );
     }
   }
 
+  void _calculateDailyTotals() {
+    double totalCalories = 0;
+    double totalProtein = 0;
+    double totalCarbs = 0;
+    double totalFat = 0;
+    double totalFiber = 0;
+    double totalSugar = 0;
+    double totalSodium = 0;
+
+    for (var meal in _meals) {
+      totalCalories += (meal['calories'] as num?)?.toDouble() ?? 0;
+      totalProtein += (meal['protein_g'] as num?)?.toDouble() ?? 0;
+      totalCarbs += (meal['carbs_g'] as num?)?.toDouble() ?? 0;
+      totalFat += (meal['fat_g'] as num?)?.toDouble() ?? 0;
+      totalFiber += (meal['fiber_g'] as num?)?.toDouble() ?? 0;
+      totalSugar += (meal['sugar_g'] as num?)?.toDouble() ?? 0;
+      totalSodium += (meal['sodium_mg'] as num?)?.toDouble() ?? 0;
+    }
+
+    _dailyTotals = {
+      'calories': totalCalories,
+      'protein_g': totalProtein,
+      'carbs_g': totalCarbs,
+      'fat_g': totalFat,
+      'fiber_g': totalFiber,
+      'sugar_g': totalSugar,
+      'sodium_mg': totalSodium,
+    };
+  }
+
   Future<void> _selectDate() async {
-    final picked = await showDatePicker(
+    final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
     
     if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
+      setState(() => _selectedDate = picked);
       _loadMeals();
     }
   }
@@ -69,10 +108,12 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Meal History'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_today),
@@ -80,133 +121,412 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Date selector
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.green.withOpacity(0.1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
               children: [
-                const Icon(Icons.calendar_today, size: 20),
-                const SizedBox(width: 8),
+                // Date Header
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  color: Colors.green,
+                  child: Text(
+                    DateFormat('EEEE, MMMM d, y').format(_selectedDate),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                
+                // Daily Totals Calculator
+                _buildDailyTotalsCard(),
+                
+                // Clear Divider
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const Divider(
+                    thickness: 2,
+                    color: Colors.grey,
+                  ),
+                ),
+                
+                // Section Header for Meals
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Meals (${_meals.length})',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                
+                // Simplified Meals List
+                Expanded(
+                  child: _meals.isEmpty
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.no_meals,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'No meals logged for this date',
+                                style: TextStyle(fontSize: 16, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _meals.length,
+                          itemBuilder: (context, index) =>
+                              _buildSimpleMealCard(_meals[index]),
+                        ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSimpleMealCard(Map<String, dynamic> meal) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Meal type indicator
+          Container(
+            width: 4,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _getMealTypeColor(meal['meal_type']),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Meal info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Meal type badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _getMealTypeColor(meal['meal_type']).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    meal['meal_type'] ?? 'Snack',
+                    style: TextStyle(
+                      color: _getMealTypeColor(meal['meal_type']),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 6),
+                
+                // Food item
                 Text(
-                  DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate),
+                  meal['food_item'] ?? 'Unknown Food',
                   style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                
+                const SizedBox(height: 2),
+                
+                // Quantity
+                Text(
+                  meal['quantity'] ?? '1 serving',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
             ),
           ),
           
-          // Meals list
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _meals.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.no_meals,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No meals logged for this day',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _meals.length,
-                        itemBuilder: (context, index) {
-                          final meal = _meals[index];
-                          return Dismissible(
-                            key: Key(meal['id']),
-                            background: Container(
-                              color: Colors.red,
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              child: const Icon(
-                                Icons.delete,
-                                color: Colors.white,
-                              ),
-                            ),
-                            direction: DismissDirection.endToStart,
-                            onDismissed: (direction) async {
-                              final deleted = await _apiService.deleteMeal(meal['id']);
-                              if (deleted) {
-                                setState(() {
-                                  _meals.removeAt(index);
-                                });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Meal deleted'),
-                                  ),
-                                );
-                              }
-                            },
-                            child: _buildMealHistoryCard(meal),
-                          );
-                        },
-                      ),
+          // Just calories - no detailed breakdown
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${meal['calories']?.toStringAsFixed(0) ?? '0'} cal',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+            
+              // Larger, more readable macro summary
+              Text(
+                'P:${meal['protein_g']?.toStringAsFixed(0) ?? '0'}g C:${meal['carbs_g']?.toStringAsFixed(0) ?? '0'}g F:${meal['fat_g']?.toStringAsFixed(0) ?? '0'}g',
+                style: TextStyle(
+                  fontSize: 12, // Increased from 10 to 12
+                  color: Colors.grey[600], // Darker color for better contrast
+                  fontWeight: FontWeight.w500, // Added weight for better readability
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMealHistoryCard(Map<String, dynamic> meal) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.green.withOpacity(0.1),
-          child: Text(
-            meal['meal_type'][0],
-            style: const TextStyle(
-              color: Colors.green,
-              fontWeight: FontWeight.bold,
+  Color _getMealTypeColor(String? mealType) {
+    switch (mealType?.toLowerCase()) {
+      case 'breakfast':
+        return Colors.orange;
+      case 'lunch':
+        return Colors.green;
+      case 'dinner':
+        return Colors.blue;
+      case 'snack':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildDailyTotalsCard() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.calculate, color: Colors.green, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Daily Nutrition Summary',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  '${_meals.length} meals',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Main Calories Display
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '${_dailyTotals['calories']?.toStringAsFixed(0) ?? '0'}',
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  'TOTAL CALORIES',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        title: Text(
-          meal['food_item'],
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        subtitle: Text('${meal['quantity']} • ${meal['meal_type']}'),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${meal['calories']} cal',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+          
+          const SizedBox(height: 20),
+          
+          // Macronutrients
+          const Text(
+            'MACRONUTRIENTS',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
             ),
-            Text(
-              'P: ${meal['protein_g']}g',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildCleanNutrientBox(
+                  'Protein',
+                  '${_dailyTotals['protein_g']?.toStringAsFixed(1) ?? '0'}g',
+                  Colors.red[600]!,
+                ),
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildCleanNutrientBox(
+                  'Carbs',
+                  '${_dailyTotals['carbs_g']?.toStringAsFixed(1) ?? '0'}g',
+                  Colors.orange[600]!,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildCleanNutrientBox(
+                  'Fat',
+                  '${_dailyTotals['fat_g']?.toStringAsFixed(1) ?? '0'}g',
+                  Colors.blue[600]!,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Micronutrients
+          const Text(
+            'MICRONUTRIENTS',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildCleanNutrientBox(
+                  'Fiber',
+                  '${_dailyTotals['fiber_g']?.toStringAsFixed(1) ?? '0'}g',
+                  Colors.green[600]!,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildCleanNutrientBox(
+                  'Sugar',
+                  '${_dailyTotals['sugar_g']?.toStringAsFixed(1) ?? '0'}g',
+                  Colors.purple[600]!,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildCleanNutrientBox(
+                  'Sodium',
+                  '${_dailyTotals['sodium_mg']?.toStringAsFixed(0) ?? '0'}mg',
+                  Colors.amber[700]!,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
+
+  Widget _buildCleanNutrientBox(String label, String value, Color accentColor) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: accentColor,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_history_page.dart';
 import 'package:intl/intl.dart';
 
@@ -523,39 +522,6 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
     );
   }
 
-  Widget _buildMacroCard(String label, String value, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSimpleMacro(String label, String value, Color color) {
     return Column(
       children: [
@@ -575,310 +541,452 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
     );
   }
  
- Widget _buildNutrientRow(String label, String value) {
-   return Padding(
-     padding: const EdgeInsets.symmetric(vertical: 4),
-     child: Row(
-       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-       children: [
-         Text(label, style: TextStyle(color: Colors.grey[600])),
-         Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-       ],
-     ),
-   );
- }
- 
  @override
- Widget build(BuildContext context) {
-   return Scaffold(
-     backgroundColor: Colors.grey[50],
-     appBar: AppBar(
-       title: const Text('Meal Tracker'),
-       backgroundColor: Colors.green,
-       foregroundColor: Colors.white,
-       elevation: 0,
-       actions: [
-         IconButton(
-           icon: const Icon(Icons.history),
-           onPressed: () {
-             Navigator.push(
-               context,
-               MaterialPageRoute(
-                 builder: (context) => MealHistoryPage(
-                   userProfile: widget.userProfile,
-                 ),
-               ),
-             );
-           },
-         ),
-       ],
-     ),
-     
-     body: SingleChildScrollView(
-       child: Column(
-         crossAxisAlignment: CrossAxisAlignment.start,
-         children: [
-           // Daily Summary Card
-           if (_dailySummary != null && 
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('Meal Tracker'),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MealHistoryPage(
+                    userProfile: widget.userProfile,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Daily Total Calories Card (NEW - Always visible)
+            _buildDailyCaloriesCard(),
+            
+            // Daily Summary Card (Your existing one)
+            if (_dailySummary != null && 
                 _dailySummary!['totals'] != null &&
                 _dailySummary!['goals'] != null)
-             _buildDailySummaryCard(),
-           
-           // Meal Input Form
-           Container(
-             margin: const EdgeInsets.all(16),
-             padding: const EdgeInsets.all(20),
-             decoration: BoxDecoration(
-               color: Colors.white,
-               borderRadius: BorderRadius.circular(16),
-               boxShadow: [
-                 BoxShadow(
-                   color: Colors.black.withOpacity(0.05),
-                   blurRadius: 10,
-                   offset: const Offset(0, 5),
-                 ),
-               ],
-             ),
-             child: Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
-               children: [
-                 const Text(
-                   'Log Your Meal',
-                   style: TextStyle(
-                     fontSize: 20,
-                     fontWeight: FontWeight.bold,
-                   ),
-                 ),
-                 const SizedBox(height: 20),
-                 
-                 // Meal type selector
-                 SizedBox(
-                   height: 40,
-                   child: ListView(
-                     scrollDirection: Axis.horizontal,
-                     children: [
-                       'Breakfast',
-                       'Lunch',
-                       'Dinner',
-                       'Snack',
-                     ].map((type) {
-                       final isSelected = _selectedMealType == type;
-                       return Padding(
-                         padding: const EdgeInsets.only(right: 8),
-                         child: ChoiceChip(
-                           label: Text(type),
-                           selected: isSelected,
-                           onSelected: (selected) {
-                             setState(() {
-                               _selectedMealType = type;
-                             });
-                           },
-                           selectedColor: Colors.green,
-                           labelStyle: TextStyle(
-                             color: isSelected ? Colors.white : Colors.black,
-                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                           ),
-                         ),
-                       );
-                     }).toList(),
-                   ),
-                 ),
-                 
-                 const SizedBox(height: 20),
-                 
-                 // Food input
-                 TextField(
-                   controller: _foodController,
-                   decoration: InputDecoration(
-                     labelText: 'What did you eat?',
-                     hintText: 'e.g., Grilled chicken breast with rice',
-                     prefixIcon: const Icon(Icons.restaurant, color: Colors.green),
-                     border: OutlineInputBorder(
-                       borderRadius: BorderRadius.circular(12),
-                     ),
-                     focusedBorder: OutlineInputBorder(
-                       borderRadius: BorderRadius.circular(12),
-                       borderSide: const BorderSide(color: Colors.green, width: 2),
-                     ),
-                   ),
-                 ),
-                 
-                 const SizedBox(height: 16),
-                 
-                 // Quantity input
-                 TextField(
-                   controller: _quantityController,
-                   decoration: InputDecoration(
-                     labelText: 'How much?',
-                     hintText: 'e.g., 1 plate, 200 grams, 2 cups',
-                     prefixIcon: const Icon(Icons.scale, color: Colors.green),
-                     border: OutlineInputBorder(
-                       borderRadius: BorderRadius.circular(12),
-                     ),
-                     focusedBorder: OutlineInputBorder(
-                       borderRadius: BorderRadius.circular(12),
-                       borderSide: const BorderSide(color: Colors.green, width: 2),
-                     ),
-                   ),
-                 ),
-                 
-                 const SizedBox(height: 16),
-                 
-                 // Preparation method (optional)
-                 TextField(
-                   controller: _preparationController,
-                   decoration: InputDecoration(
-                     labelText: 'How was it prepared? (Optional)',
-                     hintText: 'e.g., fried in olive oil, steamed, raw',
-                     prefixIcon: const Icon(Icons.kitchen, color: Colors.green),
-                     border: OutlineInputBorder(
-                       borderRadius: BorderRadius.circular(12),
-                     ),
-                     focusedBorder: OutlineInputBorder(
-                       borderRadius: BorderRadius.circular(12),
-                       borderSide: const BorderSide(color: Colors.green, width: 2),
-                     ),
-                   ),
-                 ),
-                 
-                 const SizedBox(height: 24),
-                 
-                 // Analyze button
-                 SizedBox(
-                   width: double.infinity,
-                   height: 50,
-                   child: ElevatedButton(
-                     onPressed: _isAnalyzing ? null : _analyzeMeal,
-                     style: ElevatedButton.styleFrom(
-                       backgroundColor: Colors.green,
-                       shape: RoundedRectangleBorder(
-                         borderRadius: BorderRadius.circular(12),
-                       ),
-                     ),
-                     child: _isAnalyzing
-                         ? const Row(
-                             mainAxisAlignment: MainAxisAlignment.center,
-                             children: [
-                               SizedBox(
-                                 width: 20,
-                                 height: 20,
-                                 child: CircularProgressIndicator(
-                                   color: Colors.white,
-                                   strokeWidth: 2,
-                                 ),
-                               ),
-                               SizedBox(width: 10),
-                               Text(
-                                 'Analyzing...',
-                                 style: TextStyle(
-                                   fontSize: 16,
-                                   fontWeight: FontWeight.bold,
-                                 ),
-                               ),
-                             ],
-                           )
-                         : const Row(
-                             mainAxisAlignment: MainAxisAlignment.center,
-                             children: [
-                               Icon(Icons.analytics),
-                               SizedBox(width: 8),
-                               Text(
-                                 'Analyze & Log Meal',
-                                 style: TextStyle(
-                                   fontSize: 16,
-                                   fontWeight: FontWeight.bold,
-                                 ),
-                               ),
-                             ],
-                           ),
-                   ),
-                 ),
-               ],
-             ),
-           ),
-           
-           // Quick Add Section
-           _buildQuickAddSection(),
-           
-           // Today's Meals
-           if (_todayMeals.isNotEmpty)
-             _buildTodaysMealsSection(),
-         ],
-       ),
-     ),
-   );
- }
+              _buildDailySummaryCard(),
+            
+            // Meal Input Form (Your existing form - unchanged)
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Log Your Meal',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Meal type selector
+                  SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        'Breakfast',
+                        'Lunch',
+                        'Dinner',
+                        'Snack',
+                      ].map((type) {
+                        final isSelected = _selectedMealType == type;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(type),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedMealType = type;
+                              });
+                            },
+                            selectedColor: Colors.green,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Food input
+                  TextField(
+                    controller: _foodController,
+                    decoration: InputDecoration(
+                      labelText: 'What did you eat?',
+                      hintText: 'e.g., Grilled chicken breast with rice',
+                      prefixIcon: const Icon(Icons.restaurant, color: Colors.green),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.green, width: 2),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Quantity input
+                  TextField(
+                    controller: _quantityController,
+                    decoration: InputDecoration(
+                      labelText: 'How much?',
+                      hintText: 'e.g., 1 plate, 200 grams, 2 cups',
+                      prefixIcon: const Icon(Icons.scale, color: Colors.green),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.green, width: 2),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Preparation method (optional)
+                  TextField(
+                    controller: _preparationController,
+                    decoration: InputDecoration(
+                      labelText: 'How was it prepared? (Optional)',
+                      hintText: 'e.g., fried in olive oil, steamed, raw',
+                      prefixIcon: const Icon(Icons.kitchen, color: Colors.green),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.green, width: 2),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Analyze button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isAnalyzing ? null : _analyzeMeal,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isAnalyzing
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Analyzing...',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.analytics),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Analyze & Log Meal',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Quick Add Section (Your existing section)
+            _buildQuickAddSection(),
+            
+            // Today's Meals (Your existing section)
+            if (_todayMeals.isNotEmpty)
+              _buildTodaysMealsSection(),
+          ],
+        ),
+      ),
+    );
+  }
  
+  Widget _buildDailyCaloriesCard() {
+    // Calculate total calories from today's meals
+    double totalCalories = 0;
+    for (var meal in _todayMeals) {
+      totalCalories += (meal['calories'] as num?)?.toDouble() ?? 0;
+    }
+    
+    // Also try to get from daily summary if available
+    if (_dailySummary != null && _dailySummary!['totals'] != null) {
+      final summaryCalories = (_dailySummary!['totals']['calories'] as num?)?.toDouble() ?? 0;
+      if (summaryCalories > totalCalories) {
+        totalCalories = summaryCalories;
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.local_fire_department,
+              color: Colors.green,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Today's Calories",
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${totalCalories.toStringAsFixed(0)} cal',
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.green,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '${_todayMeals.length} meals',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   Widget _buildDailySummaryCard() {
-    // Safety check for null or invalid data
     if (_dailySummary == null) {
       return const SizedBox.shrink();
     }
     
     final totals = _dailySummary!['totals'] as Map<String, dynamic>? ?? {};
-    final goals = _dailySummary!['goals'] as Map<String, dynamic>? ?? {};
     
     // Safely extract values with defaults
     final calories = (totals['calories'] as num?)?.toDouble() ?? 0.0;
-    final calorieGoal = (goals['calories'] as num?)?.toDouble() ?? 2000.0;
     final protein = (totals['protein_g'] as num?)?.toDouble() ?? 0.0;
-    final proteinGoal = (goals['protein_g'] as num?)?.toDouble() ?? 50.0;
     final carbs = (totals['carbs_g'] as num?)?.toDouble() ?? 0.0;
-    final carbsGoal = (goals['carbs_g'] as num?)?.toDouble() ?? 250.0;
     final fat = (totals['fat_g'] as num?)?.toDouble() ?? 0.0;
-    final fatGoal = (goals['fat_g'] as num?)?.toDouble() ?? 65.0;
-    
+    final fiber = (totals['fiber_g'] as num?)?.toDouble() ?? 0.0;
+    final sugar = (totals['sugar_g'] as num?)?.toDouble() ?? 0.0;
+    final sodium = (totals['sodium_mg'] as num?)?.toDouble() ?? 0.0;
+
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.green.shade400, Colors.green.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.green.withOpacity(0.3),
             blurRadius: 10,
-            offset: const Offset(0, 5),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Today\'s Summary',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+          // Header
+          Row(
+            children: [
+              const Icon(Icons.today, color: Colors.white, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                "Today's Nutrition",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  DateFormat('MMM d').format(DateTime.now()),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
+          
           const SizedBox(height: 16),
           
-          // Calories progress
-          _buildNutrientProgress(
-            'Calories',
-            calories,
-            calorieGoal,
-            Icons.local_fire_department,
+          // Main Calories Display
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '${calories.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  'CALORIES TODAY',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
           
-          // Macros
+          const SizedBox(height: 16),
+          
+          // Macronutrients Row
           Row(
             children: [
               Expanded(
-                child: _buildMacroProgress('Protein', protein, proteinGoal),
+                child: _buildMacroIndicator('Protein', '${protein.toStringAsFixed(1)}g', Colors.red.shade300),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
-                child: _buildMacroProgress('Carbs', carbs, carbsGoal),
+                child: _buildMacroIndicator('Carbs', '${carbs.toStringAsFixed(1)}g', Colors.orange.shade300),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
-                child: _buildMacroProgress('Fat', fat, fatGoal),
+                child: _buildMacroIndicator('Fat', '${fat.toStringAsFixed(1)}g', Colors.blue.shade300),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Additional Nutrients Row
+          Row(
+            children: [
+              Expanded(
+                child: _buildMicroIndicator('Fiber', '${fiber.toStringAsFixed(1)}g'),
+              ),
+              Expanded(
+                child: _buildMicroIndicator('Sugar', '${sugar.toStringAsFixed(1)}g'),
+              ),
+              Expanded(
+                child: _buildMicroIndicator('Sodium', '${sodium.toStringAsFixed(0)}mg'),
               ),
             ],
           ),
@@ -887,86 +995,53 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
     );
   }
 
-  Widget _buildNutrientProgress(
-    String label,
-    double value,
-    double goal,
-    IconData icon,
-  ) {
-    final percentage = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+  Widget _buildMacroIndicator(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-            Text(
-              '${value.toInt()} / ${goal.toInt()}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: percentage,
-            backgroundColor: Colors.white.withOpacity(0.3),
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            minHeight: 8,
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildMacroProgress(String label, double value, double goal) {
-    final percentage = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
-    
+  Widget _buildMicroIndicator(String label, String value) {
     return Column(
       children: [
         Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${value.toInt()}g',
+          value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: percentage,
-            backgroundColor: Colors.white.withOpacity(0.3),
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            minHeight: 4,
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 10,
           ),
         ),
       ],
