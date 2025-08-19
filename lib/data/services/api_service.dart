@@ -157,39 +157,99 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> sendChatMessage(String userId, String message) async {
+  Future<String> sendChatMessage(String userId, String message) async {
     try {
       print('[ApiService] Sending chat message for user: $userId');
-      print('[ApiService] Message: $message');
       
       final response = await http.post(
-        Uri.parse('http://localhost:8000/submit-prompt'), 
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        Uri.parse('$baseUrl/chat'),
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'user_id': userId,
-          'user_prompt': message,
-          'agent_name': 'health_coach',
+          'message': message,
         }),
       );
 
       print('[ApiService] Chat response status: ${response.statusCode}');
-      print('[ApiService] Chat response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'response': data['response'] ?? 'Sorry, I couldn\'t process your message.',
-        };
+        return data['response'] ?? 'Sorry, I couldn\'t generate a response.';
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Chat message failed');
+        throw Exception('Failed to send chat message: ${response.body}');
       }
     } catch (e) {
       print('[ApiService] Chat error: $e');
-      rethrow;
+      return 'I\'m having trouble connecting right now. Please try again later.';
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserChatContext(String userId) async {
+    try {
+      print('[ApiService] Getting chat context for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/chat/context/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Chat context response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['context'] ?? {};
+      } else {
+        throw Exception('Failed to get chat context: ${response.body}');
+      }
+    } catch (e) {
+      print('[ApiService] Chat context error: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserFramework(String userId) async {
+    try {
+      print('[ApiService] Getting user framework for: $userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/user/$userId/framework'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Framework response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else {
+        throw Exception('Failed to get user framework: ${response.body}');
+      }
+    } catch (e) {
+      print('[ApiService] Framework error: $e');
+      throw e;
+    }
+  }
+
+  Future<Map<String, dynamic>> compareFrameworks() async {
+    try {
+      print('[ApiService] Getting framework comparison');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/frameworks/compare'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Framework comparison response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['frameworks'] ?? {};
+      } else {
+        throw Exception('Failed to get framework comparison: ${response.body}');
+      }
+    } catch (e) {
+      print('[ApiService] Framework comparison error: $e');
+      return {};
     }
   }
 

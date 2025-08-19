@@ -135,6 +135,8 @@ class _DashboardHomeState extends State<DashboardHome> {
                 const SizedBox(height: 24),
                 _buildQuickActions(),
                 const SizedBox(height: 24),
+                _buildSmartRecommendations(),
+                const SizedBox(height: 24),
                 _buildTodayActivity(),
                 const SizedBox(height: 24),
                 _buildGoals(),
@@ -381,6 +383,179 @@ class _DashboardHomeState extends State<DashboardHome> {
         ),
       ],
     );
+  }
+
+  Widget _buildSmartRecommendations() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _getSmartRecommendations(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+        
+        final recommendations = snapshot.data!;
+        
+        return Card(
+          margin: const EdgeInsets.all(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.lightbulb, color: Colors.amber[600]),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Today\'s Focus',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                
+                // Dynamic recommendations based on user's framework
+                ...recommendations['recommendations'].map<Widget>((rec) => 
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(rec['icon'], color: rec['color'], size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(rec['text'])),
+                      ],
+                    ),
+                  ),
+                ).toList(),
+                
+                const SizedBox(height: 12),
+                
+                // Quick action based on goal
+                ElevatedButton.icon(
+                  onPressed: () => _handleQuickAction(recommendations['quick_action']),
+                  icon: Icon(recommendations['quick_action']['icon']),
+                  label: Text(recommendations['quick_action']['text']),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _getGoalColor(),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> _getSmartRecommendations() async {
+    final weightGoal = widget.userProfile.weightGoal;
+    final currentHour = DateTime.now().hour;
+    
+    // Framework-driven recommendations that don't expose the framework
+    switch (weightGoal) {
+      case 'lose_weight':
+        return {
+          'recommendations': [
+            {
+              'icon': Icons.local_fire_department,
+              'color': Colors.red,
+              'text': 'Focus on protein at each meal (${(widget.userProfile.weight ?? 60) * 1.6}g target today)'
+            },
+            {
+              'icon': Icons.directions_walk,
+              'color': Colors.blue,
+              'text': 'Aim for ${10000 + ((widget.userProfile.weight ?? 60) - (widget.userProfile.targetWeight ?? 55)) * 1000} steps today'
+            },
+            {
+              'icon': Icons.water_drop,
+              'color': Colors.cyan,
+              'text': 'Drink 10 glasses of water (helps with satiety)'
+            },
+          ],
+          'quick_action': {
+            'text': currentHour < 12 ? 'Log Breakfast' : (currentHour < 17 ? 'Log Lunch' : 'Log Dinner'),
+            'icon': Icons.restaurant,
+            'action': 'log_meal'
+          }
+        };
+        
+      case 'gain_weight':
+        return {
+          'recommendations': [
+            {
+              'icon': Icons.fitness_center,
+              'color': Colors.green,
+              'text': 'Strength training focus: compound movements today'
+            },
+            {
+              'icon': Icons.restaurant,
+              'color': Colors.orange,
+              'text': 'Eat every 3 hours (${((widget.userProfile.tdee ?? 2000) + 300) ~/ 5} cal per meal)'
+            },
+            {
+              'icon': Icons.local_drink,
+              'color': Colors.brown,
+              'text': 'Consider a protein shake post-workout'
+            },
+          ],
+          'quick_action': {
+            'text': 'Log Workout',
+            'icon': Icons.fitness_center,
+            'action': 'log_exercise'
+          }
+        };
+        
+      case 'maintain_weight':
+      default:
+        return {
+          'recommendations': [
+            {
+              'icon': Icons.balance,
+              'color': Colors.blue,
+              'text': 'Maintain your ${widget.userProfile.tdee ?? 2000} calorie balance'
+            },
+            {
+              'icon': Icons.self_improvement,
+              'color': Colors.purple,
+              'text': 'Mix of cardio and strength training this week'
+            },
+            {
+              'icon': Icons.psychology,
+              'color': Colors.teal,
+              'text': 'Listen to your hunger and fullness cues'
+            },
+          ],
+          'quick_action': {
+            'text': 'Check Progress',
+            'icon': Icons.analytics,
+            'action': 'view_progress'
+          }
+        };
+    }
+  }
+
+  Color _getGoalColor() {
+    switch (widget.userProfile.weightGoal) {
+      case 'lose_weight':
+        return Colors.red[500]!;
+      case 'gain_weight':
+        return Colors.green[500]!;
+      default:
+        return Colors.blue[500]!;
+    }
+  }
+
+  void _handleQuickAction(Map<String, dynamic> action) {
+    switch (action['action']) {
+      case 'log_meal':
+        // Navigate to meal logging
+        break;
+      case 'log_exercise':
+        // Navigate to exercise logging
+        break;
+      case 'view_progress':
+        // Navigate to progress/reports
+        break;
+    }
   }
 
   Widget _buildGoals() {

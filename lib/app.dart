@@ -54,7 +54,6 @@ class HealthAIApp extends StatelessWidget {
     return const LoginScreen();
   }
 
-
   ThemeData _buildTheme() {
     return ThemeData(
       primarySwatch: Colors.blue,
@@ -112,27 +111,4 @@ class HealthAIApp extends StatelessWidget {
       ),
     );
   }
-
-
-
-
-
-  // ThemeData _buildTheme() {
-  //   return ThemeData(
-  //     primarySwatch: Colors.green,
-  //     brightness: Brightness.light, // Change to light mode
-  //     scaffoldBackgroundColor: Colors.white, // Change to white background
-  //     // Any other important theme elements
-  //     appBarTheme: const AppBarTheme(
-  //       backgroundColor: Colors.green,
-  //       foregroundColor: Colors.white,
-  //     ),
-  //     cardTheme: CardTheme(
-  //       color: Colors.white,
-  //     ),
-  //     iconTheme: IconThemeData(
-  //       color: Colors.green,
-  //     ),
-  //   );
-  // }
 }

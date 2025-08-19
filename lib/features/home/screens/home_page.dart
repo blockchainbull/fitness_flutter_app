@@ -1,4 +1,4 @@
-// lib/features/home/screens/home_page.dart (SIMPLIFIED)
+// lib/features/home/screens/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/home/screens/dashboard_home.dart';
