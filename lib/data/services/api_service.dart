@@ -197,22 +197,21 @@ class ApiService {
   Future<String> saveWeightEntry(WeightEntry weightEntry) async {
     try {
       print('[ApiService] Saving weight entry: ${weightEntry.weight} kg');
-      print('[ApiService] User ID: ${weightEntry.userId}');
-      print('[ApiService] Date: ${weightEntry.date.toIso8601String()}');
       
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/health/weight'),
+        Uri.parse('$baseUrl/weight'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'user_id': weightEntry.userId,
           'date': weightEntry.date.toIso8601String(),
           'weight': weightEntry.weight,
           'notes': weightEntry.notes,
+          'body_fat_percentage': weightEntry.bodyFatPercentage,
+          'muscle_mass_kg': weightEntry.muscleMassKg,
         }),
       );
 
       print('[ApiService] Weight entry response status: ${response.statusCode}');
-      print('[ApiService] Weight entry response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
@@ -235,11 +234,12 @@ class ApiService {
       print('[ApiService] Getting weight history for user: $userId');
       
       final response = await http.get(
-        Uri.parse('http://localhost:8000/api/health/weight/$userId?limit=$limit'),
+        Uri.parse('$baseUrl/weight/$userId?limit=$limit'),  // Should be /weight/ not /user/
         headers: {'Content-Type': 'application/json'},
       );
 
       print('[ApiService] Weight history response status: ${response.statusCode}');
+      print('[ApiService] Weight history URL: $baseUrl/weight/$userId?limit=$limit');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -251,12 +251,13 @@ class ApiService {
         }
         return [];
       } else {
+        print('[ApiService] Weight history error response: ${response.body}');
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['detail'] ?? 'Failed to get weight history');
       }
     } catch (e) {
       print('[ApiService] Weight history error: $e');
-      return []; // Return empty list on error
+      return [];
     }
   }
 
@@ -266,7 +267,7 @@ class ApiService {
       print('[ApiService] Getting latest weight for user: $userId');
       
       final response = await http.get(
-        Uri.parse('http://localhost:8000/api/health/weight/$userId/latest'),
+        Uri.parse('$baseUrl/weight/$userId/latest'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -280,7 +281,6 @@ class ApiService {
         }
         return null;
       } else if (response.statusCode == 404) {
-        // No weight entries found
         return null;
       } else {
         final errorData = jsonDecode(response.body);
@@ -304,12 +304,7 @@ class ApiService {
 
       print('[ApiService] Delete weight response status: ${response.statusCode}');
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        return true;
-      } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to delete weight entry');
-      }
+      return response.statusCode == 200;
     } catch (e) {
       print('[ApiService] Delete weight error: $e');
       return false;
@@ -707,7 +702,7 @@ class ApiService {
   // Get water history
   Future<List<WaterEntry>> getWaterHistory(String userId, {int limit = 30}) async {
     try {
-      print('[ApiService] Getting water history for user: $userId');
+      print('[ApiService] Getting water history for user: $userId, limit: $limit');
       
       final response = await http.get(
         Uri.parse('$baseUrl/water/$userId?limit=$limit'),
@@ -732,6 +727,30 @@ class ApiService {
     } catch (e) {
       print('[ApiService] Water history error: $e');
       return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getWaterStats(String userId, {int days = 7}) async {
+    try {
+      print('[ApiService] Getting water stats for user: $userId, days: $days');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/water/$userId/stats?days=$days'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Water stats response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['stats'] ?? {};
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get water stats');
+      }
+    } catch (e) {
+      print('[ApiService] Water stats error: $e');
+      return {};
     }
   }
 
@@ -1313,35 +1332,89 @@ class ApiService {
   // steps Logging Functions
   Future<StepEntry?> getTodaySteps(String userId) async {
     try {
+      print('[ApiService] Getting today\'s steps for user: $userId');
+      
       final response = await http.get(
         Uri.parse('$baseUrl/steps/$userId/today'),
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] Today\'s steps response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return StepEntry.fromJson(data);
+        final dynamic responseData = jsonDecode(response.body);
+        
+        // Handle if response is a Map with 'entry' field
+        if (responseData is Map<String, dynamic>) {
+          final Map<String, dynamic> data = responseData;
+          
+          if (data['entry'] != null && data['entry'] is Map<String, dynamic>) {
+            return StepEntry.fromJson(data['entry'] as Map<String, dynamic>);
+          }
+        }
+        
+        // Handle if response is directly a StepEntry object
+        if (responseData is Map<String, dynamic>) {
+          return StepEntry.fromJson(responseData);
+        }
+        
+        return null;
+      } else if (response.statusCode == 404) {
+        return null;
+      } else {
+        print('[ApiService] Today\'s steps HTTP Error ${response.statusCode}: ${response.body}');
+        return null;
       }
-      return null;
     } catch (e) {
-      throw Exception('Failed to get today steps: $e');
+      print('[ApiService] Today\'s steps error: $e');
+      return null;
     }
   }
 
   Future<List<StepEntry>> getStepsInRange(String userId, DateTime startDate, DateTime endDate) async {
     try {
+      print('[ApiService] Getting steps in range for user: $userId');
+      
       final response = await http.get(
-        Uri.parse('$baseUrl/steps/$userId/range?start=${startDate.toIso8601String()}&end=${endDate.toIso8601String()}'),
+        Uri.parse('$baseUrl/steps/$userId/range?start_date=${startDate.toIso8601String()}&end_date=${endDate.toIso8601String()}'),
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] Steps range response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => StepEntry.fromJson(json)).toList();
+        final dynamic responseData = jsonDecode(response.body);
+        
+        // Handle if response is directly a List
+        if (responseData is List) {
+          return responseData
+              .where((item) => item is Map<String, dynamic>)
+              .map<StepEntry>((item) => StepEntry.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+        
+        // Handle if response is a Map with 'entries' field
+        if (responseData is Map<String, dynamic>) {
+          final Map<String, dynamic> data = responseData;
+          
+          if (data['entries'] != null && data['entries'] is List) {
+            final List<dynamic> entries = data['entries'] as List<dynamic>;
+            
+            return entries
+                .where((item) => item is Map<String, dynamic>)
+                .map<StepEntry>((item) => StepEntry.fromJson(item as Map<String, dynamic>))
+                .toList();
+          }
+        }
+        
+        return [];
+      } else {
+        print('[ApiService] Steps range HTTP Error ${response.statusCode}: ${response.body}');
+        return [];
       }
-      return [];
     } catch (e) {
-      throw Exception('Failed to get steps in range: $e');
+      print('[ApiService] Steps range error: $e');
+      return [];
     }
   }
 
@@ -1363,18 +1436,52 @@ class ApiService {
 
   Future<List<StepEntry>> getAllSteps(String userId) async {
     try {
+      print('[ApiService] Getting all steps for user: $userId');
+      
       final response = await http.get(
         Uri.parse('$baseUrl/steps/$userId'),
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] All steps response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => StepEntry.fromJson(json)).toList();
+        final dynamic responseData = jsonDecode(response.body);
+        
+        // Handle if response is directly a List
+        if (responseData is List) {
+          print('[ApiService] Response is a direct list with ${responseData.length} items');
+          return responseData
+              .where((item) => item is Map<String, dynamic>)
+              .map<StepEntry>((item) => StepEntry.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+        
+        // Handle if response is a Map with 'entries' field
+        if (responseData is Map<String, dynamic>) {
+          final Map<String, dynamic> data = responseData;
+          
+          if (data['entries'] != null && data['entries'] is List) {
+            final List<dynamic> entries = data['entries'] as List<dynamic>;
+            print('[ApiService] Found ${entries.length} step entries in entries field');
+            
+            return entries
+                .where((item) => item is Map<String, dynamic>)
+                .map<StepEntry>((item) => StepEntry.fromJson(item as Map<String, dynamic>))
+                .toList();
+          }
+        }
+        
+        print('[ApiService] No valid entries found in response');
+        print('[ApiService] Response structure: ${responseData.runtimeType}');
+        return [];
+      } else {
+        print('[ApiService] HTTP Error ${response.statusCode}: ${response.body}');
+        return [];
       }
-      return [];
     } catch (e) {
-      throw Exception('Failed to get all steps: $e');
+      print('[ApiService] Get all steps error: $e');
+      return [];
     }
   }
 
@@ -1390,6 +1497,30 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Failed to delete step entry: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getStepStats(String userId, {int days = 7}) async {
+    try {
+      print('[ApiService] Getting step stats for user: $userId, days: $days');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/steps/$userId/stats?days=$days'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Step stats response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['stats'] ?? {};
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get step stats');
+      }
+    } catch (e) {
+      print('[ApiService] Step stats error: $e');
+      return {};
     }
   }
 

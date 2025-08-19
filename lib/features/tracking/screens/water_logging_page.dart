@@ -188,8 +188,6 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
                   _buildWaterControls(),
                   const SizedBox(height: 30),
                   _buildWaterTips(),
-                  const SizedBox(height: 20),
-                  _buildStats(),
                 ],
               ),
             ),
@@ -425,71 +423,4 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
     );
   }
 
-  Widget _buildStats() {
-    if (_todayEntry == null) return const SizedBox.shrink();
-    
-    final remaining = (_todayEntry!.targetMl - _todayEntry!.totalMl).clamp(0.0, double.infinity);
-    final remainingGlasses = (remaining / mlPerGlass).ceil();
-    
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Today\'s Stats',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Glasses consumed:'),
-                Text(
-                  '${_todayEntry!.glassesConsumed}',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 8),
-            
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total volume:'),
-                Text(
-                  '${_todayEntry!.totalMl.toInt()}ml',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 8),
-            
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Remaining:'),
-                Text(
-                  remaining > 0 
-                      ? '${remaining.toInt()}ml ($remainingGlasses glasses)'
-                      : 'Goal achieved!',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: remaining > 0 ? Colors.orange : Colors.green,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

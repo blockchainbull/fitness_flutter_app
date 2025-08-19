@@ -111,16 +111,12 @@ class _WaterHistoryPageState extends State<WaterHistoryPage> {
   Widget _buildSummaryCard() {
     if (_entries.isEmpty) return const SizedBox.shrink();
     
-    // Calculate weekly averages
-    final last7Days = _entries.take(7).toList();
-    final avgGlasses = last7Days.isNotEmpty 
-        ? last7Days.map((e) => e.glassesConsumed).reduce((a, b) => a + b) / last7Days.length
-        : 0.0;
-    final avgMl = last7Days.isNotEmpty 
-        ? last7Days.map((e) => e.totalMl).reduce((a, b) => a + b) / last7Days.length
-        : 0.0;
-    
-    final goalsAchieved = last7Days.where((e) => e.totalMl >= e.targetMl).length;
+    // Calculate summary statistics
+    final totalDays = _entries.length;
+    final goalAchievedDays = _entries.where((entry) => 
+      entry.totalMl >= entry.targetMl).length;
+    final avgDailyIntake = _entries.map((e) => e.totalMl).fold(0.0, (a, b) => a + b) / totalDays;
+    final bestDay = _entries.map((e) => e.totalMl).fold(0.0, (a, b) => a > b ? a : b);
     
     return Card(
       margin: const EdgeInsets.all(16.0),
@@ -130,39 +126,39 @@ class _WaterHistoryPageState extends State<WaterHistoryPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '7-Day Summary',
+              'Summary',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
-            
+            const SizedBox(height: 16),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Expanded(
-                  child: _buildSummaryItem(
-                    'Avg Glasses',
-                    '${avgGlasses.toStringAsFixed(1)}',
-                    Icons.water_drop,
-                    Colors.blue,
-                  ),
+                _buildSummaryItem(
+                  'Days\nTracked',
+                  '$totalDays',
+                  Icons.calendar_today,
+                  Colors.blue,
                 ),
-                Expanded(
-                  child: _buildSummaryItem(
-                    'Avg Volume',
-                    '${avgMl.toInt()}ml',
-                    Icons.local_drink,
-                    Colors.cyan,
-                  ),
+                _buildSummaryItem(
+                  'Goals\nAchieved',
+                  '$goalAchievedDays/$totalDays',
+                  Icons.track_changes,
+                  Colors.green,
                 ),
-                Expanded(
-                  child: _buildSummaryItem(
-                    'Goals Hit',
-                    '$goalsAchieved/7',
-                    Icons.track_changes,
-                    Colors.green,
-                  ),
+                _buildSummaryItem(
+                  'Average\nDaily',
+                  '${avgDailyIntake.round()}ml',
+                  Icons.water_drop,
+                  Colors.cyan,
+                ),
+                _buildSummaryItem(
+                  'Best\nDay',
+                  '${bestDay.round()}ml',
+                  Icons.emoji_events,
+                  Colors.amber,
                 ),
               ],
             ),

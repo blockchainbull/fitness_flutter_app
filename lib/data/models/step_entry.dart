@@ -76,25 +76,33 @@ class StepEntry {
   }
 
   factory StepEntry.fromJson(Map<String, dynamic> json) {
-    return StepEntry(
-      id: json['id'],
-      userId: json['userId'],
-      date: DateTime.parse(json['date']),
-      steps: json['steps'] ?? 0,
-      goal: json['goal'] ?? 10000,
-      caloriesBurned: (json['caloriesBurned'] ?? 0.0).toDouble(),
-      distanceKm: (json['distanceKm'] ?? 0.0).toDouble(),
-      activeMinutes: json['activeMinutes'] ?? 0,
-      sourceType: json['sourceType'] ?? 'manual',
-      lastSynced: json['lastSynced'] != null 
-          ? DateTime.parse(json['lastSynced']) 
-          : null,
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
-          : null,
-      updatedAt: json['updatedAt'] != null 
-          ? DateTime.parse(json['updatedAt']) 
-          : null,
-    );
+    try {
+      return StepEntry(
+        id: json['id']?.toString(),
+        userId: json['userId']?.toString() ?? json['user_id']?.toString() ?? '',
+        date: DateTime.parse(json['date'] ?? DateTime.now().toIso8601String()),
+        steps: (json['steps'] ?? 0) is int ? json['steps'] : int.tryParse(json['steps'].toString()) ?? 0,
+        goal: (json['goal'] ?? 10000) is int ? json['goal'] : int.tryParse(json['goal'].toString()) ?? 10000,
+        caloriesBurned: (json['caloriesBurned'] ?? json['calories_burned'] ?? 0.0).toDouble(),
+        distanceKm: (json['distanceKm'] ?? json['distance_km'] ?? 0.0).toDouble(),
+        activeMinutes: (json['activeMinutes'] ?? json['active_minutes'] ?? 0) is int 
+            ? json['activeMinutes'] ?? json['active_minutes'] 
+            : int.tryParse((json['activeMinutes'] ?? json['active_minutes'] ?? 0).toString()) ?? 0,
+        sourceType: json['sourceType']?.toString() ?? json['source_type']?.toString() ?? 'manual',
+        lastSynced: json['lastSynced'] != null || json['last_synced'] != null
+            ? DateTime.tryParse(json['lastSynced']?.toString() ?? json['last_synced']?.toString() ?? '')
+            : null,
+        createdAt: json['createdAt'] != null || json['created_at'] != null
+            ? DateTime.tryParse(json['createdAt']?.toString() ?? json['created_at']?.toString() ?? '')
+            : null,
+        updatedAt: json['updatedAt'] != null || json['updated_at'] != null
+            ? DateTime.tryParse(json['updatedAt']?.toString() ?? json['updated_at']?.toString() ?? '')
+            : null,
+      );
+    } catch (e) {
+      print('Error parsing StepEntry from JSON: $e');
+      print('JSON data: $json');
+      rethrow;
+    }
   }
 }
