@@ -449,6 +449,37 @@ class _DashboardHomeState extends State<DashboardHome> {
   Future<Map<String, dynamic>> _getSmartRecommendations() async {
     final weightGoal = widget.userProfile.weightGoal;
     final currentHour = DateTime.now().hour;
+    final userWeight = widget.userProfile.weight;
+    final targetWeight = widget.userProfile.targetWeight;
+    
+    // Get BMR and TDEE from formData
+    final bmr = widget.userProfile.formData['bmr']?.toDouble() ?? 0.0;
+    final tdee = widget.userProfile.formData['tdee']?.toDouble() ?? 0.0;
+    
+    // Calculate approximate TDEE if not available
+    double estimatedTDEE = tdee > 0 ? tdee : 1800; // Use stored TDEE or fallback
+    
+    if (bmr > 0 && tdee <= 0) {
+      // Use BMR to calculate TDEE if BMR exists but TDEE doesn't
+      double activityMultiplier = 1.4; // Sedentary default
+      
+      switch (widget.userProfile.activityLevel) {
+        case 'Lightly active':
+          activityMultiplier = 1.6;
+          break;
+        case 'Moderately active':
+          activityMultiplier = 1.8;
+          break;
+        case 'Very active':
+          activityMultiplier = 2.0;
+          break;
+        case 'Extra active':
+          activityMultiplier = 2.2;
+          break;
+      }
+      
+      estimatedTDEE = bmr * activityMultiplier;
+    }
     
     // Framework-driven recommendations that don't expose the framework
     switch (weightGoal) {
@@ -458,12 +489,12 @@ class _DashboardHomeState extends State<DashboardHome> {
             {
               'icon': Icons.local_fire_department,
               'color': Colors.red,
-              'text': 'Focus on protein at each meal (${(widget.userProfile.weight ?? 60) * 1.6}g target today)'
+              'text': 'Focus on protein at each meal (${(userWeight * 1.6).round()}g target today)'
             },
             {
               'icon': Icons.directions_walk,
               'color': Colors.blue,
-              'text': 'Aim for ${10000 + ((widget.userProfile.weight ?? 60) - (widget.userProfile.targetWeight ?? 55)) * 1000} steps today'
+              'text': 'Aim for ${(10000 + (userWeight - targetWeight) * 1000).round()} steps today'
             },
             {
               'icon': Icons.water_drop,
@@ -489,7 +520,7 @@ class _DashboardHomeState extends State<DashboardHome> {
             {
               'icon': Icons.restaurant,
               'color': Colors.orange,
-              'text': 'Eat every 3 hours (${((widget.userProfile.tdee ?? 2000) + 300) ~/ 5} cal per meal)'
+              'text': 'Eat every 3 hours (${((estimatedTDEE + 300) / 5).round()} cal per meal)'
             },
             {
               'icon': Icons.local_drink,
@@ -511,7 +542,7 @@ class _DashboardHomeState extends State<DashboardHome> {
             {
               'icon': Icons.balance,
               'color': Colors.blue,
-              'text': 'Maintain your ${widget.userProfile.tdee ?? 2000} calorie balance'
+              'text': 'Maintain your ${estimatedTDEE.round()} calorie balance'
             },
             {
               'icon': Icons.self_improvement,

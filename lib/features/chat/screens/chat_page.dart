@@ -228,6 +228,7 @@ class _ChatPageState extends State<ChatPage> {
                         isUser: message['isUser'],
                         timestamp: message['timestamp'],
                         type: message['type'],
+                        userProfile: widget.userProfile,
                       );
                     },
                   ),
@@ -487,6 +488,7 @@ class MessageBubble extends StatelessWidget {
   final bool isUser;
   final DateTime timestamp;
   final String? type;
+  final UserProfile? userProfile; // Add this parameter
 
   const MessageBubble({
     Key? key,
@@ -494,6 +496,7 @@ class MessageBubble extends StatelessWidget {
     required this.isUser,
     required this.timestamp,
     this.type,
+    this.userProfile, // Add this parameter
   }) : super(key: key);
 
   @override
@@ -564,8 +567,8 @@ class MessageBubble extends StatelessWidget {
               radius: 16,
               backgroundColor: Colors.purple[100],
               child: Text(
-                widget.userProfile?.name?.isNotEmpty == true 
-                    ? widget.userProfile!.name[0].toUpperCase()
+                userProfile?.name?.isNotEmpty == true 
+                    ? userProfile!.name[0].toUpperCase()
                     : 'U',
                 style: TextStyle(
                   color: Colors.purple[700],
