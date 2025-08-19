@@ -124,10 +124,10 @@ class UserProfile {
       weightGoal: map['weightGoal'] ?? '',
       targetWeight: map['targetWeight']?.toDouble() ?? 0.0,
       goalTimeline: map['goalTimeline'],
-      sleepHours: map['sleepHours']?.toDouble() ?? 7.0,
+      sleepHours: map['sleepHours']?.toDouble() ?? map['sleep_hours']?.toDouble() ?? 7.0,
       bedtime: map['bedtime'] ?? '22:00',
-      wakeupTime: map['wakeupTime'] ?? '06:00',
-      sleepIssues: List<String>.from(map['sleepIssues'] ?? []),
+      wakeupTime: map['wakeupTime'] ?? map['wakeup_time'] ?? '06:00', 
+      sleepIssues: _parseStringList(map['sleepIssues'] ?? map['sleep_issues']),
       dietaryPreferences: List<String>.from(map['dietaryPreferences'] ?? []),
       waterIntake: map['waterIntake']?.toDouble() ?? 2.0,
       medicalConditions: List<String>.from(map['medicalConditions'] ?? []),
@@ -142,6 +142,14 @@ class UserProfile {
       formData: formDataMap,
     );
   }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) return List<String>.from(value);
+    if (value is String) return [value];
+    return [];
+  }
+
 
   static UserProfile fromApiResponse(Map<String, dynamic> data) {
     return UserProfile(

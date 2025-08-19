@@ -427,15 +427,35 @@ class ApiService {
 
   Future<UserProfile> getUserProfileById(String userId) async {
     try {
+      print('[ApiService] Getting user profile for ID: $userId');
+      
       final response = await http.get(
         Uri.parse('$baseUrl/users/$userId'),
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] User profile response status: ${response.statusCode}');
+      print('[ApiService] User profile response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        
+        // Debug the sleep-related fields specifically
+        print('[ApiService] 🛏️ Sleep data from API:');
+        print('  bedtime: "${data['userProfile']?['bedtime']}"');
+        print('  wakeup_time: "${data['userProfile']?['wakeup_time']}"');
+        print('  sleep_hours: ${data['userProfile']?['sleep_hours']}');
+        
         if (data['success'] == true && data['userProfile'] != null) {
-          return UserProfile.fromMap(data['userProfile']);
+          final userProfile = UserProfile.fromMap(data['userProfile']);
+          
+          // Debug the parsed profile
+          print('[ApiService] 🛏️ Parsed UserProfile sleep data:');
+          print('  bedtime: "${userProfile.bedtime}"');
+          print('  wakeupTime: "${userProfile.wakeupTime}"');
+          print('  sleepHours: ${userProfile.sleepHours}');
+          
+          return userProfile;
         } else {
           // Try to create UserProfile from direct user data
           return UserProfile.fromApiResponse(data);
@@ -447,7 +467,7 @@ class ApiService {
       debugPrint('API error when getting user profile: $e');
       rethrow;
     }
-  }
+}
 
   // Check if email exists (you'll need to add this endpoint to your backend)
   Future<bool> emailExists(String email) async {
@@ -549,6 +569,36 @@ class ApiService {
     }
   }
 
+  // Get supplement status for a specific date
+  Future<Map<String, dynamic>> getSupplementStatus(String userId, {String? date}) async {
+    try {
+      print('[ApiService] Getting supplement status for user: $userId');
+      
+      String url = '$baseUrl/supplements/status/$userId';
+      if (date != null) {
+        url += '?date=$date';
+      }
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Supplement status response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get supplement status');
+      }
+    } catch (e) {
+      print('[ApiService] Supplement status error: $e');
+      return {'success': false, 'status': {}};
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getSupplementPreferences(String userId) async {
     try {
       print('[ApiService] Getting supplement preferences for user: $userId');
@@ -606,13 +656,42 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getSupplementStats(String userId, {int days = 30}) async {
+    try {
+      print('[ApiService] Getting supplement stats for user: $userId, days: $days');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/supplements/stats/$userId?days=$days'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Supplement stats response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['stats'] ?? {};
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get supplement stats');
+      }
+    } catch (e) {
+      print('[ApiService] Supplement stats error: $e');
+      return {};
+    }
+}
+
   // Get supplement history
-  Future<List<Map<String, dynamic>>> getSupplementHistory(String userId, {int days = 30}) async {
+  Future<List<Map<String, dynamic>>> getSupplementHistory(String userId, {String? supplementName, int days = 30}) async {
     try {
       print('[ApiService] Getting supplement history for user: $userId');
       
+      String url = '$baseUrl/supplements/history/$userId?days=$days';
+      if (supplementName != null) {
+        url += '&supplement_name=$supplementName';
+      }
+      
       final response = await http.get(
-        Uri.parse('$baseUrl/supplements/history/$userId?days=$days'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -620,18 +699,14 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
-        if (data['success'] == true && data['history'] != null) {
-          return List<Map<String, dynamic>>.from(data['history']);
-        }
-        return [];
+        return List<Map<String, dynamic>>.from(data['history'] ?? []);
       } else {
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['detail'] ?? 'Failed to get supplement history');
       }
     } catch (e) {
-      print('[ApiService] Error getting supplement history: $e');
-      return []; // Return empty list on error instead of throwing
+      print('[ApiService] Supplement history error: $e');
+      return [];
     }
   }
 
@@ -823,12 +898,17 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] Sleep entry response status: ${response.statusCode}');
+      print('[ApiService] Sleep entry response body: ${response.body}');
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else if (response.statusCode == 404) {
+        print('[ApiService] No sleep entry found for date: $date');
         return null;
       } else {
-        throw Exception('Failed to get sleep entry');
+        print('[ApiService] Sleep entry error response: ${response.body}');
+        throw Exception('Failed to get sleep entry: HTTP ${response.statusCode}');
       }
     } catch (e) {
       print('[ApiService] Get sleep entry error: $e');
@@ -899,17 +979,41 @@ class ApiService {
     }
   }
 
+  Future<bool> deleteSleepEntry(String entryId) async {
+    try {
+      print('[ApiService] Deleting sleep entry: $entryId');
+      
+      final response = await http.delete(
+        Uri.parse('$baseUrl/sleep/entries/$entryId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Delete sleep response status: ${response.statusCode}');
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('[ApiService] Delete sleep error: $e');
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>> getSleepStats(String userId, {int days = 30}) async {
     try {
+      print('[ApiService] Getting sleep stats for user: $userId, days: $days');
+      
       final response = await http.get(
         Uri.parse('$baseUrl/sleep/stats/$userId?days=$days'),
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] Sleep stats response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        return data['stats'] ?? {};
       } else {
-        return {};
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['detail'] ?? 'Failed to get sleep stats');
       }
     } catch (e) {
       print('[ApiService] Sleep stats error: $e');

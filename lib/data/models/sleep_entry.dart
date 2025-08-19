@@ -54,30 +54,67 @@ class SleepEntry {
       throw ArgumentError('userId is required but was not found in map: $map');
     }
 
+    // Better date parsing
+    DateTime entryDate;
+    if (map['date'] is String) {
+      entryDate = DateTime.parse(map['date']);
+    } else if (map['date'] is DateTime) {
+      entryDate = map['date'] as DateTime;
+    } else {
+      entryDate = DateTime.now();
+    }
+
+    // Better bedtime/wake time parsing
+    DateTime? bedtime;
+    DateTime? wakeTime;
+
+    if (map['bedtime'] != null) {
+      try {
+        if (map['bedtime'] is String) {
+          bedtime = DateTime.parse(map['bedtime']);
+        } else if (map['bedtime'] is DateTime) {
+          bedtime = map['bedtime'] as DateTime;
+        }
+      } catch (e) {
+        print('Error parsing bedtime: $e');
+      }
+    }
+
+    if (map['wake_time'] != null) {
+      try {
+        if (map['wake_time'] is String) {
+          wakeTime = DateTime.parse(map['wake_time']);
+        } else if (map['wake_time'] is DateTime) {
+          wakeTime = map['wake_time'] as DateTime;
+        }
+      } catch (e) {
+        print('Error parsing wake_time: $e');
+      }
+    }
+
+    // Parse sleep_issues properly
+    List<String> sleepIssuesList = [];
+    if (map['sleep_issues'] != null) {
+      if (map['sleep_issues'] is List) {
+        sleepIssuesList = List<String>.from(map['sleep_issues']);
+      } else if (map['sleep_issues'] is String) {
+        final issuesString = map['sleep_issues'] as String;
+        if (issuesString.isNotEmpty) {
+          sleepIssuesList = issuesString.split(',').map((s) => s.trim()).toList();
+        }
+      }
+    }
+
     return SleepEntry(
       id: map['id']?.toString(),
       userId: userIdValue,
-      date: map['date'] != null 
-        ? (map['date'] is String 
-            ? DateTime.parse(map['date']) 
-            : map['date'] as DateTime)
-        : DateTime.now(),
-      bedtime: map['bedtime'] != null 
-        ? (map['bedtime'] is String 
-            ? DateTime.parse(map['bedtime']) 
-            : map['bedtime'] as DateTime)
-        : null,
-      wakeTime: map['wake_time'] != null 
-        ? (map['wake_time'] is String 
-            ? DateTime.parse(map['wake_time']) 
-            : map['wake_time'] as DateTime)
-        : null,
+      date: entryDate,
+      bedtime: bedtime,
+      wakeTime: wakeTime,
       totalHours: (map['total_hours'] ?? 0).toDouble(),
       qualityScore: (map['quality_score'] ?? 0).toDouble(),
       deepSleepHours: (map['deep_sleep_hours'] ?? 0).toDouble(),
-      sleepIssues: map['sleep_issues'] != null
-        ? List<String>.from(map['sleep_issues'])
-        : [],
+      sleepIssues: sleepIssuesList,
       notes: map['notes']?.toString(),
       createdAt: map['created_at'] != null 
         ? (map['created_at'] is String 

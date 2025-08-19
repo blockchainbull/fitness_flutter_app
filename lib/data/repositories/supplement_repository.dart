@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'dart:math';
+import 'package:intl/intl.dart';
 
 class SupplementRepository {
   static final Random _random = Random();
@@ -85,12 +86,10 @@ class SupplementRepository {
   static Future<Map<String, bool>> getTodaysSupplementStatus(String userId) async {
     try {
       if (kIsWeb) {
-        // Use API service for web
-        final response = await _apiService.getTodaysSupplementStatus(userId);
-        print('📱 Retrieved today\'s status via API: ${response.length} items');
-        return response;
+        final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final response = await _apiService.getSupplementStatus(userId, date: today);
+        return Map<String, bool>.from(response['status'] ?? {});
       } else {
-        // For mobile, we'll implement direct database later
         print('⚠️ Mobile database support not implemented yet');
         return {};
       }
