@@ -259,11 +259,23 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
       return;
     }
     
+    if (widget.userProfile.id == null || widget.userProfile.id!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User ID not found. Please log in again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isAnalyzing = true);
     
     try {
+      print('🔍 About to analyze meal with user ID: "${widget.userProfile.id}"');
+
       final response = await _apiService.analyzeMeal({
-        'user_id': widget.userProfile.id,
+        'user_id': widget.userProfile.id ?? '',
         'food_item': _foodController.text,
         'quantity': _quantityController.text,
         'preparation': _preparationController.text,
@@ -271,14 +283,23 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
         'meal_date': DateTime.now().toIso8601String(),
       });
       
+
+      print('🔍 Full API Response: $response'); // Debug
+      print('🔍 Response meal data: ${response['meal']}'); // Debug
+      
       setState(() {
-        _nutritionData = response['nutrition'];
+        _nutritionData = response['meal'];
         _isAnalyzing = false;
       });
+      
+      print('🔍 Nutrition data set: $_nutritionData'); // Debug
+      print('🔍 About to call _showNutritionResults()'); // Debug
       
       // Show results
       _showNutritionResults();
       
+      print('🔍 Called _showNutritionResults()');
+
       // Reload meals and summary
       _loadTodaysMeals();
       _loadDailySummary();
@@ -289,6 +310,7 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
       _preparationController.clear();
       
     } catch (e) {
+      print('❌ Error in _analyzeMeal: $e');
       setState(() => _isAnalyzing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -307,172 +329,324 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        height: MediaQuery.of(context).size.height * 0.75,
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 50,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Nutrition Analysis',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              
-              const Text(
-                'Nutrition Analysis',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              
-              Text(
-                _nutritionData!['serving_description'] ?? '',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              // Calories highlight
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+            ),
+            
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.local_fire_department, 
-                        color: Colors.orange, size: 30),
-                    const SizedBox(width: 10),
-                    Text(
-                      '${_nutritionData!['calories']} calories',
-                      style: const TextStyle(
-                        fontSize: 28,
+                    // Food name and quantity
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.green.shade50, Colors.green.shade100],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _nutritionData!['name'] ?? 'Meal',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_nutritionData!['quantity'] ?? 'Unknown quantity'}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Calories - Big highlight
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Calories',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_nutritionData!['calories'] ?? 0}',
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange,
+                            ),
+                          ),
+                          const Text(
+                            'kcal',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Macronutrients
+                    const Text(
+                      'Macronutrients',
+                      style: TextStyle(
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMacroCard(
+                            'Protein',
+                            '${_nutritionData!['protein'] ?? 0}g',
+                            Colors.red,
+                            Icons.fitness_center,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildMacroCard(
+                            'Carbs',
+                            '${_nutritionData!['carbs'] ?? 0}g',
+                            Colors.blue,
+                            Icons.grain,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildMacroCard(
+                            'Fat',
+                            '${_nutritionData!['fat'] ?? 0}g',
+                            Colors.amber,
+                            Icons.water_drop,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Health Score
+                    if (_nutritionData!['healthiness_score'] != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Healthiness Score',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                ...List.generate(10, (index) {
+                                  return Icon(
+                                    Icons.star,
+                                    size: 24,
+                                    color: index < (_nutritionData!['healthiness_score'] ?? 0)
+                                        ? Colors.amber
+                                        : Colors.grey[300],
+                                  );
+                                }),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${_nutritionData!['healthiness_score']}/10',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    
+                    // Nutrition Notes
+                    if (_nutritionData!['nutrition_notes'] != null && 
+                        _nutritionData!['nutrition_notes'].toString().isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.blue.shade600, size: 20),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Nutrition Notes',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _nutritionData!['nutrition_notes'],
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    
+                    // Suggestions
+                    if (_nutritionData!['suggestions'] != null && 
+                        _nutritionData!['suggestions'].toString().isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.lightbulb_outline, color: Colors.green.shade600, size: 20),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Suggestions',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _nutritionData!['suggestions'],
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              
-              // Macros grid
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildMacroCard('Protein', 
-                      _nutritionData!['protein_g'], 'g', Colors.red),
-                  _buildMacroCard('Carbs', 
-                      _nutritionData!['carbs_g'], 'g', Colors.blue),
-                  _buildMacroCard('Fat', 
-                      _nutritionData!['fat_g'], 'g', Colors.amber),
-                ],
-              ),
-              const SizedBox(height: 20),
-              
-              // Additional nutrients
-              if (_nutritionData!['fiber_g'] != null)
-                _buildNutrientRow('Fiber', 
-                    '${_nutritionData!['fiber_g']}g'),
-              if (_nutritionData!['sugar_g'] != null)
-                _buildNutrientRow('Sugar', 
-                    '${_nutritionData!['sugar_g']}g'),
-              if (_nutritionData!['sodium_mg'] != null)
-                _buildNutrientRow('Sodium', 
-                    '${_nutritionData!['sodium_mg']}mg'),
-              
-              const SizedBox(height: 20),
-              
-              // Health score
-              Row(
-                children: [
-                  const Text('Healthiness Score: ', 
-                      style: TextStyle(fontSize: 16)),
-                  ...List.generate(10, (index) {
-                    return Icon(
-                      Icons.star,
-                      size: 20,
-                      color: index < (_nutritionData!['healthiness_score'] ?? 0)
-                          ? Colors.amber
-                          : Colors.grey[300],
-                    );
-                  }),
-                ],
-              ),
-              
-              const SizedBox(height: 20),
-              
-              // Notes and suggestions
-              if (_nutritionData!['nutrition_notes'] != null) ...[
-                Text(
-                  _nutritionData!['nutrition_notes'],
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-              
-              if (_nutritionData!['suggestions'] != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.lightbulb, 
-                          color: Colors.blue, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _nutritionData!['suggestions'],
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              
-              const Spacer(),
-              
-              // Action button
-              SizedBox(
+            ),
+            
+            // Bottom button
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 2,
                   ),
                   child: const Text(
-                    'Got it!',
+                    'Perfect! 🎉',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -480,42 +654,45 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
-  
-  Widget _buildMacroCard(String label, dynamic value, String unit, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            '$value$unit',
+
+  Widget _buildMacroCard(String label, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
-    }
+  }
  
  Widget _buildNutrientRow(String label, String value) {
    return Padding(
