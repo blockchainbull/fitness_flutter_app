@@ -569,32 +569,34 @@ class ApiService {
     }
   }
 
-  // Get supplement status for a specific date
   Future<Map<String, dynamic>> getSupplementStatus(String userId, {String? date}) async {
     try {
-      print('[ApiService] Getting supplement status for user: $userId');
+      print('[ApiService] 💊 Getting supplement status for user: $userId');
       
       String url = '$baseUrl/supplements/status/$userId';
       if (date != null) {
         url += '?date=$date';
       }
       
+      print('[ApiService] 💊 Status URL: $url');
+      
       final response = await http.get(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('[ApiService] Supplement status response status: ${response.statusCode}');
+      print('[ApiService] 💊 Status response status: ${response.statusCode}');
+      print('[ApiService] 💊 Status response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data;
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to get supplement status');
+        print('[ApiService] 💊 Status error response: ${response.body}');
+        return {'success': false, 'status': {}};
       }
     } catch (e) {
-      print('[ApiService] Supplement status error: $e');
+      print('[ApiService] 💊 Status error: $e');
       return {'success': false, 'status': {}};
     }
   }
@@ -656,29 +658,7 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getSupplementStats(String userId, {int days = 30}) async {
-    try {
-      print('[ApiService] Getting supplement stats for user: $userId, days: $days');
-      
-      final response = await http.get(
-        Uri.parse('$baseUrl/supplements/stats/$userId?days=$days'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      print('[ApiService] Supplement stats response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['stats'] ?? {};
-      } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to get supplement stats');
-      }
-    } catch (e) {
-      print('[ApiService] Supplement stats error: $e');
-      return {};
-    }
-}
+  
 
   // Get supplement history
   Future<List<Map<String, dynamic>>> getSupplementHistory(String userId, {String? supplementName, int days = 30}) async {
@@ -830,35 +810,43 @@ class ApiService {
   }
 
   // Get today's water entry
-  Future<WaterEntry?> getTodayWaterEntry(String userId) async {
+  Future<dynamic> getTodaysWater(String userId) async {
     try {
-      print('[ApiService] Getting today\'s water for user: $userId');
+      print('[ApiService] 💧 Getting today\'s water for user: $userId');
+      print('[ApiService] 💧 URL: $baseUrl/water/$userId/today');
       
       final response = await http.get(
         Uri.parse('$baseUrl/water/$userId/today'),
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('[ApiService] Today\'s water response status: ${response.statusCode}');
+      print('[ApiService] 💧 Water response status: ${response.statusCode}');
+      print('[ApiService] 💧 Water response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        if (data['entry'] != null) {
-          return WaterEntry.fromMap(data['entry']);
+        // Handle different response formats
+        if (data is Map<String, dynamic>) {
+          if (data['water_entry'] != null) {
+            return data['water_entry']['glasses'] ?? 0;
+          } else if (data['glasses'] != null) {
+            return data['glasses'];
+          } else if (data['success'] == true && data['water'] != null) {
+            return data['water']['glasses'] ?? 0;
+          }
         }
-        return null;
-      } else if (response.statusCode == 404) {
-        return null;
+        
+        return 0; // No water logged today
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to get today\'s water entry');
+        print('[ApiService] 💧 Water error response: ${response.body}');
+        return 0;
       }
     } catch (e) {
-      print('[ApiService] Today\'s water error: $e');
-      return null;
+      print('[ApiService] 💧 Water error: $e');
+      return 0;
     }
-  }
+}
 
   // Sleep logging endpoint
 
@@ -1200,19 +1188,44 @@ class ApiService {
 
   Future<List<PeriodEntry>> getPeriodHistory(String userId, {int limit = 12}) async {
     try {
+      print('[ApiService] Getting period history for user: $userId');
+      
       final response = await http.get(
         Uri.parse('$baseUrl/period/$userId?limit=$limit'),
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] Period history response status: ${response.statusCode}');
+      print('[ApiService] Period history response body: ${response.body}');
+
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => PeriodEntry.fromMap(json)).toList();
+        final dynamic responseData = jsonDecode(response.body);
+        
+        // ✅ Handle different response formats
+        List<dynamic> periodsData = [];
+        
+        if (responseData is Map<String, dynamic>) {
+          // If response is wrapped in an object
+          if (responseData['periods'] != null && responseData['periods'] is List) {
+            periodsData = responseData['periods'];
+          } else if (responseData['success'] == true && responseData['periods'] is List) {
+            periodsData = responseData['periods'];
+          }
+        } else if (responseData is List) {
+          // If response is directly a list
+          periodsData = responseData;
+        }
+        
+        return periodsData
+            .where((item) => item is Map<String, dynamic>)
+            .map<PeriodEntry>((item) => PeriodEntry.fromMap(item as Map<String, dynamic>))
+            .toList();
       } else {
-        throw Exception('Failed to fetch period history: ${response.body}');
+        print('[ApiService] Period history error: ${response.body}');
+        return [];
       }
     } catch (e) {
-      print('Error fetching period history from API: $e');
+      print('[ApiService] Period history error: $e');
       return [];
     }
   }
@@ -1286,46 +1299,95 @@ class ApiService {
     int limit = 50,
   }) async {
     try {
-      final queryParams = {
-        'limit': limit.toString(),
-        if (startDate != null) 'start_date': startDate,
-        if (endDate != null) 'end_date': endDate,
-        if (exerciseType != null) 'exercise_type': exerciseType,
-      };
-
-      final uri = Uri.parse('$baseUrl/exercise/logs/$userId')
-          .replace(queryParameters: queryParams);
-
-      final response = await http.get(uri);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['logs']);
-      } else {
-        throw Exception('Failed to get exercise logs: ${response.body}');
-      }
-    } catch (e) {
-      print('Error getting exercise logs: $e');
-      rethrow;
-    }
-  }
-
-  Future<Map<String, dynamic>> getExerciseStats(String userId) async {
-    try {
+      print('[ApiService] Getting exercise logs for user: $userId');
+      
+      String url = '$baseUrl/exercise/logs/$userId?limit=$limit';
+      
+      if (startDate != null) url += '&start_date=$startDate';
+      if (endDate != null) url += '&end_date=$endDate';
+      if (exerciseType != null) url += '&exercise_type=$exerciseType';
+      
+      print('[ApiService] Exercise logs URL: $url');
+      
       final response = await http.get(
-        Uri.parse('$baseUrl/exercise/stats/$userId'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('[ApiService] Exercise logs response status: ${response.statusCode}');
+      print('[ApiService] Exercise logs response body: ${response.body}');
+
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        
+        // ✅ Handle different response formats
+        if (data is Map<String, dynamic>) {
+          if (data['exercises'] != null && data['exercises'] is List) {
+            return List<Map<String, dynamic>>.from(data['exercises']);
+          }
+          if (data['success'] == true && data['exercises'] is List) {
+            return List<Map<String, dynamic>>.from(data['exercises']);
+          }
+        } else if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+        
+        print('[ApiService] No exercises found in response');
+        return [];
       } else {
-        return {};
+        print('[ApiService] Exercise logs error: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('[ApiService] Exercise logs error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getExerciseStats(String userId, {int days = 30}) async {
+    try {
+      print('[ApiService] Getting exercise stats for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/exercise/stats/$userId?days=$days'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('[ApiService] Exercise stats response status: ${response.statusCode}');
+      print('[ApiService] Exercise stats response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // ✅ Handle different response formats
+        if (data is Map<String, dynamic>) {
+          if (data['stats'] != null && data['stats'] is Map) {
+            return Map<String, dynamic>.from(data['stats']);
+          }
+        }
+        
+        // ✅ Return default stats if response is unexpected format
+        print('[ApiService] Unexpected stats response format, returning defaults');
+        return _getDefaultStats();
+      } else {
+        print('[ApiService] Exercise stats error: ${response.body}');
+        return _getDefaultStats();
       }
     } catch (e) {
       print('[ApiService] Exercise stats error: $e');
-      return {};
+      return _getDefaultStats();
     }
+  }
+
+  Map<String, dynamic> _getDefaultStats() {
+    return {
+      'total_workouts': 0,
+      'total_minutes': 0,
+      'total_calories': 0.0,
+      'avg_duration': 0.0,
+      'most_common_type': null,
+      'type_breakdown': <String, int>{},
+    };
   }
 
   Future<void> deleteExerciseLog(String exerciseId, String userId) async {

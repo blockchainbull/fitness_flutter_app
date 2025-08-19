@@ -20,6 +20,7 @@ import 'package:user_onboarding/features/tracking/screens/supplements_logging_pa
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
 import 'package:user_onboarding/data/repositories/supplement_repository.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:user_onboarding/data/services/api_service.dart';
 
 
 class TodayReportScreen extends StatefulWidget {
@@ -58,7 +59,7 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       // Check each tracking category
       trackingStatus = {
         'meals': await _getMealStatus(prefs, todayStr),
-        'water': await _getWaterStatus(userId),
+        'water': await _getWaterStatus(prefs, todayStr),
         'sleep': await _getSleepStatus(prefs, todayStr),
         'exercise': await _getExerciseStatus(prefs, todayStr),
         'steps': await _getStepsStatus(userId),
@@ -284,37 +285,73 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
     }
   }
   
-  Future<TrackingStatus> _getWaterStatus(String userId) async {
+  Future<TrackingStatus> _getWaterStatus(SharedPreferences prefs, String date) async {
     try {
-      final entry = await WaterRepository.getTodayWaterEntry(userId);
-      final goal = entry?.targetMl ?? 2000.0; // Use targetMl from the entry
-      final consumed = entry?.totalMl ?? 0.0; // Use totalMl instead of totalAmount
+      final apiService = ApiService();
+      final userId = widget.userProfile.id ?? '';
+      
+      print('[Reports] 💧 Getting water status for $userId on $date');
+      
+      // Try API first
+      final waterData = await apiService.getTodaysWater(userId);
+      
+      int waterGlasses = 0;
+      if (waterData is Map && waterData['glasses'] != null) {
+        waterGlasses = waterData['glasses'] as int;
+      } else if (waterData is int) {
+        waterGlasses = waterData;
+      }
+      
+      print('[Reports] 💧 API returned: $waterGlasses glasses');
+      
+      final targetGlasses = 8;
+      int remaining = targetGlasses - waterGlasses;
+      if (remaining < 0) remaining = 0;
+      
+      // Store in SharedPreferences as backup
+      await prefs.setInt('water_glasses_$date', waterGlasses);
       
       return TrackingStatus(
         category: 'Water',
         icon: Icons.water_drop,
         color: Colors.blue,
-        completed: consumed.toInt(),
-        total: goal.toInt(),
+        completed: waterGlasses,
+        total: targetGlasses,
         details: {
-          'Amount': '${consumed.toInt()}ml',
-          'Goal': '${goal.toInt()}ml',
-          'Glasses': '${entry?.glassesConsumed ?? 0}',
-          'Percentage': '${goal > 0 ? ((consumed / goal) * 100).toInt() : 0}%',
+          'Consumed': '$waterGlasses glasses',
+          'Target': '$targetGlasses glasses',
+          'Remaining': '$remaining glasses',
+          'Status': waterGlasses >= targetGlasses ? 'Complete' : 'In Progress',
         },
-        unit: 'ml',
-        isComplete: consumed >= goal,
+        unit: 'glasses',
+        isComplete: waterGlasses >= targetGlasses,
+        excludeFromProgress: false,
       );
+      
     } catch (e) {
-      print('Error getting water status: $e');
+      print('[Reports] 💧 Error getting water status: $e');
+      
+      // Fallback to SharedPreferences
+      final glasses = prefs.getInt('water_glasses_$date') ?? 0;
+      final targetGlasses = 8;
+      int remaining = targetGlasses - glasses;
+      if (remaining < 0) remaining = 0;
+      
       return TrackingStatus(
         category: 'Water',
         icon: Icons.water_drop,
         color: Colors.blue,
-        completed: 0,
-        total: 2000,
-        unit: 'ml',
-        isComplete: false,
+        completed: glasses,
+        total: targetGlasses,
+        details: {
+          'Consumed': '$glasses glasses',
+          'Target': '$targetGlasses glasses',
+          'Remaining': '$remaining glasses',
+          'Status': glasses >= targetGlasses ? 'Complete' : 'In Progress',
+        },
+        unit: 'glasses',
+        isComplete: glasses >= targetGlasses,
+        excludeFromProgress: false,
       );
     }
   }
@@ -418,23 +455,36 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       final apiService = ApiService();
       final userId = widget.userProfile.id ?? '';
       
-      // Get exercise history for today
-      final exercises = await apiService.getExerciseHistory(
+      print('[Reports] Getting exercise status for user: $userId, date: $date');
+      
+      // ✅ Use getExerciseLogs instead of getExerciseHistory
+      final exercises = await apiService.getExerciseLogs(
         userId,
-        date: DateFormat('yyyy-MM-dd').format(selectedDate),
+        startDate: date,
+        endDate: date,
+        limit: 50,
       );
+      
+      print('[Reports] Found ${exercises.length} exercises for $date');
       
       // Calculate totals
       int totalMinutes = 0;
       double totalCalories = 0;
       
       for (var exercise in exercises) {
-        totalMinutes += (exercise['duration_minutes'] as int? ?? 0);
-        totalCalories += (exercise['calories_burned'] as num? ?? 0).toDouble();
+        final duration = exercise['duration_minutes'] as int? ?? 0;
+        final calories = (exercise['calories_burned'] as num? ?? 0).toDouble();
+        
+        totalMinutes += duration;
+        totalCalories += calories;
+        
+        print('[Reports] Exercise: ${exercise['exercise_name']} - ${duration} min, ${calories} cal');
       }
       
       final targetMinutes = 30;
       final sessionCount = exercises.length;
+      
+      print('[Reports] Totals - Minutes: $totalMinutes, Calories: $totalCalories, Sessions: $sessionCount');
       
       // Store in SharedPreferences as backup
       await prefs.setInt('exercise_minutes_$date', totalMinutes);
@@ -460,13 +510,15 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       );
       
     } catch (e) {
-      print('Error in _getExerciseStatus: $e');
+      print('[Reports] Error in _getExerciseStatus: $e');
       
       // Fallback to SharedPreferences if API fails
       final minutes = prefs.getInt('exercise_minutes_$date') ?? 0;
       final calories = prefs.getDouble('exercise_calories_$date') ?? 0;
       final count = prefs.getInt('exercise_count_$date') ?? 0;
       final targetMinutes = 30;
+      
+      print('[Reports] Fallback - Minutes: $minutes, Calories: $calories, Sessions: $count');
       
       return TrackingStatus(
         category: 'Exercise',
@@ -624,152 +676,76 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
   
   Future<TrackingStatus> _getSupplementStatus(SharedPreferences prefs, String date) async {
     try {
-      // Check if supplements tracking is explicitly disabled
-      final isDisabled = prefs.getBool('supplement_tracking_disabled') ?? false;
+      final apiService = ApiService();
+      final userId = widget.userProfile.id ?? '';
       
-      if (isDisabled) {
-        return TrackingStatus(
-          category: 'Supplements',
-          icon: Icons.medication,
-          color: Colors.teal,
-          completed: 0,
-          total: 0,
-          details: {
-            'Status': 'Tracking disabled',
-          },
-          unit: '',
-          isComplete: false,
-          excludeFromProgress: true,
-        );
+      print('[Reports] 💊 Getting supplement status for $userId on $date');
+      
+      // Get supplement preferences
+      final preferences = await apiService.getSupplementPreferences(userId);
+      final totalSupplements = preferences.length;
+      
+      print('[Reports] 💊 Found $totalSupplements total supplements');
+      
+      // Get today's status
+      final statusData = await apiService.getSupplementStatus(userId, date: date);
+      
+      int takenCount = 0;
+      if (statusData is Map && statusData['status'] != null) {
+        final statusMap = statusData['status'] as Map<String, dynamic>;
+        takenCount = statusMap.values.where((taken) => taken == true).length;
       }
       
-      // Check database for user's supplement preferences
-      List<Map<String, dynamic>> dbPreferences = [];
-      List<String> supplementNames = [];
+      print('[Reports] 💊 $takenCount/$totalSupplements supplements taken');
       
-      try {
-        // Get supplement preferences from database
-        dbPreferences = await SupplementRepository.getSupplementPreferences(
-          widget.userProfile.id ?? ''
-        );
-        
-        if (dbPreferences.isNotEmpty) {
-          // User has configured supplements in database
-          supplementNames = dbPreferences.map((pref) => 
-            pref['supplement_name']?.toString() ?? pref['name']?.toString() ?? ''
-          ).where((name) => name.isNotEmpty).toList();
-          
-          print('Found ${supplementNames.length} supplements from database: $supplementNames');
-        }
-      } catch (e) {
-        print('Error fetching supplement preferences from database: $e');
-      }
+      int remaining = totalSupplements - takenCount;
+      if (remaining < 0) remaining = 0;
       
-      // Fallback to SharedPreferences if database is empty
-      if (supplementNames.isEmpty) {
-        final supplementsList = prefs.getString('supplement_tracking_list') ?? 
-                              prefs.getString('user_supplements_list');
-        
-        if (supplementsList != null && supplementsList.isNotEmpty) {
-          try {
-            final List<dynamic> decoded = jsonDecode(supplementsList);
-            final userSupplements = decoded.cast<Map<String, dynamic>>();
-            supplementNames = userSupplements.map((s) => s['name'] as String).toList();
-            print('Found ${supplementNames.length} supplements from SharedPreferences: $supplementNames');
-          } catch (e) {
-            print('Error parsing supplements from SharedPreferences: $e');
-          }
-        }
-      }
+      // Store in SharedPreferences as backup
+      await prefs.setInt('supplements_taken_$date', takenCount);
+      await prefs.setInt('supplements_total_$date', totalSupplements);
       
-      // If still no supplements found, they're not configured
-      if (supplementNames.isEmpty) {
-        return TrackingStatus(
-          category: 'Supplements',
-          icon: Icons.medication,
-          color: Colors.teal,
-          completed: 0,
-          total: 0,
-          details: {
-            'Status': 'Not configured',
-          },
-          unit: '',
-          isComplete: false,
-          excludeFromProgress: true,
-        );
-      }
+      return TrackingStatus(
+        category: 'Supplements',
+        icon: Icons.medication,
+        color: Colors.teal,
+        completed: takenCount,
+        total: totalSupplements,
+        details: {
+          'Taken': '$takenCount pills',
+          'Total': '$totalSupplements pills',
+          'Remaining': '$remaining pills',
+          'Status': takenCount >= totalSupplements ? 'Complete' : 'In Progress',
+        },
+        unit: 'pills',
+        isComplete: takenCount >= totalSupplements,
+        excludeFromProgress: false,
+      );
       
-      // User has configured supplements - check today's intake status
-      int taken = 0;
-      List<String> remaining = [];
-      Map<String, bool> todayStatus = {};
+    } catch (e) {
+      print('[Reports] 💊 Error getting supplement status: $e');
       
-      // First try to get today's status from database
-      try {
-        todayStatus = await SupplementRepository.getTodaysSupplementStatus(
-          widget.userProfile.id ?? ''
-        );
-        print('Got today\'s status from database: $todayStatus');
-      } catch (e) {
-        print('Error getting today\'s status from database: $e');
-      }
+      // Fallback to SharedPreferences
+      final taken = prefs.getInt('supplements_taken_$date') ?? 0;
+      final total = prefs.getInt('supplements_total_$date') ?? 0;
+      int remaining = total - taken;
+      if (remaining < 0) remaining = 0;
       
-      // Check status for each supplement
-      for (var supplementName in supplementNames) {
-        bool isTaken = false;
-        
-        // Check database status first
-        if (todayStatus.containsKey(supplementName)) {
-          isTaken = todayStatus[supplementName] ?? false;
-        } else {
-          // Fallback to SharedPreferences
-          final key1 = 'supplement_${supplementName}_$date';
-          final key2 = 'supplement_${supplementName.replaceAll(' ', '_')}_$date';
-          isTaken = prefs.getBool(key1) ?? prefs.getBool(key2) ?? false;
-        }
-        
-        if (isTaken) {
-          taken++;
-        } else {
-          remaining.add(supplementName);
-        }
-      }
-      
-      print('Supplements status: $taken/${supplementNames.length} taken');
-      print('Remaining: $remaining');
-      
-      // Return the tracking status
       return TrackingStatus(
         category: 'Supplements',
         icon: Icons.medication,
         color: Colors.teal,
         completed: taken,
-        total: supplementNames.length,
+        total: total,
         details: {
-          'Taken': '$taken/${supplementNames.length}',
-          'Status': taken == supplementNames.length ? 'Complete' : 'Incomplete',
-          'Remaining': remaining,
-          'Names': supplementNames,
+          'Taken': '$taken pills',
+          'Total': '$total pills',
+          'Remaining': '$remaining pills',
+          'Status': taken >= total ? 'Complete' : 'In Progress',
         },
-        unit: supplementNames.length == 1 ? 'pill' : 'pills',
-        isComplete: taken == supplementNames.length,
-        excludeFromProgress: false, // COUNT in daily progress when configured
-      );
-      
-    } catch (e) {
-      print('Error in _getSupplementStatus: $e');
-      return TrackingStatus(
-        category: 'Supplements',
-        icon: Icons.medication,
-        color: Colors.teal,
-        completed: 0,
-        total: 0,
-        details: {
-          'Status': 'Error loading',
-        },
-        unit: '',
-        isComplete: false,
-        excludeFromProgress: true,
+        unit: 'pills',
+        isComplete: taken >= total,
+        excludeFromProgress: false,
       );
     }
   }

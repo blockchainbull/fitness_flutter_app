@@ -48,21 +48,49 @@ class _ExerciseLoggingPageState extends State<ExerciseLoggingPage> {
   Future<void> _loadExerciseData() async {
     setState(() => _isLoading = true);
     try {
+      print('📊 Loading exercise data...');
+      
       // Load recent exercises
-      final exercises = await _apiService.getExerciseLogs(widget.userProfile.id!);
+      final exercises = await _apiService.getExerciseLogs(
+        widget.userProfile.id!,
+        limit: 20,
+      );
+      print('📊 Loaded ${exercises.length} exercises');
       
       // Load exercise stats
-      final stats = await _apiService.getExerciseStats(widget.userProfile.id!);
+      final stats = await _apiService.getExerciseStats(
+        widget.userProfile.id!,
+        days: 30,
+      );
+      print('📊 Loaded stats: $stats');
       
       setState(() {
         _recentExercises = exercises;
         _exerciseStats = stats;
       });
     } catch (e) {
-      print('Error loading exercise data: $e');
-      // Don't show error if it's just empty data
-      if (!e.toString().contains('NoneType')) {
-        _showErrorSnackBar('Failed to load exercise data');
+      print('❌ Error loading exercise data: $e');
+      
+      // ✅ Set empty defaults on error
+      setState(() {
+        _recentExercises = [];
+        _exerciseStats = {
+          'total_workouts': 0,
+          'total_minutes': 0,
+          'total_calories': 0.0,
+          'avg_duration': 0.0,
+          'most_common_type': null,
+          'type_breakdown': <String, int>{},
+        };
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load exercise data: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
     } finally {
       setState(() => _isLoading = false);
@@ -453,43 +481,45 @@ class _ExerciseLoggingPageState extends State<ExerciseLoggingPage> {
   }
 
   Widget _buildStatsCard() {
-    final stats = _exerciseStats!['stats'];
+    // ✅ Provide safe defaults
+    final stats = _exerciseStats ?? {
+      'total_workouts': 0,
+      'total_minutes': 0,
+      'total_calories': 0.0,
+      'avg_duration': 0.0,
+      'most_common_type': null,
+      'type_breakdown': <String, int>{},
+    };
+    
     return Card(
-      elevation: 4,
-      color: Colors.orange.shade50,
+      margin: const EdgeInsets.all(16),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Your Stats',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              'This Month\'s Stats',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildStatItem(
-                  'Total Workouts',
-                  stats['total_workouts'].toString(),
+                  'Workouts',
+                  '${stats['total_workouts'] ?? 0}',
                   Icons.fitness_center,
-                  Colors.orange,
                 ),
                 _buildStatItem(
-                  'This Week',
-                  stats['this_week_workouts'].toString(),
-                  Icons.calendar_today,
-                  Colors.blue,
+                  'Minutes',
+                  '${stats['total_minutes'] ?? 0}',
+                  Icons.timer,
                 ),
                 _buildStatItem(
-                  'This Month',
-                  stats['this_month_workouts'].toString(),
-                  Icons.calendar_month,
-                  Colors.green,
+                  'Calories',
+                  '${stats['total_calories']?.toStringAsFixed(0) ?? '0'}',
+                  Icons.local_fire_department,
                 ),
               ],
             ),
@@ -499,24 +529,18 @@ class _ExerciseLoggingPageState extends State<ExerciseLoggingPage> {
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+  Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4),
+        Icon(icon, color: Colors.orange, size: 24),
+        const SizedBox(height: 8),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+          style: TextStyle(color: Colors.grey[600], fontSize: 12),
         ),
       ],
     );

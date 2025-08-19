@@ -169,7 +169,7 @@ class WaterRepository {
   static Future<WaterEntry?> getTodayWaterEntry(String userId) async {
     try {
       if (kIsWeb) {
-        return await _apiService.getTodayWaterEntry(userId);
+        return await _apiService.getTodaysWater(userId);
       } else {
         if (DatabaseService.isInitialized) {
           final today = DateTime.now();
@@ -187,14 +187,14 @@ class WaterRepository {
           return null;
         } else {
           // Fallback to API if database not available
-          return await _apiService.getTodayWaterEntry(userId);
+          return await _apiService.getTodaysWater(userId);
         }
       }
     } catch (e) {
       print('❌ Error getting today\'s water entry from database: $e');
       // Fallback to API
       try {
-        return await _apiService.getTodayWaterEntry(userId);
+        return await _apiService.getTodaysWater(userId);
       } catch (apiError) {
         print('❌ Error getting today\'s water entry from API: $apiError');
         return null;
