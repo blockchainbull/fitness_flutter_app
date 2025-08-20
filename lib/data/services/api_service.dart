@@ -456,6 +456,44 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getChatMessages(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/chat/messages/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['messages']);
+        }
+      }
+      return [];
+    } catch (e) {
+      print('[ApiService] Get chat messages error: $e');
+      return [];
+    }
+  }
+
+  Future<bool> clearChatMessages(String userId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/chat/messages/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('[ApiService] Clear chat messages error: $e');
+      return false;
+    }
+  }
+
   // Save user profile using the new unified format
   Future<String> saveUserProfile(UserProfile userProfile) async {
     try {
