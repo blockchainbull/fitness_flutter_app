@@ -30,34 +30,34 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    _loadUserContext();
-    _loadUserFramework();
+    //_loadUserContext();
+    //_loadUserFramework();
     _addWelcomeMessage();
   }
 
-  Future<void> _loadUserContext() async {
-    try {
-      final response = await _apiService.getUserChatContext(widget.userProfile.id!);
-      setState(() {
-        _userContext = response;
-      });
-      print('💬 User context loaded: ${_userContext?.keys}');
-    } catch (e) {
-      print('❌ Error loading user context: $e');
-    }
-  }
+  // Future<void> _loadUserContext() async {
+  //   try {
+  //     final response = await _apiService.getUserChatContext(widget.userProfile.id!);
+  //     setState(() {
+  //       _userContext = response;
+  //     });
+  //     print('💬 User context loaded: ${_userContext?.keys}');
+  //   } catch (e) {
+  //     print('❌ Error loading user context: $e');
+  //   }
+  // }
 
-  Future<void> _loadUserFramework() async {
-    try {
-      final response = await _apiService.getUserFramework(widget.userProfile.id!);
-      setState(() {
-        _userFramework = response['framework'];
-      });
-      print('🎯 User framework loaded: ${_userFramework?['framework_type']}');
-    } catch (e) {
-      print('❌ Error loading user framework: $e');
-    }
-  }
+  // Future<void> _loadUserFramework() async {
+  //   try {
+  //     final response = await _apiService.getUserFramework(widget.userProfile.id!);
+  //     setState(() {
+  //       _userFramework = response['framework'];
+  //     });
+  //     print('🎯 User framework loaded: ${_userFramework?['framework_type']}');
+  //   } catch (e) {
+  //     print('❌ Error loading user framework: $e');
+  //   }
+  // }
 
   void _addWelcomeMessage() {
     final userName = widget.userProfile.name.isNotEmpty ? widget.userProfile.name : 'there';
@@ -91,7 +91,15 @@ class _ChatPageState extends State<ChatPage> {
     _scrollToBottom();
 
     try {
-      final response = await _apiService.sendChatMessage(widget.userProfile.id!, text);
+      String response;
+      
+      // Try the API first, fall back to local response if it fails
+      try {
+        response = await _apiService.sendChatMessage(widget.userProfile.id!, text);
+      } catch (e) {
+        print('API failed, using fallback: $e');
+        response = _generateFallbackResponse(text);
+      }
       
       final aiMessage = {
         'text': response,
@@ -107,10 +115,10 @@ class _ChatPageState extends State<ChatPage> {
       print('Error sending message: $e');
       
       final errorMessage = {
-        'text': 'Sorry, I\'m having trouble connecting right now. Please try again in a moment.',
+        'text': _generateFallbackResponse(text),
         'isUser': false,
         'timestamp': DateTime.now(),
-        'type': 'error'
+        'type': 'fallback'
       };
 
       setState(() {
@@ -132,6 +140,25 @@ class _ChatPageState extends State<ChatPage> {
         );
       }
     });
+  }
+
+  String _generateFallbackResponse(String userMessage) {
+    final message = userMessage.toLowerCase();
+    final userName = widget.userProfile.name.isNotEmpty ? widget.userProfile.name : 'there';
+    
+    if (message.contains('dinner') || message.contains('food') || message.contains('eat')) {
+      return 'Hi $userName! For dinner with your ${widget.userProfile.weightGoal.replaceAll('_', ' ')} goals, I recommend a balanced meal with lean protein like chicken or fish, plenty of vegetables, and complex carbs. Keep portions moderate and stay hydrated!';
+    } else if (message.contains('exercise') || message.contains('workout')) {
+      return 'Based on your ${widget.userProfile.fitnessLevel} fitness level, try mixing cardio with strength training. Start with 30 minutes of activity you enjoy - could be walking, cycling, or bodyweight exercises at home.';
+    } else if (message.contains('progress') || message.contains('how am i doing')) {
+      return 'You\'re doing great by staying engaged with your health journey! Keep logging your activities and meals. Consistency is key to reaching your goals.';
+    } else if (message.contains('weight')) {
+      final current = widget.userProfile.weight;
+      final target = widget.userProfile.targetWeight;
+      return 'Your current weight is ${current}kg and you\'re working toward ${target}kg. Focus on sustainable habits rather than quick fixes - you\'ve got this!';
+    } else {
+      return 'Hi $userName! I\'m here to help with your health journey. You can ask me about meal ideas, workout suggestions, progress tracking, or motivation. What would you like to know?';
+    }
   }
 
   @override
