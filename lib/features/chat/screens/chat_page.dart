@@ -38,24 +38,48 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _loadUserContext() async {
     try {
       final response = await _apiService.getUserChatContext(widget.userProfile.id!);
-      setState(() {
-        _userContext = response;
-      });
-      print('💬 User context loaded: ${_userContext?.keys}');
+      
+      // Safe null checking
+      if (response.isNotEmpty) {
+        setState(() {
+          _userContext = response;
+        });
+        print('💬 User context loaded: ${_userContext?.keys}');
+      } else {
+        print('⚠️ No context data available');
+        setState(() {
+          _userContext = null;
+        });
+      }
     } catch (e) {
       print('❌ Error loading user context: $e');
+      setState(() {
+        _userContext = null;
+      });
     }
   }
 
   Future<void> _loadUserFramework() async {
     try {
       final response = await _apiService.getUserFramework(widget.userProfile.id!);
-      setState(() {
-        _userFramework = response['framework'];
-      });
-      print('🎯 User framework loaded: ${_userFramework?['framework_type']}');
+      
+      // Safe null checking
+      if (response['success'] == true && response['framework'] != null) {
+        setState(() {
+          _userFramework = response['framework'];
+        });
+        print('🎯 User framework loaded: ${_userFramework?['framework_type']}');
+      } else {
+        print('⚠️ No framework data available');
+        setState(() {
+          _userFramework = null;
+        });
+      }
     } catch (e) {
       print('❌ Error loading user framework: $e');
+      setState(() {
+        _userFramework = null;
+      });
     }
   }
 
@@ -391,7 +415,7 @@ class _ChatPageState extends State<ChatPage> {
               _buildContextItem(Icons.water_drop, 'Hydration patterns'),
               const SizedBox(height: 12),
               Text(
-                'Framework: ${_userFramework?['framework_type']?.toString().replaceAll('_', ' ').toUpperCase() ?? 'Loading...'}',
+                'Framework: ${_userFramework?['framework_type']?.toString().replaceAll('_', ' ').toUpperCase() ?? 'Personalizing...'}',
                 style: TextStyle(
                   color: Colors.purple[700],
                   fontWeight: FontWeight.bold,
@@ -443,23 +467,31 @@ class _ChatPageState extends State<ChatPage> {
   void _showFrameworkDetails() {
     if (_userFramework == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Framework still loading...')),
+        const SnackBar(content: Text('Framework data is loading...')),
       );
       return;
     }
 
+    // Safe access to framework data
+    final frameworkType = _userFramework!['framework_type']?.toString() ?? 'custom';
+    final nutrition = _userFramework!['nutrition'] as Map<String, dynamic>? ?? {};
+    final exercise = _userFramework!['exercise'] as Map<String, dynamic>? ?? {};
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('${_userFramework!['framework_type'].toString().replaceAll('_', ' ').toUpperCase()} Framework'),
+        title: Text('${frameworkType.replaceAll('_', ' ').toUpperCase()} Framework'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFrameworkSection('Daily Calories', '${_userFramework!['nutrition']['daily_calories']} cal'),
-              _buildFrameworkSection('Protein', '${_userFramework!['nutrition']['macros']['protein_grams']}g'),
-              _buildFrameworkSection('Exercise/Week', '${_userFramework!['exercise']['strength_sessions_week']} strength + ${_userFramework!['exercise']['cardio_minutes_week']} min cardio'),
+              if (nutrition['daily_calories'] != null)
+                _buildFrameworkSection('Daily Calories', '${nutrition['daily_calories']} cal'),
+              if (nutrition['macros']?['protein_grams'] != null)
+                _buildFrameworkSection('Protein', '${nutrition['macros']['protein_grams']}g'),
+              if (exercise['strength_sessions_week'] != null && exercise['cardio_minutes_week'] != null)
+                _buildFrameworkSection('Exercise/Week', '${exercise['strength_sessions_week']} strength + ${exercise['cardio_minutes_week']} min cardio'),
               const SizedBox(height: 12),
               const Text('Ask me anything about your personalized plan!', style: TextStyle(fontStyle: FontStyle.italic)),
             ],

@@ -197,9 +197,15 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['context'] ?? {};
+        
+        // Safe null checking
+        if (data != null && data is Map<String, dynamic>) {
+          return data['context'] ?? {};
+        }
+        return {};
       } else {
-        throw Exception('Failed to get chat context: ${response.body}');
+        print('[ApiService] Chat context error response: ${response.body}');
+        return {};
       }
     } catch (e) {
       print('[ApiService] Chat context error: $e');
@@ -220,15 +226,21 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data;
+        
+        // Safe null checking
+        if (data != null && data is Map<String, dynamic>) {
+          return data; // Return the whole response
+        }
+        return {'success': false, 'framework': null};
       } else {
-        throw Exception('Failed to get user framework: ${response.body}');
+        print('[ApiService] Framework error response: ${response.body}');
+        return {'success': false, 'framework': null};
       }
     } catch (e) {
       print('[ApiService] Framework error: $e');
-      throw e;
+      return {'success': false, 'framework': null};
     }
-  }
+}
 
   Future<Map<String, dynamic>> compareFrameworks() async {
     try {
