@@ -438,40 +438,18 @@ class ApiService {
   
   Future<List<Map<String, dynamic>>> getChatHistory(String userId) async {
     try {
-      print('[ApiService] Getting chat history for user: $userId');
-      
       final response = await http.get(
-        Uri.parse('http://localhost:8000/get-conversation/$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        Uri.parse('$baseUrl/chat/history/$userId'),
+        headers: {'Content-Type': 'application/json'},
       );
-
-      print('[ApiService] Chat history response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
-        if (data['conversation'] != null && data['conversation'] is List) {
-          List<Map<String, dynamic>> formattedHistory = [];
-          
-          for (var message in data['conversation']) {
-            if (message is Map<String, dynamic>) {
-              formattedHistory.add({
-                'content': message['content'] ?? '',
-                'role': message['role'] ?? 'assistant',
-                'timestamp': message['timestamp'] ?? DateTime.now().toIso8601String(),
-              });
-            }
-          }
-          
-          return formattedHistory;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['messages']);
         }
-        return [];
-      } else {
-        print('[ApiService] Failed to get chat history: ${response.body}');
-        return [];
       }
+      return [];
     } catch (e) {
       print('[ApiService] Chat history error: $e');
       return [];
@@ -494,6 +472,24 @@ class ApiService {
     } catch (e) {
       debugPrint('API error when saving user profile: $e');
       rethrow;
+    }
+  }
+
+  Future<bool> clearChatHistory(String userId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/chat/history/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('[ApiService] Clear chat history error: $e');
+      return false;
     }
   }
 

@@ -30,69 +30,45 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    _loadUserContext();
-    _loadUserFramework();
-    _addWelcomeMessage();
+    _loadChatHistory();
   }
 
-  Future<void> _loadUserContext() async {
+  Future<void> _loadChatHistory() async {
     try {
-      final response = await _apiService.getUserChatContext(widget.userProfile.id!);
-      
-      if (response.isNotEmpty) {
-        setState(() {
-          _userContext = response;
-        });
-        print('💬 User context loaded: ${_userContext?.keys}');
-      } else {
-        print('⚠️ No context data available');
-        setState(() {
-          _userContext = {};
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading user context: $e');
       setState(() {
-        _userContext = {};
+        _isLoading = true;
       });
-    }
-  }
 
-  Future<void> _loadUserFramework() async {
-    try {
-      final response = await _apiService.getUserFramework(widget.userProfile.id!);
+      final history = await _apiService.getChatHistory(widget.userProfile.id!);
       
-      if (response['success'] == true && response['framework'] != null) {
-        setState(() {
-          _userFramework = response['framework'];
-        });
-        print('🎯 User framework loaded: ${_userFramework?['framework_type']}');
-      } else {
-        print('⚠️ No framework data available');
-        setState(() {
-          _userFramework = {};
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading user framework: $e');
       setState(() {
-        _userFramework = {};
+        _messages.clear();
+        
+        if (history.isEmpty) {
+          // Only add welcome message if no history exists
+          _addWelcomeMessage();
+        } else {
+          // Load conversation history
+          for (var msg in history) {
+            _messages.add({
+              'text': msg['message'],
+              'isUser': msg['is_user'],
+              'timestamp': DateTime.tryParse(msg['timestamp']) ?? DateTime.now(),
+            });
+          }
+        }
+        
+        _isLoading = false;
       });
-    }
-  }
 
-  void _addWelcomeMessage() {
-    final userName = widget.userProfile.name.isNotEmpty ? widget.userProfile.name : 'there';
-    final goal = widget.userProfile.primaryGoal.isNotEmpty ? widget.userProfile.primaryGoal : 'your health goals';
-    
-    setState(() {
-      _messages.add({
-        'text': 'Hi $userName! 👋\n\nI\'m your AI health coach and I have access to all your health data, activity logs, and progress. I can help you with $goal and provide personalized recommendations based on your actual data.\n\nWhat would you like to talk about today?',
-        'isUser': false,
-        'timestamp': DateTime.now(),
-        'type': 'welcome'
+      _scrollToBottom();
+    } catch (e) {
+      print('❌ Error loading chat history: $e');
+      setState(() {
+        _isLoading = false;
       });
-    });
+      _addWelcomeMessage(); // Fallback to welcome message
+    }
   }
 
   Future<void> _handleSubmitted(String text) async {
@@ -150,6 +126,37 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     _scrollToBottom();
+  }
+
+  Future<void> _clearChatHistory() async {
+    try {
+      await _apiService.clearChatHistory(widget.userProfile.id!);
+      setState(() {
+        _messages.clear();
+      });
+      _addWelcomeMessage();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chat history cleared')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to clear chat history')),
+      );
+    }
+  }
+
+  void _addWelcomeMessage() {
+    final userName = widget.userProfile.name.isNotEmpty ? widget.userProfile.name : 'there';
+    final goal = widget.userProfile.primaryGoal.isNotEmpty ? widget.userProfile.primaryGoal : 'your health goals';
+    
+    setState(() {
+      _messages.add({
+        'text': 'Hi $userName! 👋\n\nI\'m your AI health coach and I have access to all your health data, activity logs, and progress. I can help you with $goal and provide personalized recommendations based on your actual data.\n\nWhat would you like to talk about today?',
+        'isUser': false,
+        'timestamp': DateTime.now(),
+        'type': 'welcome'
+      });
+    });
   }
 
   void _scrollToBottom() {
@@ -385,6 +392,29 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showClearChatDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Chat History'),
+        content: const Text('Are you sure you want to clear all chat history? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _clearChatHistory();
+            },
+            child: const Text('Clear', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
