@@ -46,6 +46,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     'extra_active',
   ];
 
+  String? _selectedPrimaryGoal;
+  String? _selectedWeightGoal;
+  String? _selectedGoalTimeline;
+
   @override
   void initState() {
     super.initState();
@@ -67,16 +71,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
       text: widget.userProfile.weightGoal ?? '',
     );
     _targetWeightController = TextEditingController(
-      text: widget.userProfile.targetWeight?.toString() ?? '',
+      text: widget.userProfile.targetWeight.toString(),
     );
 
-    // FIXED: Map the stored activity level to the correct dropdown value
+    // Initialize dropdown values
     _selectedActivityLevel = _mapToActivityLevelKey(widget.userProfile.activityLevel);
     _selectedGender = widget.userProfile.gender ?? 'Male';
     _selectedAge = widget.userProfile.age ?? 25;
+    
+    // Initialize goal selections
+    _selectedPrimaryGoal = widget.userProfile.primaryGoal;
+    _selectedWeightGoal = widget.userProfile.weightGoal;
+    _selectedGoalTimeline = widget.userProfile.goalTimeline;
 
-    print('[EditProfilePage] Initialized with activity level: ${widget.userProfile.activityLevel}');
-    print('[EditProfilePage] Mapped to dropdown value: $_selectedActivityLevel');
+    print('🔍 Initialized profile editing with:');
+    print('  Primary Goal: $_selectedPrimaryGoal');
+    print('  Weight Goal: $_selectedWeightGoal');
+    print('  Target Weight: ${_targetWeightController.text}');
   }
 
   // FIXED: Map stored activity level to dropdown key
@@ -135,57 +146,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final double height = double.tryParse(_heightController.text) ?? widget.userProfile.height;
       final double weight = double.tryParse(_weightController.text) ?? widget.userProfile.weight;
       
-      // Provide default values instead of null
-      final String primaryGoal = _primaryGoalController.text.isNotEmpty 
-          ? _primaryGoalController.text 
-          : widget.userProfile.primaryGoal ?? 'General Fitness';
-          
-      final String weightGoal = _weightGoalController.text.isNotEmpty 
-          ? _weightGoalController.text 
-          : widget.userProfile.weightGoal ?? 'Maintain Weight';
-          
+      // Use dropdown values instead of text controllers
+      final String primaryGoal = _selectedPrimaryGoal ?? widget.userProfile.primaryGoal;
+      final String weightGoal = _selectedWeightGoal ?? widget.userProfile.weightGoal;
       final double targetWeight = _targetWeightController.text.isNotEmpty 
           ? (double.tryParse(_targetWeightController.text) ?? weight)
-          : widget.userProfile.targetWeight ?? weight;
+          : widget.userProfile.targetWeight;
 
-      print('[EditProfilePage] Saving with activity level: $_selectedActivityLevel');
+      print('[EditProfilePage] Saving with:');
+      print('  Primary Goal: $primaryGoal');
+      print('  Weight Goal: $weightGoal');
+      print('  Activity Level: $_selectedActivityLevel');
 
-      // Create updated profile data
-      final updatedProfile = UserProfile(
-        id: widget.userProfile.id,
-        name: widget.userProfile.name, // Read-only
-        email: widget.userProfile.email, // Read-only
-        password: widget.userProfile.password,
-        gender: widget.userProfile.gender, // Read-only
-        age: widget.userProfile.age, // Read-only
+      // Create updated UserProfile object instead of Map
+      final updatedProfile = widget.userProfile.copyWith(
         height: height,
         weight: weight,
-        startingWeight: widget.userProfile.startingWeight, // Read-only
-        startingWeightDate: widget.userProfile.startingWeightDate, // Read-only
         activityLevel: _selectedActivityLevel,
         primaryGoal: primaryGoal,
         weightGoal: weightGoal,
         targetWeight: targetWeight,
-        goalTimeline: widget.userProfile.goalTimeline,
-        sleepHours: widget.userProfile.sleepHours,
-        bedtime: widget.userProfile.bedtime,
-        wakeupTime: widget.userProfile.wakeupTime,
-        sleepIssues: widget.userProfile.sleepIssues,
-        dietaryPreferences: widget.userProfile.dietaryPreferences,
-        waterIntake: widget.userProfile.waterIntake,
-        medicalConditions: widget.userProfile.medicalConditions,
-        otherMedicalCondition: widget.userProfile.otherMedicalCondition,
-        preferredWorkouts: widget.userProfile.preferredWorkouts,
-        workoutFrequency: widget.userProfile.workoutFrequency,
-        workoutDuration: widget.userProfile.workoutDuration,
-        workoutLocation: widget.userProfile.workoutLocation,
-        availableEquipment: widget.userProfile.availableEquipment,
-        fitnessLevel: widget.userProfile.fitnessLevel,
-        hasTrainer: widget.userProfile.hasTrainer,
-        formData: widget.userProfile.formData,
       );
 
-      // Save to backend
+      // Save using the existing method that takes UserProfile
       await _apiService.updateUserProfile(updatedProfile);
 
       // Return updated profile to previous screen
@@ -310,18 +293,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
             const SizedBox(height: 24),
             _buildSectionHeader('Goals'),
-            _buildTextField(
-              'Primary Goal',
-              _primaryGoalController,
-              'What is your main fitness goal?',
-              isRequired: false,
-            ),
-            _buildTextField(
-              'Weight Goal',
-              _weightGoalController,
-              'Do you want to lose, gain, or maintain weight?',
-              isRequired: false,
-            ),
+            _buildPrimaryGoalDropdown(),
+            _buildWeightGoalDropdown(),
             _buildNumberField(
               'Target Weight (kg)',
               _targetWeightController,
@@ -344,6 +317,78 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ),
     );
   }
+
+  Widget _buildPrimaryGoalDropdown() {
+    final primaryGoalOptions = [
+      'Lose Weight',
+      'Gain Weight', 
+      'Build Muscle',
+      'Improve Fitness',
+      'Maintain Health',
+      'General Wellness',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: DropdownButtonFormField<String>(
+        value: primaryGoalOptions.contains(_selectedPrimaryGoal) ? _selectedPrimaryGoal : null,
+        decoration: InputDecoration(
+          labelText: 'Primary Goal',
+          hintText: 'What is your main fitness goal?',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        items: primaryGoalOptions.map((goal) => DropdownMenuItem(
+          value: goal,
+          child: Text(goal),
+        )).toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedPrimaryGoal = value;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildWeightGoalDropdown() {
+    final weightGoalOptions = [
+      'lose_weight',
+      'gain_weight',
+      'maintain_weight',
+    ];
+
+    final weightGoalLabels = {
+      'lose_weight': 'Lose Weight',
+      'gain_weight': 'Gain Weight', 
+      'maintain_weight': 'Maintain Weight',
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: DropdownButtonFormField<String>(
+        value: weightGoalOptions.contains(_selectedWeightGoal) ? _selectedWeightGoal : null,
+        decoration: InputDecoration(
+          labelText: 'Weight Goal',
+          hintText: 'Do you want to lose, gain, or maintain weight?',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        items: weightGoalOptions.map((goal) => DropdownMenuItem(
+          value: goal,
+          child: Text(weightGoalLabels[goal] ?? goal),
+        )).toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedWeightGoal = value;
+          });
+        },
+      ),
+    );
+  }
+
 
   Widget _buildWeightProgressCard() {
     final startingWeight = widget.userProfile.startingWeight!;

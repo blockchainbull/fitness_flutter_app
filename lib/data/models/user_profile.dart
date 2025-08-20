@@ -95,6 +95,11 @@ class UserProfile {
     if (map.containsKey('bmr')) formDataMap['bmr'] = map['bmr'];
     if (map.containsKey('tdee')) formDataMap['tdee'] = map['tdee'];
 
+      print('🔍 UserProfile.fromMap received:');
+      print('  primary_goal: "${map['primary_goal']}" / primaryGoal: "${map['primaryGoal']}"');
+      print('  weight_goal: "${map['weight_goal']}" / weightGoal: "${map['weightGoal']}"');
+      print('  target_weight: ${map['target_weight']} / targetWeight: ${map['targetWeight']}');
+
     return UserProfile(
       id: map['id'] ?? '',
       name: map['name'] ?? '',
@@ -120,10 +125,10 @@ class UserProfile {
       pregnancyStatus: map['pregnancyStatus'],
       periodTrackingPreference: map['periodTrackingPreference'],
       
-      primaryGoal: map['primaryGoal'] ?? '',
-      weightGoal: map['weightGoal'] ?? '',
-      targetWeight: map['targetWeight']?.toDouble() ?? 0.0,
-      goalTimeline: map['goalTimeline'],
+      primaryGoal: map['primaryGoal'] ?? map['primary_goal'] ?? '',
+      weightGoal: map['weightGoal'] ?? map['weight_goal'] ?? '',
+      targetWeight: map['targetWeight']?.toDouble() ?? map['target_weight']?.toDouble() ?? 0.0,
+      goalTimeline: map['goalTimeline'] ?? map['goal_timeline'],
       sleepHours: map['sleepHours']?.toDouble() ?? map['sleep_hours']?.toDouble() ?? 7.0,
       bedtime: map['bedtime'] ?? '22:00',
       wakeupTime: map['wakeupTime'] ?? map['wakeup_time'] ?? '06:00', 
