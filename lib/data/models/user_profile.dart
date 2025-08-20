@@ -95,10 +95,29 @@ class UserProfile {
     if (map.containsKey('bmr')) formDataMap['bmr'] = map['bmr'];
     if (map.containsKey('tdee')) formDataMap['tdee'] = map['tdee'];
 
-      print('🔍 UserProfile.fromMap received:');
-      print('  primary_goal: "${map['primary_goal']}" / primaryGoal: "${map['primaryGoal']}"');
-      print('  weight_goal: "${map['weight_goal']}" / weightGoal: "${map['weightGoal']}"');
-      print('  target_weight: ${map['target_weight']} / targetWeight: ${map['targetWeight']}');
+    // Helper function to normalize weight goal
+    String normalizeWeightGoal(String? goal) {
+      if (goal == null || goal.isEmpty) return '';
+      
+      final lowercased = goal.toLowerCase().trim();
+      if (lowercased.contains('lose')) return 'lose_weight';
+      if (lowercased.contains('gain')) return 'gain_weight';
+      if (lowercased.contains('maintain')) return 'maintain_weight';
+      
+      // Return as-is if already in correct format
+      return goal;
+    }
+
+    print('🔍 UserProfile.fromMap received:');
+    print('  primary_goal: "${map['primary_goal']}" / primaryGoal: "${map['primaryGoal']}"');
+    print('  weight_goal: "${map['weight_goal']}" / weightGoal: "${map['weightGoal']}"');
+    print('  target_weight: ${map['target_weight']} / targetWeight: ${map['targetWeight']}');
+
+    // Get and normalize weight goal
+    final rawWeightGoal = map['weightGoal'] ?? map['weight_goal'] ?? '';
+    final normalizedWeightGoal = normalizeWeightGoal(rawWeightGoal);
+    
+    print('  normalized weight_goal: "$normalizedWeightGoal"');
 
     return UserProfile(
       id: map['id'] ?? '',
@@ -126,7 +145,7 @@ class UserProfile {
       periodTrackingPreference: map['periodTrackingPreference'],
       
       primaryGoal: map['primaryGoal'] ?? map['primary_goal'] ?? '',
-      weightGoal: map['weightGoal'] ?? map['weight_goal'] ?? '',
+      weightGoal: normalizedWeightGoal, // Use normalized value
       targetWeight: map['targetWeight']?.toDouble() ?? map['target_weight']?.toDouble() ?? 0.0,
       goalTimeline: map['goalTimeline'] ?? map['goal_timeline'],
       sleepHours: map['sleepHours']?.toDouble() ?? map['sleep_hours']?.toDouble() ?? 7.0,

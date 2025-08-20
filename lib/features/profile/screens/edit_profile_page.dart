@@ -365,10 +365,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
       'maintain_weight': 'Maintain Weight',
     };
 
+    // Map current value to the correct format
+    String? currentValue = _selectedWeightGoal;
+    if (currentValue != null) {
+      // Convert display text to key if needed
+      if (currentValue.toLowerCase().contains('lose')) {
+        currentValue = 'lose_weight';
+      } else if (currentValue.toLowerCase().contains('gain')) {
+        currentValue = 'gain_weight';
+      } else if (currentValue.toLowerCase().contains('maintain')) {
+        currentValue = 'maintain_weight';
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: DropdownButtonFormField<String>(
-        value: weightGoalOptions.contains(_selectedWeightGoal) ? _selectedWeightGoal : null,
+        value: weightGoalOptions.contains(currentValue) ? currentValue : null,
         decoration: InputDecoration(
           labelText: 'Weight Goal',
           hintText: 'Do you want to lose, gain, or maintain weight?',
@@ -384,6 +397,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           setState(() {
             _selectedWeightGoal = value;
           });
+        },
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please select your weight goal';
+          }
+          return null;
         },
       ),
     );
