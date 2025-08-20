@@ -39,7 +39,6 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await _apiService.getUserChatContext(widget.userProfile.id!);
       
-      // Safe null checking
       if (response.isNotEmpty) {
         setState(() {
           _userContext = response;
@@ -48,13 +47,13 @@ class _ChatPageState extends State<ChatPage> {
       } else {
         print('⚠️ No context data available');
         setState(() {
-          _userContext = null;
+          _userContext = {};
         });
       }
     } catch (e) {
       print('❌ Error loading user context: $e');
       setState(() {
-        _userContext = null;
+        _userContext = {};
       });
     }
   }
@@ -63,7 +62,6 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await _apiService.getUserFramework(widget.userProfile.id!);
       
-      // Safe null checking
       if (response['success'] == true && response['framework'] != null) {
         setState(() {
           _userFramework = response['framework'];
@@ -72,13 +70,13 @@ class _ChatPageState extends State<ChatPage> {
       } else {
         print('⚠️ No framework data available');
         setState(() {
-          _userFramework = null;
+          _userFramework = {};
         });
       }
     } catch (e) {
       print('❌ Error loading user framework: $e');
       setState(() {
-        _userFramework = null;
+        _userFramework = {};
       });
     }
   }
@@ -415,7 +413,7 @@ class _ChatPageState extends State<ChatPage> {
               _buildContextItem(Icons.water_drop, 'Hydration patterns'),
               const SizedBox(height: 12),
               Text(
-                'Framework: ${_userFramework?['framework_type']?.toString().replaceAll('_', ' ').toUpperCase() ?? 'Personalizing...'}',
+                'Framework: ${_userFramework?['framework_type']?.toString().replaceAll('_', ' ').toUpperCase() ?? 'Loading...'}',
                 style: TextStyle(
                   color: Colors.purple[700],
                   fontWeight: FontWeight.bold,
