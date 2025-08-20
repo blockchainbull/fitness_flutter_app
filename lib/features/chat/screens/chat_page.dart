@@ -30,34 +30,34 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    //_loadUserContext();
-    //_loadUserFramework();
+    _loadUserContext();
+    _loadUserFramework();
     _addWelcomeMessage();
   }
 
-  // Future<void> _loadUserContext() async {
-  //   try {
-  //     final response = await _apiService.getUserChatContext(widget.userProfile.id!);
-  //     setState(() {
-  //       _userContext = response;
-  //     });
-  //     print('💬 User context loaded: ${_userContext?.keys}');
-  //   } catch (e) {
-  //     print('❌ Error loading user context: $e');
-  //   }
-  // }
+  Future<void> _loadUserContext() async {
+    try {
+      final response = await _apiService.getUserChatContext(widget.userProfile.id!);
+      setState(() {
+        _userContext = response;
+      });
+      print('💬 User context loaded: ${_userContext?.keys}');
+    } catch (e) {
+      print('❌ Error loading user context: $e');
+    }
+  }
 
-  // Future<void> _loadUserFramework() async {
-  //   try {
-  //     final response = await _apiService.getUserFramework(widget.userProfile.id!);
-  //     setState(() {
-  //       _userFramework = response['framework'];
-  //     });
-  //     print('🎯 User framework loaded: ${_userFramework?['framework_type']}');
-  //   } catch (e) {
-  //     print('❌ Error loading user framework: $e');
-  //   }
-  // }
+  Future<void> _loadUserFramework() async {
+    try {
+      final response = await _apiService.getUserFramework(widget.userProfile.id!);
+      setState(() {
+        _userFramework = response['framework'];
+      });
+      print('🎯 User framework loaded: ${_userFramework?['framework_type']}');
+    } catch (e) {
+      print('❌ Error loading user framework: $e');
+    }
+  }
 
   void _addWelcomeMessage() {
     final userName = widget.userProfile.name.isNotEmpty ? widget.userProfile.name : 'there';
