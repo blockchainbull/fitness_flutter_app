@@ -445,7 +445,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['success'] == true) {
+        if (data != null && data['success'] == true && data['messages'] != null) {
           return List<Map<String, dynamic>>.from(data['messages']);
         }
       }

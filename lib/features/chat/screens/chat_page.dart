@@ -39,21 +39,30 @@ class _ChatPageState extends State<ChatPage> {
         _isLoading = true;
       });
 
-      final history = await _apiService.getChatHistory(widget.userProfile.id!);
+      // Add null check here
+      final userId = widget.userProfile.id;
+      if (userId == null) {
+        print('❌ User ID is null');
+        setState(() {
+          _isLoading = false;
+        });
+        _addWelcomeMessage();
+        return;
+      }
+
+      final history = await _apiService.getChatHistory(userId);
       
       setState(() {
         _messages.clear();
         
         if (history.isEmpty) {
-          // Only add welcome message if no history exists
           _addWelcomeMessage();
         } else {
-          // Load conversation history
           for (var msg in history) {
             _messages.add({
-              'text': msg['message'],
-              'isUser': msg['is_user'],
-              'timestamp': DateTime.tryParse(msg['timestamp']) ?? DateTime.now(),
+              'text': msg['message'] ?? '',  // Add null safety
+              'isUser': msg['is_user'] ?? false,  // Add null safety
+              'timestamp': DateTime.tryParse(msg['created_at'] ?? '') ?? DateTime.now(),  // Use created_at
             });
           }
         }
@@ -67,7 +76,7 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _isLoading = false;
       });
-      _addWelcomeMessage(); // Fallback to welcome message
+      _addWelcomeMessage();
     }
   }
 
