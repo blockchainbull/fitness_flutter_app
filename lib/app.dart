@@ -26,7 +26,9 @@ class HealthAIApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         // Check if this is a home route
         if (settings.name?.startsWith('/home/') ?? false) {
-          // Use home routes
+          if (!hasValidLogin || userProfile == null) {
+            return MaterialPageRoute(builder: (_) => const LoginScreen());
+          }
           return HomeRoutes.generateRoute(
             RouteSettings(
               name: settings.name!.replaceFirst('/home', ''),

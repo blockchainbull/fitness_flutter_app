@@ -10,6 +10,7 @@ import 'package:user_onboarding/data/services/database_service.dart';
 import 'package:user_onboarding/data/services/exercise_data_service.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/repositories/weight_repository.dart';
+import 'package:user_onboarding/data/managers/user_manager.dart';
 
 class DataManager {
   static final DataManager _instance = DataManager._internal();
@@ -202,7 +203,18 @@ class DataManager {
         }
       }
       
-      if (userId == null) {
+      if (userId != null) {
+
+        try {
+          final userProfile = await getUserProfileById(userId);
+          if (userProfile != null) {
+            await UserManager.setCurrentUser(userProfile);
+            _log('User set as logged in after onboarding');
+          }
+        } catch (e) {
+          _log('Could not set user as logged in: $e');
+        }
+
         // Fallback: save locally and generate a temporary ID
         userId = DateTime.now().millisecondsSinceEpoch.toString();
         await prefs.setString(userIdKey, userId);
@@ -255,6 +267,15 @@ class DataManager {
           
           await prefs.setString(userProfileKey, jsonEncode(userProfileData));
           _log('User profile saved locally as fallback');
+
+          try {
+            final fallbackProfile = UserProfile.fromMap(userProfileData);
+            await UserManager.setCurrentUser(fallbackProfile);
+            _log('Fallback user set as logged in');
+          } catch (e) {
+            _log('Could not set fallback user as logged in: $e');
+          }
+
         } catch (e) {
           _log('Error saving user profile locally: $e');
         }
@@ -263,6 +284,34 @@ class DataManager {
       return userId;
     } catch (e) {
       _log('Error completing onboarding: $e');
+      return null;
+    }
+  }
+
+  Future<UserProfile?> getUserProfileById(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // First try to get from local storage
+      final userProfileJson = prefs.getString(userProfileKey);
+      if (userProfileJson != null) {
+        final userMap = jsonDecode(userProfileJson);
+        return UserProfile.fromMap(userMap);
+      }
+      
+      // If not found locally and we have connectivity, try API
+      final isConnected = await _connectivityService.isConnected();
+      if (isConnected) {
+        try {
+          return await _apiService.getUserProfileById(userId);
+        } catch (e) {
+          _log('Could not fetch user profile from API: $e');
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      _log('Error getting user profile by ID: $e');
       return null;
     }
   }

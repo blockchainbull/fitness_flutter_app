@@ -4,6 +4,8 @@ import 'package:user_onboarding/app.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/data/services/database_service.dart';
+import 'package:user_onboarding/data/managers/user_manager.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,21 +20,17 @@ void main() async {
     print('⚠️ App will continue with local storage only');
   }
 
-  final dataManager = DataManager();
   try {
     await DataManager().initialize();
   } catch (e) {
     print('❌ Data manager initialization failed: $e');
   }
 
-  // Check if user has valid login
-  final bool hasValidLogin = await dataManager.hasValidLogin();
-  
-  print('Has valid login: $hasValidLogin');
-  
+  final bool hasValidLogin = await UserManager.isLoggedIn();
   UserProfile? userProfile;
+  
   if (hasValidLogin) {
-    userProfile = await dataManager.loadUserProfile();
+    userProfile = await UserManager.getCurrentUser();
     if (userProfile != null) {
       print('Successfully loaded profile for: ${userProfile.name}');
     }

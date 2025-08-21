@@ -13,6 +13,7 @@ import 'package:user_onboarding/features/onboarding/screens/primary_goal_page.da
 import 'package:user_onboarding/features/onboarding/screens/exercise_setup_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/dietary_preferences_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/workout_preferences_page.dart';
+import 'package:user_onboarding/data/managers/user_manager.dart';
 
 
 class OnboardingFlow extends StatefulWidget {
@@ -289,23 +290,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         },
       };
 
-      print('🚀 DEBUGGING ONBOARDING DATA:');
-      print('📝 Gender: ${_formData['gender']}');
-      print('📝 Raw formData period fields:');
-      print('  hasPeriods: ${_formData['hasPeriods']}');
-      print('  lastPeriodDate: ${_formData['lastPeriodDate']}');
-      print('  cycleLength: ${_formData['cycleLength']}');
-      print('  cycleLengthRegular: ${_formData['cycleLengthRegular']}');
-      print('  pregnancyStatus: ${_formData['pregnancyStatus']}');
-      print('  trackingPreference: ${_formData['trackingPreference']}');
-      
-      if (_formData['gender'] == 'Female') {
-        print('🌸 Period cycle data being sent:');
-        print('  ${onboardingData['periodCycle']}');
-      } else {
-        print('❌ Not female user, no period data');
-      }
-
       // Complete onboarding using the new unified format
       final userId = await _dataManager.completeOnboarding(onboardingData);
       
@@ -313,8 +297,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         throw Exception('Failed to complete onboarding');
       }
 
-      // Create UserProfile object for navigation
-      final userProfile = UserProfile.fromMap(_formData);
+      // Set user as logged in immediately after onboarding
+      UserProfile? authenticatedUserProfile;
+      try {
+        final fetchedProfile = await _dataManager.getUserProfileById(userId);
+        if (fetchedProfile != null) {
+          await UserManager.setCurrentUser(fetchedProfile);
+          authenticatedUserProfile = fetchedProfile;
+          print('User set as logged in after onboarding');
+        }
+      } catch (e) {
+        print('Could not set user as logged in: $e');
+      }
+
+      // Create UserProfile object for navigation (fallback if fetch failed)
+      final userProfile = authenticatedUserProfile ?? 
+          UserProfile.fromMap(_formData..['id'] = userId);
       
       // Close loading indicator
       Navigator.pop(context);

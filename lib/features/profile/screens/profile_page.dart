@@ -7,6 +7,7 @@ import 'package:user_onboarding/features/profile/screens/settings_page.dart';
 import 'package:user_onboarding/features/profile/widgets/stat_card.dart';
 import 'package:user_onboarding/features/profile/widgets/goal_progress.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
+import 'package:user_onboarding/data/managers/user_manager.dart';
 
 class ProfilePage extends StatefulWidget {
   final UserProfile userProfile;
@@ -163,10 +164,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (shouldLogout == true) {
       try {
-        // Clear user data
-        await _dataManager.clearData();
+        await UserManager.logout();
+        await _dataManager.clearData(); // Keep this for clearing other data
         
-        // Navigate to login page and clear the navigation stack
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const LoginScreen()),
