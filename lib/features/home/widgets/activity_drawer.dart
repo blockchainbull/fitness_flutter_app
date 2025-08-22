@@ -9,6 +9,7 @@ import 'package:user_onboarding/features/tracking/screens/period_logging_page.da
 import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
+import 'package:user_onboarding/data/managers/user_manager.dart';
 
 class ActivityDrawer extends StatelessWidget {
   final UserProfile userProfile;
@@ -86,7 +87,7 @@ class ActivityDrawer extends StatelessWidget {
                   () => _navigateToPage(context, SupplementLoggingPage(userProfile: userProfile)),
                 ),
                 // Only show period tracking for female users
-                if (userProfile.gender?.toLowerCase() == 'female')
+                if (userProfile.gender.toLowerCase() == 'female')
                   _buildActivityTile(
                     context,
                     'Period',
@@ -123,6 +124,43 @@ class ActivityDrawer extends StatelessWidget {
                     );
                   },
                 ),
+
+                const Divider(),
+          
+                // Add logout button
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text('Logout', style: TextStyle(color: Colors.red)),
+                  onTap: () async {
+                    final shouldLogout = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Logout'),
+                        content: const Text('Are you sure you want to logout?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                            child: const Text('Logout'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (shouldLogout == true) {
+                      await UserManager.logout();
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/login',
+                        (route) => false,
+                      );
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -130,6 +168,8 @@ class ActivityDrawer extends StatelessWidget {
       ),
     );
   }
+
+
 
   Widget _buildDrawerHeader() {
     return Container(

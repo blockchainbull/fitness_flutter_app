@@ -863,30 +863,24 @@ class ApiService {
   // Get water history
   Future<List<WaterEntry>> getWaterHistory(String userId, {int limit = 30}) async {
     try {
-      print('[ApiService] Getting water history for user: $userId, limit: $limit');
-      
       final response = await http.get(
         Uri.parse('$baseUrl/water/$userId?limit=$limit'),
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('[ApiService] Water history response status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        if (data['entries'] != null && data['entries'] is List) {
+        if (data['success'] == true && data['entries'] != null) {
           return (data['entries'] as List)
-              .map((item) => WaterEntry.fromMap(item))
+              .map((entry) => WaterEntry.fromMap(entry))
               .toList();
         }
-        return [];
-      } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to get water history');
       }
+      
+      return [];
     } catch (e) {
-      print('[ApiService] Water history error: $e');
+      print('Error getting water history: $e');
       return [];
     }
   }
@@ -916,10 +910,9 @@ class ApiService {
   }
 
   // Get today's water entry
-  Future<dynamic> getTodaysWater(String userId) async {
+  Future<Map<String, dynamic>> getTodaysWater(String userId) async {
     try {
       print('[ApiService] 💧 Getting today\'s water for user: $userId');
-      print('[ApiService] 💧 URL: $baseUrl/water/$userId/today');
       
       final response = await http.get(
         Uri.parse('$baseUrl/water/$userId/today'),
@@ -932,27 +925,50 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        // Handle different response formats
         if (data is Map<String, dynamic>) {
-          if (data['water_entry'] != null) {
-            return data['water_entry']['glasses'] ?? 0;
-          } else if (data['glasses'] != null) {
-            return data['glasses'];
-          } else if (data['success'] == true && data['water'] != null) {
-            return data['water']['glasses'] ?? 0;
+          final entry = data['entry'];
+          
+          if (entry == null) {
+            // No water logged today - return default structure
+            return {
+              'success': true,
+              'glasses': 0,
+              'total_ml': 0.0,
+              'target_ml': 2000.0,
+              'entry': null,
+            };
           }
+          
+          // Parse the entry safely
+          return {
+            'success': true,
+            'glasses': (entry['glasses_consumed'] ?? 0).toInt(),
+            'total_ml': (entry['total_ml'] ?? 0.0).toDouble(),
+            'target_ml': (entry['target_ml'] ?? 2000.0).toDouble(),
+            'entry': entry,
+          };
         }
-        
-        return 0; // No water logged today
-      } else {
-        print('[ApiService] 💧 Water error response: ${response.body}');
-        return 0;
       }
+      
+      // Error case
+      return {
+        'success': false,
+        'glasses': 0,
+        'total_ml': 0.0,
+        'target_ml': 2000.0,
+        'entry': null,
+      };
     } catch (e) {
       print('[ApiService] 💧 Water error: $e');
-      return 0;
+      return {
+        'success': false,
+        'glasses': 0,
+        'total_ml': 0.0,
+        'target_ml': 2000.0,
+        'entry': null,
+      };
     }
-}
+  }
 
   // Sleep logging endpoint
 

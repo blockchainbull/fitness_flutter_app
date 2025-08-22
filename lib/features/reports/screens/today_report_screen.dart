@@ -2,10 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/repositories/water_repository.dart';
 import 'package:user_onboarding/data/repositories/step_repository.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/repositories/sleep_repository.dart';
@@ -18,8 +16,6 @@ import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dar
 import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
-import 'package:user_onboarding/data/repositories/supplement_repository.dart';
-import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 
 
@@ -290,52 +286,21 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       final apiService = ApiService();
       final userId = widget.userProfile.id ?? '';
       
-      print('[Reports] 💧 Getting water status for $userId on $date');
+      print('[Reports] Getting water status for $userId on $date');
       
-      // Try API first
       final waterData = await apiService.getTodaysWater(userId);
       
-      int waterGlasses = 0;
-      if (waterData is Map && waterData['glasses'] != null) {
-        waterGlasses = waterData['glasses'] as int;
-      } else if (waterData is int) {
-        waterGlasses = waterData;
-      }
+      // Cast num to int explicitly
+      final glasses = (waterData['glasses'] as num? ?? 0).toInt();
+      final totalMl = (waterData['total_ml'] as num? ?? 0.0).toDouble();
       
-      print('[Reports] 💧 API returned: $waterGlasses glasses');
+      print('[Reports] API returned: $glasses glasses, ${totalMl}ml');
       
       final targetGlasses = 8;
-      int remaining = targetGlasses - waterGlasses;
-      if (remaining < 0) remaining = 0;
+      final remaining = (targetGlasses - glasses).clamp(0, targetGlasses);
       
       // Store in SharedPreferences as backup
-      await prefs.setInt('water_glasses_$date', waterGlasses);
-      
-      return TrackingStatus(
-        category: 'Water',
-        icon: Icons.water_drop,
-        color: Colors.blue,
-        completed: waterGlasses,
-        total: targetGlasses,
-        details: {
-          'Consumed': '$waterGlasses glasses',
-          'Target': '$targetGlasses glasses',
-          'Remaining': '$remaining glasses',
-          'Status': waterGlasses >= targetGlasses ? 'Complete' : 'In Progress',
-        },
-        unit: 'glasses',
-        isComplete: waterGlasses >= targetGlasses,
-        excludeFromProgress: false,
-      );
-      
-    } catch (e) {
-      print('[Reports] 💧 Error getting water status: $e');
-      
-      // Fallback to SharedPreferences
-      final glasses = prefs.getInt('water_glasses_$date') ?? 0;
-      final targetGlasses = 8;
-      int remaining = targetGlasses - glasses;
-      if (remaining < 0) remaining = 0;
+      await prefs.setInt('water_glasses_$date', glasses);
       
       return TrackingStatus(
         category: 'Water',
@@ -347,7 +312,31 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
           'Consumed': '$glasses glasses',
           'Target': '$targetGlasses glasses',
           'Remaining': '$remaining glasses',
+          'Volume': '${totalMl.toInt()}ml',
           'Status': glasses >= targetGlasses ? 'Complete' : 'In Progress',
+        },
+        unit: 'glasses',
+        isComplete: glasses >= targetGlasses,
+        excludeFromProgress: false,
+      );
+      
+    } catch (e) {
+      print('[Reports] Error getting water status: $e');
+      
+      // Fallback to SharedPreferences
+      final glasses = prefs.getInt('water_glasses_$date') ?? 0;
+      final targetGlasses = 8;
+      
+      return TrackingStatus(
+        category: 'Water',
+        icon: Icons.water_drop,
+        color: Colors.blue,
+        completed: glasses,
+        total: targetGlasses,
+        details: {
+          'Consumed': '$glasses glasses',
+          'Target': '$targetGlasses glasses',
+          'Status': 'Cached data',
         },
         unit: 'glasses',
         isComplete: glasses >= targetGlasses,

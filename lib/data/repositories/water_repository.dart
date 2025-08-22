@@ -138,6 +138,8 @@ class WaterRepository {
   static Future<List<WaterEntry>> getWaterHistory(String userId, {int limit = 30}) async {
     try {
       if (kIsWeb) {
+        // You'll need to create a separate method in ApiService for history
+        // For now, return empty list or implement getWaterHistory in ApiService
         return await _apiService.getWaterHistory(userId, limit: limit);
       } else {
         if (DatabaseService.isInitialized) {
@@ -155,12 +157,12 @@ class WaterRepository {
         }
       }
     } catch (e) {
-      print('❌ Error getting water history from database: $e');
+      print('Error getting water history from database: $e');
       // Fallback to API
       try {
         return await _apiService.getWaterHistory(userId, limit: limit);
       } catch (apiError) {
-        print('❌ Error getting water history from API: $apiError');
+        print('Error getting water history from API: $apiError');
         return [];
       }
     }
@@ -169,7 +171,24 @@ class WaterRepository {
   static Future<WaterEntry?> getTodayWaterEntry(String userId) async {
     try {
       if (kIsWeb) {
-        return await _apiService.getTodaysWater(userId);
+        // Get the map from API service
+        final waterData = await _apiService.getTodaysWater(userId);
+        
+        // Check if we have valid data
+        if (waterData['success'] == true && waterData['entry'] != null) {
+          // Convert the entry map to WaterEntry object
+          return WaterEntry.fromMap(waterData['entry']);
+        } else if (waterData['glasses'] != null && waterData['glasses'] > 0) {
+          // Create WaterEntry from the summary data
+          return WaterEntry(
+            userId: userId,
+            date: DateTime.now(),
+            glassesConsumed: waterData['glasses'],
+            totalMl: waterData['total_ml'],
+            targetMl: waterData['target_ml'],
+          );
+        }
+        return null;
       } else {
         if (DatabaseService.isInitialized) {
           final today = DateTime.now();
@@ -187,16 +206,34 @@ class WaterRepository {
           return null;
         } else {
           // Fallback to API if database not available
-          return await _apiService.getTodaysWater(userId);
+          final waterData = await _apiService.getTodaysWater(userId);
+          
+          if (waterData['success'] == true && waterData['entry'] != null) {
+            return WaterEntry.fromMap(waterData['entry']);
+          } else if (waterData['glasses'] != null && waterData['glasses'] > 0) {
+            return WaterEntry(
+              userId: userId,
+              date: DateTime.now(),
+              glassesConsumed: waterData['glasses'],
+              totalMl: waterData['total_ml'],
+              targetMl: waterData['target_ml'],
+            );
+          }
+          return null;
         }
       }
     } catch (e) {
-      print('❌ Error getting today\'s water entry from database: $e');
+      print('Error getting today\'s water entry from database: $e');
       // Fallback to API
       try {
-        return await _apiService.getTodaysWater(userId);
+        final waterData = await _apiService.getTodaysWater(userId);
+        
+        if (waterData['success'] == true && waterData['entry'] != null) {
+          return WaterEntry.fromMap(waterData['entry']);
+        }
+        return null;
       } catch (apiError) {
-        print('❌ Error getting today\'s water entry from API: $apiError');
+        print('Error getting today\'s water entry from API: $apiError');
         return null;
       }
     }

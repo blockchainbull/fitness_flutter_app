@@ -4,6 +4,7 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/home/screens/dashboard_home.dart';
 import 'package:user_onboarding/features/chat/screens/chat_page.dart';
 import 'package:user_onboarding/features/profile/screens/profile_page.dart';
+import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
 
 class HomePage extends StatefulWidget {
   final UserProfile userProfile;
@@ -59,6 +60,7 @@ class _HomePageState extends State<HomePage> {
           DashboardHome(userProfile: widget.userProfile),
           ChatPage(userProfile: widget.userProfile),
           ProfilePage(userProfile: widget.userProfile),
+          ActivityLoggingMenu(userProfile: widget.userProfile),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

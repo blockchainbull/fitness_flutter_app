@@ -41,8 +41,8 @@ class _ChatPageState extends State<ChatPage> {
 
       // Add null check here
       final userId = widget.userProfile.id;
-      if (userId == null) {
-        print('❌ User ID is null');
+      if (userId == null || userId.isEmpty) {
+        print('❌ User ID is null or empty');
         setState(() {
           _isLoading = false;
         });

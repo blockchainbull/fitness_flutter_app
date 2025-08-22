@@ -64,7 +64,7 @@ class ActivityLoggingMenu extends StatelessWidget {
                       );
                     },
                   ),
-                ),
+                ),  
               ),
               _buildQuickStats(),
             ],
