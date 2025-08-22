@@ -60,18 +60,15 @@ class StepEntry {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'userId': userId,
-      'date': date.toIso8601String(),
+      'user_id': userId,  // Backend expects snake_case
+      'date': date.toIso8601String().split('T')[0],  // Just the date part
       'steps': steps,
       'goal': goal,
-      'caloriesBurned': caloriesBurned,
-      'distanceKm': distanceKm,
-      'activeMinutes': activeMinutes,
-      'sourceType': sourceType,
-      'lastSynced': lastSynced?.toIso8601String(),
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
+      'calories_burned': caloriesBurned,  // Backend expects snake_case
+      'distance_km': distanceKm,  // Backend expects snake_case
+      'active_minutes': activeMinutes,  // Backend expects snake_case
+      'source_type': sourceType,  // Backend expects snake_case
+      'last_synced': lastSynced?.toIso8601String(),
     };
   }
 
