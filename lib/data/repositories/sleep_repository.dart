@@ -3,6 +3,8 @@ import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
+import 'package:user_onboarding/data/services/database_service.dart';
 
 class SleepRepository {
   final _uuid = const Uuid();
@@ -80,27 +82,27 @@ class SleepRepository {
   // Get sleep entry by date using API
   Future<SleepEntry?> getSleepEntryByDate(String userId, DateTime date) async {
     try {
-      final dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      print('[SleepRepository] Getting sleep entry for date: ${DateFormat('yyyy-MM-dd').format(date)}');
       
-      print('[SleepRepository] Getting sleep entry for date: $dateStr');
+      final response = await _apiService.getSleepEntryByDate(
+        userId, 
+        DateFormat('yyyy-MM-dd').format(date)
+      );
       
-      final response = await _apiService.getSleepEntryByDate(userId, dateStr);
-      
-      if (response != null) {
-        print('✅ Sleep entry found in backend');
-        return SleepEntry.fromMap(response);
+      // Add null check for response
+      if (response != null && response['success'] == true && response['entry'] != null) {
+        print('Sleep entry found in backend');
+        return SleepEntry.fromMap(response['entry']);
+      } else {
+        print('No sleep entry found for date: ${DateFormat('yyyy-MM-dd').format(date)}');
+        return null;
       }
+      
     } catch (e) {
-      print('⚠️ Backend query failed: $e');
+      print('Error getting sleep entry: $e');
+      return null;
     }
-    
-    // Fallback to local storage
-    final localEntry = await _getFromLocalStorageByDate(userId, date);
-    if (localEntry != null) {
-      print('✅ Sleep entry found in local storage');
-    }
-    return localEntry;
-}
+  }
 
   // Get sleep history using API
   Future<List<SleepEntry>> getSleepHistory(String userId, {int limit = 30}) async {

@@ -13,6 +13,7 @@ import 'package:user_onboarding/data/managers/user_manager.dart';
 
 class ActivityDrawer extends StatelessWidget {
   final UserProfile userProfile;
+  
 
   const ActivityDrawer({
     Key? key,
@@ -132,6 +133,9 @@ class ActivityDrawer extends StatelessWidget {
                   leading: const Icon(Icons.logout, color: Colors.red),
                   title: const Text('Logout', style: TextStyle(color: Colors.red)),
                   onTap: () async {
+
+                    Navigator.pop(context);
+
                     final shouldLogout = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
@@ -152,12 +156,33 @@ class ActivityDrawer extends StatelessWidget {
                     );
 
                     if (shouldLogout == true) {
-                      await UserManager.logout();
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        '/login',
-                        (route) => false,
-                      );
+                      try {
+                        // Use UserManager to logout
+                        await UserManager.logout();
+                        
+                        // Navigate to login and clear all routes
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/login',  // Make sure this route exists
+                          (route) => false,
+                        );
+                        
+                        // Alternative if named routes don't work:
+                        // Navigator.pushAndRemoveUntil(
+                        //   context,
+                        //   MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        //   (route) => false,
+                        // );
+                        
+                      } catch (e) {
+                        print('Logout error: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Logout failed: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
                     }
                   },
                 ),
@@ -168,8 +193,6 @@ class ActivityDrawer extends StatelessWidget {
       ),
     );
   }
-
-
 
   Widget _buildDrawerHeader() {
     return Container(
