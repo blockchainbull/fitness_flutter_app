@@ -52,19 +52,62 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       final userId = widget.userProfile.id ?? '';
       final todayStr = DateFormat('yyyy-MM-dd').format(selectedDate);
       
-      // Check each tracking category
+      // Load each category with individual error handling
+      final futures = [
+        _getMealStatus(prefs, todayStr).catchError((e) {
+          print('Meal status error: $e');
+          return _getEmptyMealStatus();
+        }),
+        _getWaterStatus(prefs, todayStr).catchError((e) {
+          print('Water status error: $e');
+          return _getEmptyWaterStatus();
+        }),
+        _getSleepStatus(prefs, todayStr).catchError((e) {
+          print('Sleep status error: $e');
+          return _getEmptySleepStatus();
+        }),
+        _getExerciseStatus(prefs, todayStr).catchError((e) {
+          print('Exercise status error: $e');
+          return _getEmptyExerciseStatus();
+        }),
+        _getStepsStatus(userId).catchError((e) {
+          print('Steps status error: $e');
+          return _getEmptyStepsStatus();
+        }),
+        _getWeightStatus(prefs, todayStr).catchError((e) {
+          print('Weight status error: $e');
+          return _getEmptyWeightStatus();
+        }),
+        _getSupplementStatus(prefs, todayStr).catchError((e) {
+          print('Supplement status error: $e');
+          return _getEmptySupplementStatus();
+        }),
+      ];
+      
+      final results = await Future.wait(futures);
+      
       trackingStatus = {
-        'meals': await _getMealStatus(prefs, todayStr),
-        'water': await _getWaterStatus(prefs, todayStr),
-        'sleep': await _getSleepStatus(prefs, todayStr),
-        'exercise': await _getExerciseStatus(prefs, todayStr),
-        'steps': await _getStepsStatus(userId),
-        'weight': await _getWeightStatus(prefs, todayStr),
-        'supplements': await _getSupplementStatus(prefs, todayStr),
+        'meals': results[0],
+        'water': results[1],
+        'sleep': results[2],
+        'exercise': results[3],
+        'steps': results[4],
+        'weight': results[5],
+        'supplements': results[6],
       };
       
     } catch (e) {
       print('Error loading today data: $e');
+      // Set all to empty states
+      trackingStatus = {
+        'meals': _getEmptyMealStatus(),
+        'water': _getEmptyWaterStatus(),
+        'sleep': _getEmptySleepStatus(),
+        'exercise': _getEmptyExerciseStatus(),
+        'steps': _getEmptyStepsStatus(),
+        'weight': _getEmptyWeightStatus(),
+        'supplements': _getEmptySupplementStatus(),
+      };
     } finally {
       setState(() => isLoading = false);
     }
@@ -279,6 +322,126 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
         );
       }
     }
+  }
+
+  TrackingStatus _getEmptyMealStatus() {
+    return TrackingStatus(
+      category: 'Meals',
+      icon: Icons.restaurant,
+      color: Colors.green,
+      completed: 0,
+      total: 3,
+      details: {'Status': 'Not logged'},
+      unit: 'meals',
+      isComplete: false,
+      excludeFromProgress: false,
+    );
+  }
+
+  TrackingStatus _getEmptySupplementStatus() {
+    return TrackingStatus(
+      category: 'Supplements',
+      icon: Icons.medication,
+      color: Colors.teal,
+      completed: 0,
+      total: 0,
+      details: {'Status': 'Not configured'},
+      unit: 'pills',
+      isComplete: false,
+      excludeFromProgress: true,
+    );
+  }
+
+  TrackingStatus _getEmptyWaterStatus() {
+    return TrackingStatus(
+      category: 'Water',
+      icon: Icons.water_drop,
+      color: Colors.blue,
+      completed: 0,
+      total: 8,
+      details: {
+        'Consumed': 0,
+        'Target': 8,
+        'Remaining': 8,
+        'Status': 'Not logged',
+      },
+      unit: 'glasses',
+      isComplete: false,
+      excludeFromProgress: false,
+    );
+  }
+
+  TrackingStatus _getEmptySleepStatus() {
+    return TrackingStatus(
+      category: 'Sleep',
+      icon: Icons.bedtime,
+      color: Colors.purple,
+      completed: 0,
+      total: 8,
+      details: {
+        'Status': 'Not logged',
+        'Target': '8 hours',
+      },
+      unit: 'hours',
+      isComplete: false,
+      excludeFromProgress: false,
+    );
+  }
+
+  TrackingStatus _getEmptyExerciseStatus() {
+    return TrackingStatus(
+      category: 'Exercise',
+      icon: Icons.fitness_center,
+      color: Colors.orange,
+      completed: 0,
+      total: 30,
+      details: {
+        'Duration': '0 min',
+        'Target': '30 min',
+        'Calories': 'Not tracked',
+        'Sessions': 0,
+        'Status': 'Not logged',
+      },
+      unit: 'min',
+      isComplete: false,
+      excludeFromProgress: false,
+    );
+  }
+
+  TrackingStatus _getEmptyStepsStatus() {
+    return TrackingStatus(
+      category: 'Steps',
+      icon: Icons.directions_walk,
+      color: Colors.green.shade700,
+      completed: 0,
+      total: 10000,
+      details: {
+        'Steps': '0',
+        'Goal': '10000',
+        'Distance': '0.0 km',
+        'Calories': '0 cal',
+        'Status': 'Not tracked',
+      },
+      unit: 'steps',
+      isComplete: false,
+      excludeFromProgress: false,
+    );
+  }
+
+  TrackingStatus _getEmptyWeightStatus() {
+    return TrackingStatus(
+      category: 'Weight',
+      icon: Icons.monitor_weight,
+      color: Colors.indigo,
+      completed: 0,
+      total: 1,
+      details: {
+        'Status': 'Not logged',
+      },
+      unit: '',
+      isComplete: false,
+      excludeFromProgress: false,
+    );
   }
   
   Future<TrackingStatus> _getWaterStatus(SharedPreferences prefs, String date) async {
@@ -668,15 +831,13 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       final apiService = ApiService();
       final userId = widget.userProfile.id ?? '';
       
-      print('[Reports] 💊 Getting supplement status for $userId on $date');
+      print('[Reports] Getting supplement status for $userId on $date');
       
-      // Get supplement preferences
       final preferences = await apiService.getSupplementPreferences(userId);
       final totalSupplements = preferences.length;
       
-      print('[Reports] 💊 Found $totalSupplements total supplements');
+      print('[Reports] Found $totalSupplements total supplements');
       
-      // Get today's status
       final statusData = await apiService.getSupplementStatus(userId, date: date);
       
       int takenCount = 0;
@@ -685,12 +846,11 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
         takenCount = statusMap.values.where((taken) => taken == true).length;
       }
       
-      print('[Reports] 💊 $takenCount/$totalSupplements supplements taken');
+      print('[Reports] $takenCount/$totalSupplements supplements taken');
       
       int remaining = totalSupplements - takenCount;
       if (remaining < 0) remaining = 0;
       
-      // Store in SharedPreferences as backup
       await prefs.setInt('supplements_taken_$date', takenCount);
       await prefs.setInt('supplements_total_$date', totalSupplements);
       
@@ -701,9 +861,9 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
         completed: takenCount,
         total: totalSupplements,
         details: {
-          'Taken': '$takenCount pills',
-          'Total': '$totalSupplements pills',
-          'Remaining': '$remaining pills',
+          'Taken': takenCount,  // Store as int, not string
+          'Total': totalSupplements,  // Store as int, not string
+          'Remaining': remaining,  // Store as int, not string
           'Status': takenCount >= totalSupplements ? 'Complete' : 'In Progress',
         },
         unit: 'pills',
@@ -712,29 +872,19 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       );
       
     } catch (e) {
-      print('[Reports] 💊 Error getting supplement status: $e');
-      
-      // Fallback to SharedPreferences
-      final taken = prefs.getInt('supplements_taken_$date') ?? 0;
-      final total = prefs.getInt('supplements_total_$date') ?? 0;
-      int remaining = total - taken;
-      if (remaining < 0) remaining = 0;
-      
+      print('[Reports] Error getting supplement status: $e');
       return TrackingStatus(
         category: 'Supplements',
         icon: Icons.medication,
         color: Colors.teal,
-        completed: taken,
-        total: total,
+        completed: 0,
+        total: 0,
         details: {
-          'Taken': '$taken pills',
-          'Total': '$total pills',
-          'Remaining': '$remaining pills',
-          'Status': taken >= total ? 'Complete' : 'In Progress',
+          'Status': 'Error loading',
         },
         unit: 'pills',
-        isComplete: taken >= total,
-        excludeFromProgress: false,
+        isComplete: false,
+        excludeFromProgress: true,  // Exclude from progress when error
       );
     }
   }

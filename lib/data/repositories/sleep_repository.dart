@@ -4,7 +4,6 @@ import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
-import 'package:user_onboarding/data/services/database_service.dart';
 
 class SleepRepository {
   final _uuid = const Uuid();
@@ -89,9 +88,10 @@ class SleepRepository {
         DateFormat('yyyy-MM-dd').format(date)
       );
       
-      // Add null check for response
+      // Check if response and entry exist
       if (response != null && response['success'] == true && response['entry'] != null) {
         print('Sleep entry found in backend');
+        // Pass only the entry data, not the whole response
         return SleepEntry.fromMap(response['entry']);
       } else {
         print('No sleep entry found for date: ${DateFormat('yyyy-MM-dd').format(date)}');

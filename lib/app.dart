@@ -96,7 +96,7 @@ class HealthAIApp extends StatelessWidget {
           ),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white, // White cards
         elevation: 2,
         shape: RoundedRectangleBorder(
