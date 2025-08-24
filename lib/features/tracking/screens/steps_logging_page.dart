@@ -7,6 +7,7 @@ import 'package:user_onboarding/data/models/step_entry.dart';
 import 'package:user_onboarding/data/repositories/step_repository.dart';
 import 'package:user_onboarding/features/home/widgets/daily_step_tracker.dart';
 import 'package:user_onboarding/features/tracking/screens/step_history_page.dart';
+import 'package:user_onboarding/data/services/api_service.dart';
 
 class StepsLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -30,6 +31,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   @override
   void initState() {
     super.initState();
+    _userStepGoal = (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 10000;
     _checkAndShowGoalModal();
   }
 
@@ -56,8 +58,13 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   }
 
   Future<void> _showStepGoalSetupModal() async {
+    // Get current goal from user profile formData, today's entry, or fallback to default
+    final currentGoal = (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 
+                      _todayEntry?.goal ?? 
+                      10000;
+    
     final TextEditingController goalSetupController = TextEditingController(
-      text: _todayEntry?.goal.toString() ?? '10000'
+      text: currentGoal.toString()
     );
     
     await showDialog(
@@ -147,21 +154,54 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                   _goalController.text = goal.toString();
                 });
                 
-                // Save the goal to today's step entry
-                if (_todayEntry != null) {
-                  final updatedEntry = _todayEntry!.copyWith(goal: goal);
-                  await StepRepository.saveStepEntry(updatedEntry);
-                  setState(() {
-                    _todayEntry = updatedEntry;
-                  });
-                }
-                
-                // Mark as set in SharedPreferences
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool('has_set_step_goal_${widget.userProfile.id}', true);
-                
-                if (mounted) {
-                  Navigator.of(context).pop();
+                try {
+                  // Import ApiService at the top of the file
+                  final apiService = ApiService();
+                  
+                  // Create updated user profile with step goal in formData
+                  final updatedFormData = Map<String, dynamic>.from(widget.userProfile.formData);
+                  updatedFormData['dailyStepGoal'] = goal;
+                  
+                  final updatedProfile = widget.userProfile.copyWith(formData: updatedFormData);
+                  
+                  // Update user profile via API
+                  await apiService.updateUserProfile(updatedProfile);
+                  
+                  // If today's entry exists, update it with the new goal
+                  if (_todayEntry != null) {
+                    final updatedEntry = _todayEntry!.copyWith(goal: goal);
+                    await StepRepository.saveStepEntry(updatedEntry);
+                    setState(() {
+                      _todayEntry = updatedEntry;
+                    });
+                  }
+                  
+                  // Mark as set in SharedPreferences
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('has_set_step_goal_${widget.userProfile.id}', true);
+                  
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✓ Step goal saved successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  print('Error saving step goal: $e');
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to save goal: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               },
               child: Container(
@@ -202,14 +242,16 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
         DateTime.now(),
       );
 
-      // Get the most recent goal from history if today doesn't have one
-      int defaultGoal = _userStepGoal;
-      if (todayEntry == null && weeklyData.isNotEmpty) {
-        // Use the most recent goal from history
-        defaultGoal = weeklyData.first.goal;
-      } else if (todayEntry != null) {
-        // Use today's goal
-        defaultGoal = todayEntry.goal;
+      // Get goal from user profile first, then fallback to history
+      int defaultGoal = (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 10000;
+      
+      // If no user profile goal, try to get from today's entry or history
+      if (widget.userProfile.formData['dailyStepGoal'] == null) {
+        if (todayEntry != null) {
+          defaultGoal = todayEntry.goal;
+        } else if (weeklyData.isNotEmpty) {
+          defaultGoal = weeklyData.first.goal;
+        }
       }
 
       setState(() {
@@ -217,7 +259,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
           userId: widget.userProfile.id!,
           date: DateTime.now(),
           steps: 0,
-          goal: defaultGoal, // Use the determined goal
+          goal: defaultGoal, // Now comes from user profile first
           caloriesBurned: 0.0,
           distanceKm: 0.0,
           activeMinutes: 0,

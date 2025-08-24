@@ -29,6 +29,7 @@ class UserProfile {
   final double sleepHours;
   final String bedtime;
   final String wakeupTime;
+  final int? dailyStepGoal;
   final List<String> sleepIssues;
   final List<String> dietaryPreferences;
   final double waterIntake;
@@ -71,6 +72,7 @@ class UserProfile {
     required this.sleepHours,
     required this.bedtime,
     required this.wakeupTime,
+    this.dailyStepGoal,
     required this.sleepIssues,
     required this.dietaryPreferences,
     required this.waterIntake,
@@ -151,6 +153,7 @@ class UserProfile {
       sleepHours: map['sleepHours']?.toDouble() ?? map['sleep_hours']?.toDouble() ?? 7.0,
       bedtime: map['bedtime'] ?? '22:00',
       wakeupTime: map['wakeupTime'] ?? map['wakeup_time'] ?? '06:00', 
+      dailyStepGoal: map['dailyStepGoal'] ?? map['daily_step_goal'] ?? 10000,
       sleepIssues: _parseStringList(map['sleepIssues'] ?? map['sleep_issues']),
       dietaryPreferences: List<String>.from(map['dietaryPreferences'] ?? []),
       waterIntake: map['waterIntake']?.toDouble() ?? 2.0,
@@ -260,6 +263,7 @@ class UserProfile {
       'sleepHours': sleepHours,
       'bedtime': bedtime,
       'wakeupTime': wakeupTime,
+      'dailyStepGoal': dailyStepGoal,
       'sleepIssues': sleepIssues,
       'dietaryPreferences': dietaryPreferences,
       'waterIntake': waterIntake,
@@ -382,6 +386,7 @@ class UserProfile {
     double? sleepHours,
     String? bedtime,
     String? wakeupTime,
+    int? dailyStepGoal,
     List<String>? sleepIssues,
     List<String>? dietaryPreferences,
     double? waterIntake,
@@ -424,6 +429,7 @@ class UserProfile {
       sleepHours: sleepHours ?? this.sleepHours,
       bedtime: bedtime ?? this.bedtime,
       wakeupTime: wakeupTime ?? this.wakeupTime,
+      dailyStepGoal: dailyStepGoal ?? this.dailyStepGoal,
       sleepIssues: sleepIssues ?? this.sleepIssues,
       dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
       waterIntake: waterIntake ?? this.waterIntake,
