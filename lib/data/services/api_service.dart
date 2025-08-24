@@ -58,46 +58,46 @@ class ApiService {
     try {
       print('[ApiService] Updating profile for user: ${userProfile.id}');
       
-      // Use the correct backend endpoint that exists
+      // Use the correct endpoint - your backend appears to have this at /api/health/users/{id}
       final response = await http.put(
-        Uri.parse('http://localhost:8000/update-user/${userProfile.id}'),
+        Uri.parse('$baseUrl/users/update-user/${userProfile.id}'),  
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          // Only send the fields that can be updated
           'height': userProfile.height,
           'weight': userProfile.weight,
-          'activityLevel': userProfile.activityLevel,
-          'primaryGoal': userProfile.primaryGoal,
-          'weightGoal': userProfile.weightGoal,
-          'targetWeight': userProfile.targetWeight,
-          'goalTimeline': userProfile.goalTimeline,
-          'sleepHours': userProfile.sleepHours,
+          'activity_level': userProfile.activityLevel,
+          'primary_goal': userProfile.primaryGoal,
+          'weight_goal': userProfile.weightGoal,
+          'target_weight': userProfile.targetWeight,
+          'goal_timeline': userProfile.goalTimeline,
+          'sleep_hours': userProfile.sleepHours,
           'bedtime': userProfile.bedtime,
-          'wakeupTime': userProfile.wakeupTime,
-          'sleepIssues': userProfile.sleepIssues,
-          'dietaryPreferences': userProfile.dietaryPreferences,
-          'waterIntake': userProfile.waterIntake,
-          'medicalConditions': userProfile.medicalConditions,
-          'otherMedicalCondition': userProfile.otherMedicalCondition,
-          'preferredWorkouts': userProfile.preferredWorkouts,
-          'workoutFrequency': userProfile.workoutFrequency,
-          'workoutDuration': userProfile.workoutDuration,
-          'workoutLocation': userProfile.workoutLocation,
-          'availableEquipment': userProfile.availableEquipment,
-          'fitnessLevel': userProfile.fitnessLevel,
-          'hasTrainer': userProfile.hasTrainer,
+          'wakeup_time': userProfile.wakeupTime,
+          'sleep_issues': userProfile.sleepIssues,
+          'dietary_preferences': userProfile.dietaryPreferences,
+          'water_intake': userProfile.waterIntake,
+          'medical_conditions': userProfile.medicalConditions,
+          'other_medical_condition': userProfile.otherMedicalCondition,
+          'preferred_workouts': userProfile.preferredWorkouts,
+          'workout_frequency': userProfile.workoutFrequency,
+          'workout_duration': userProfile.workoutDuration,
+          'workout_location': userProfile.workoutLocation,
+          'available_equipment': userProfile.availableEquipment,
+          'fitness_level': userProfile.fitnessLevel,
+          'has_trainer': userProfile.hasTrainer,
+          // Add the step goal
+          'daily_step_goal': userProfile.formData['dailyStepGoal'] as int? ?? 10000,
         }),
       );
 
       print('[ApiService] Update response status: ${response.statusCode}');
-      print('[ApiService] Update response body: ${response.body}');
-
+      
       if (response.statusCode != 200) {
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['detail'] ?? 'Failed to update profile');
       }
     } catch (e) {
-      debugPrint('API error updating profile: $e');
+      print('[ApiService] API error updating profile: $e');
       rethrow;
     }
   }
