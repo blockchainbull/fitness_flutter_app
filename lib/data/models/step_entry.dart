@@ -59,18 +59,18 @@ class StepEntry {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'user_id': userId,  // Backend expects snake_case
-      'date': date.toIso8601String().split('T')[0],  // Just the date part
-      'steps': steps,
-      'goal': goal,
-      'calories_burned': caloriesBurned,  // Backend expects snake_case
-      'distance_km': distanceKm,  // Backend expects snake_case
-      'active_minutes': activeMinutes,  // Backend expects snake_case
-      'source_type': sourceType,  // Backend expects snake_case
-      'last_synced': lastSynced?.toIso8601String(),
-    };
-  }
+  return {
+    'userId': userId,  // Changed from user_id
+    'date': date.toIso8601String().split('T')[0],
+    'steps': steps,
+    'goal': goal,
+    'caloriesBurned': caloriesBurned,  // Changed from calories_burned
+    'distanceKm': distanceKm,          // Changed from distance_km
+    'activeMinutes': activeMinutes,    // Changed from active_minutes
+    'sourceType': sourceType,          // Changed from source_type
+    'lastSynced': lastSynced?.toIso8601String(),  // Changed from last_synced
+  };
+}
 
   factory StepEntry.fromJson(Map<String, dynamic> json) {
     try {

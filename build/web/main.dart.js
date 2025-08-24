@@ -102738,7 +102738,7 @@ az6(a){var s=null
 return this.MX(s,s,s,a,s,s,s)},
 kg(){var s=this,r=s.c.cA().split("T")[0],q=s.y
 q=q==null?null:q.cA()
-return A.J(["user_id",s.b,"date",r,"steps",s.d,"goal",s.e,"calories_burned",s.f,"distance_km",s.r,"active_minutes",s.w,"source_type",s.x,"last_synced",q],t.N,t.z)}}
+return A.J(["userId",s.b,"date",r,"steps",s.d,"goal",s.e,"caloriesBurned",s.f,"distanceKm",s.r,"activeMinutes",s.w,"sourceType",s.x,"lastSynced",q],t.N,t.z)}}
 A.yu.prototype={
 nx(){var s,r,q,p,o=this,n="bmi",m="bmr",l="tdee",k=o.y
 k=k==null?null:k.cA()
