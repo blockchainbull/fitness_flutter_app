@@ -1286,11 +1286,17 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
                           ),
                           // Show which supplements are remaining if applicable
                           if (entry.value.category == 'Supplements' && 
-                              entry.value.details['Remaining'] != null &&
-                              entry.value.details['Remaining'] is int &&
-                              (entry.value.details['Remaining'] as int) > 0)
+                              entry.value.details.containsKey('Remaining'))
                             Text(
                               '${entry.value.details['Remaining']} supplements remaining',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade600,
+                              ),
+                            )
+                          else if (entry.value.details.containsKey('Status'))
+                            Text(
+                              entry.value.details['Status'].toString(),
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.grey.shade600,
