@@ -1287,12 +1287,10 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
                           // Show which supplements are remaining if applicable
                           if (entry.value.category == 'Supplements' && 
                               entry.value.details['Remaining'] != null &&
-                              (entry.value.details['Remaining'] as List).isNotEmpty)
+                              entry.value.details['Remaining'] is int &&
+                              (entry.value.details['Remaining'] as int) > 0)
                             Text(
-                              (entry.value.details['Remaining'] as List).take(2).join(', ') +
-                                  ((entry.value.details['Remaining'] as List).length > 2 
-                                      ? '...' 
-                                      : ''),
+                              '${entry.value.details['Remaining']} supplements remaining',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.grey.shade600,
@@ -1301,18 +1299,10 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
                         ],
                       ),
                     ),
-                    Text(
-                      _getMissingDescription(entry.value),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 10,
-                      color: Colors.grey.shade400,
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: Colors.grey,
                     ),
                   ],
                 ),
@@ -1322,58 +1312,45 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
           
           // Show supplements setup suggestion ONLY if not configured
           if (supplementsNotConfigured) ...[
-            if (missing.isNotEmpty) 
-              Divider(height: 16, color: Colors.orange.shade200),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             InkWell(
               onTap: () => _navigateToTracking('Supplements'),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.medication,
-                      color: Colors.teal.shade400,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    const Expanded(
+                    Icon(Icons.medication, color: Colors.teal.shade600, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Set up Supplements',
-                            style: TextStyle(fontSize: 12),
+                            'Set up supplement tracking',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.teal.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           Text(
-                            'Track your daily vitamins',
+                            'Track daily vitamins and supplements',
                             style: TextStyle(
                               fontSize: 10,
-                              color: Colors.grey,
+                              color: Colors.teal.shade600,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.teal.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        'Optional',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.teal.shade700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
                     Icon(
-                      Icons.arrow_forward_ios,
-                      size: 10,
-                      color: Colors.grey.shade400,
+                      Icons.arrow_forward,
+                      size: 16,
+                      color: Colors.teal.shade600,
                     ),
                   ],
                 ),
