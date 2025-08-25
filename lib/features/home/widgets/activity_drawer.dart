@@ -10,6 +10,7 @@ import 'package:user_onboarding/features/tracking/screens/weight_logging_page.da
 import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
 import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:user_onboarding/features/auth/screens/login_screens.dart';
 
 class ActivityDrawer extends StatelessWidget {
   final UserProfile userProfile;
@@ -128,71 +129,71 @@ class ActivityDrawer extends StatelessWidget {
 
                 const Divider(),
           
-                // Add logout button
+                // logout button
                 ListTile(
                   leading: const Icon(Icons.logout, color: Colors.red),
                   title: const Text('Logout', style: TextStyle(color: Colors.red)),
-                  onTap: () async {
-
-                    Navigator.pop(context);
-
-                    final shouldLogout = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Logout'),
-                        content: const Text('Are you sure you want to logout?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            style: TextButton.styleFrom(foregroundColor: Colors.red),
-                            child: const Text('Logout'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (shouldLogout == true) {
-                      try {
-                        // Use UserManager to logout
-                        await UserManager.logout();
-                        
-                        // Navigate to login and clear all routes
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          '/login',  // Make sure this route exists
-                          (route) => false,
-                        );
-                        
-                        // Alternative if named routes don't work:
-                        // Navigator.pushAndRemoveUntil(
-                        //   context,
-                        //   MaterialPageRoute(builder: (context) => const LoginScreen()),
-                        //   (route) => false,
-                        // );
-                        
-                      } catch (e) {
-                        print('Logout error: $e');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Logout failed: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
+                  onTap: () => _handleLogout(context),
                 ),
-              ],
+              ]
             ),
+          ),
+        ]
+      )
+    );
+  }
+                  
+  Future<void> _handleLogout(BuildContext context) async {
+    // Close drawer first
+    Navigator.pop(context);
+
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Logout'),
           ),
         ],
       ),
     );
-  }
+
+    if (shouldLogout == true) {
+      try {
+        // Use UserManager to logout
+        await UserManager.logout();
+        
+        // Check if context is still valid before navigation
+        if (context.mounted) {
+          // Navigate to login screen and clear all routes
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        print('Logout error: $e');
+        // Check if context is still valid before showing snackbar
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Logout failed: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }             
 
   Widget _buildDrawerHeader() {
     return Container(
