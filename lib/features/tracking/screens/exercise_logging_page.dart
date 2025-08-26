@@ -1,613 +1,1297 @@
-// lib/features/tracking/screens/exercise_logging_page.dart
+// lib/features/tracking/screens/enhanced_exercise_logging_page.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:user_onboarding/features/tracking/screens/exercise_history_page.dart';
 
-class ExerciseLoggingPage extends StatefulWidget {
+class EnhancedExerciseLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
 
-  const ExerciseLoggingPage({Key? key, required this.userProfile}) : super(key: key);
+  const EnhancedExerciseLoggingPage({Key? key, required this.userProfile}) : super(key: key);
 
   @override
-  State<ExerciseLoggingPage> createState() => _ExerciseLoggingPageState();
+  State<EnhancedExerciseLoggingPage> createState() => _EnhancedExerciseLoggingPageState();
 }
 
-class _ExerciseLoggingPageState extends State<ExerciseLoggingPage> {
+class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPage> {
   final ApiService _apiService = ApiService();
-  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _customExerciseController = TextEditingController();
   
-  // Form controllers
-  final TextEditingController _exerciseNameController = TextEditingController();
-  final TextEditingController _durationController = TextEditingController();
-  final TextEditingController _caloriesController = TextEditingController();
-  final TextEditingController _distanceController = TextEditingController();
-  final TextEditingController _setsController = TextEditingController();
-  final TextEditingController _repsController = TextEditingController();
-  final TextEditingController _weightController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
-  
-  String _selectedExerciseType = 'cardio';
-  String _selectedIntensity = 'moderate';
-  DateTime _selectedDate = DateTime.now();
+  // Current flow state
+  int _currentStep = 0;
+  String _selectedMuscleGroup = '';
+  List<String> _selectedExercises = [];
+  Map<String, ExerciseLog> _exerciseLogs = {};
   bool _isLoading = false;
-  List<Map<String, dynamic>> _recentExercises = [];
-  Map<String, dynamic>? _exerciseStats;
+  DateTime _selectedDate = DateTime.now();
+  
+  // Exercise history and smart defaults
+  List<Map<String, dynamic>> _exerciseHistory = [];
+  Map<String, ExerciseDefaults> _exerciseDefaults = {};
+  List<String> _customExercises = [];
+  
+  // Progressive overload tracking
+  Map<String, List<Map<String, dynamic>>> _progressHistory = {};
 
-  final List<String> _exerciseTypes = ['cardio', 'strength', 'flexibility', 'sports', 'other'];
-  final List<String> _intensityLevels = ['low', 'moderate', 'high'];
+  // Enhanced muscle groups with more exercises
+  final Map<String, List<Exercise>> _muscleGroupExercises = {
+    'Chest': [
+      Exercise('Bench Press', 'strength', 0.8),
+      Exercise('Push-ups', 'strength', 0.5),
+      Exercise('Incline Bench Press', 'strength', 0.8),
+      Exercise('Dumbbell Press', 'strength', 0.7),
+      Exercise('Chest Flys', 'strength', 0.6),
+      Exercise('Decline Press', 'strength', 0.7),
+      Exercise('Dips', 'strength', 0.9),
+      Exercise('Cable Crossover', 'strength', 0.5),
+      Exercise('Pec Deck', 'strength', 0.5),
+      Exercise('Diamond Push-ups', 'strength', 0.6),
+    ],
+    'Back': [
+      Exercise('Pull-ups', 'strength', 1.2),
+      Exercise('Deadlifts', 'strength', 1.0),
+      Exercise('Lat Pulldowns', 'strength', 0.7),
+      Exercise('Bent-over Rows', 'strength', 0.8),
+      Exercise('Seated Cable Rows', 'strength', 0.6),
+      Exercise('T-Bar Rows', 'strength', 0.8),
+      Exercise('Shrugs', 'strength', 0.4),
+      Exercise('Face Pulls', 'strength', 0.3),
+      Exercise('Chin-ups', 'strength', 1.1),
+      Exercise('Single-arm Dumbbell Rows', 'strength', 0.7),
+    ],
+    'Shoulders': [
+      Exercise('Overhead Press', 'strength', 0.8),
+      Exercise('Lateral Raises', 'strength', 0.4),
+      Exercise('Front Raises', 'strength', 0.4),
+      Exercise('Rear Delt Flys', 'strength', 0.3),
+      Exercise('Arnold Press', 'strength', 0.7),
+      Exercise('Upright Rows', 'strength', 0.5),
+      Exercise('Pike Push-ups', 'strength', 0.6),
+      Exercise('Handstand Push-ups', 'strength', 1.0),
+      Exercise('Cable Lateral Raises', 'strength', 0.4),
+      Exercise('Reverse Flys', 'strength', 0.3),
+    ],
+    'Arms': [
+      Exercise('Bicep Curls', 'strength', 0.3),
+      Exercise('Tricep Dips', 'strength', 0.6),
+      Exercise('Hammer Curls', 'strength', 0.3),
+      Exercise('Tricep Extensions', 'strength', 0.4),
+      Exercise('Preacher Curls', 'strength', 0.4),
+      Exercise('Close-grip Push-ups', 'strength', 0.5),
+      Exercise('21s Curls', 'strength', 0.5),
+      Exercise('Overhead Tricep Extension', 'strength', 0.4),
+      Exercise('Cable Curls', 'strength', 0.3),
+      Exercise('Tricep Pushdowns', 'strength', 0.4),
+    ],
+    'Legs': [
+      Exercise('Squats', 'strength', 0.8),
+      Exercise('Lunges', 'strength', 0.7),
+      Exercise('Leg Press', 'strength', 0.9),
+      Exercise('Calf Raises', 'strength', 0.3),
+      Exercise('Leg Curls', 'strength', 0.5),
+      Exercise('Leg Extensions', 'strength', 0.5),
+      Exercise('Bulgarian Split Squats', 'strength', 0.8),
+      Exercise('Step-ups', 'strength', 0.6),
+      Exercise('Romanian Deadlifts', 'strength', 0.9),
+      Exercise('Goblet Squats', 'strength', 0.7),
+    ],
+    'Core': [
+      Exercise('Planks', 'strength', 0.4),
+      Exercise('Crunches', 'strength', 0.3),
+      Exercise('Russian Twists', 'strength', 0.4),
+      Exercise('Mountain Climbers', 'strength', 0.6),
+      Exercise('Bicycle Crunches', 'strength', 0.4),
+      Exercise('Dead Bug', 'strength', 0.3),
+      Exercise('Hanging Leg Raises', 'strength', 0.8),
+      Exercise('Ab Wheel Rollouts', 'strength', 0.9),
+      Exercise('Leg Raises', 'strength', 0.5),
+      Exercise('Side Planks', 'strength', 0.4),
+    ],
+    'Cardio': [
+      Exercise('Running', 'cardio', 12.0),
+      Exercise('Cycling', 'cardio', 8.0),
+      Exercise('Swimming', 'cardio', 11.0),
+      Exercise('Walking', 'cardio', 4.0),
+      Exercise('Elliptical', 'cardio', 9.0),
+      Exercise('Rowing', 'cardio', 10.0),
+      Exercise('Jumping Jacks', 'cardio', 8.0),
+      Exercise('Burpees', 'cardio', 12.0),
+      Exercise('Stair Climbing', 'cardio', 11.0),
+      Exercise('HIIT Training', 'cardio', 14.0),
+    ],
+  };
 
   @override
   void initState() {
     super.initState();
     _loadExerciseData();
+    _loadCustomExercises();
+  }
+
+  @override
+  void dispose() {
+    _customExerciseController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadExerciseData() async {
     setState(() => _isLoading = true);
-    try {
-      print('📊 Loading exercise data...');
-      
-      // Load recent exercises
-      final exercises = await _apiService.getExerciseLogs(
-        widget.userProfile.id!,
-        limit: 20,
-      );
-      print('📊 Loaded ${exercises.length} exercises');
-      
-      // Load exercise stats
-      final stats = await _apiService.getExerciseStats(
-        widget.userProfile.id!,
-        days: 30,
-      );
-      print('📊 Loaded stats: $stats');
-      
-      setState(() {
-        _recentExercises = exercises;
-        _exerciseStats = stats;
-      });
-    } catch (e) {
-      print('❌ Error loading exercise data: $e');
-      
-      // ✅ Set empty defaults on error
-      setState(() {
-        _recentExercises = [];
-        _exerciseStats = {
-          'total_workouts': 0,
-          'total_minutes': 0,
-          'total_calories': 0.0,
-          'avg_duration': 0.0,
-          'most_common_type': null,
-          'type_breakdown': <String, int>{},
-        };
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load exercise data: $e'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _logExercise() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
     
     try {
-      final exerciseData = {
-        'user_id': widget.userProfile.id,
-        'exercise_name': _exerciseNameController.text,
-        'exercise_type': _selectedExerciseType,
-        'duration_minutes': int.parse(_durationController.text),
-        'calories_burned': _caloriesController.text.isNotEmpty 
-            ? double.parse(_caloriesController.text) 
-            : null,
-        'distance_km': _distanceController.text.isNotEmpty 
-            ? double.parse(_distanceController.text) 
-            : null,
-        'sets': _setsController.text.isNotEmpty 
-            ? int.parse(_setsController.text) 
-            : null,
-        'reps': _repsController.text.isNotEmpty 
-            ? int.parse(_repsController.text) 
-            : null,
-        'weight_kg': _weightController.text.isNotEmpty 
-            ? double.parse(_weightController.text) 
-            : null,
-        'intensity': _selectedIntensity,
-        'notes': _notesController.text.isNotEmpty ? _notesController.text : null,
-        'exercise_date': _selectedDate.toIso8601String(),
-      };
-
-      await _apiService.logExercise(exerciseData);
-  
-      // Save to SharedPreferences for offline access
-      final prefs = await SharedPreferences.getInstance();
-      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      // Load exercise history
+      final history = await _apiService.getExerciseHistory(
+        widget.userProfile.id!,
+        limit: 100,
+      );
       
-      await prefs.setBool('exercise_logged_$dateStr', true);
+      setState(() {
+        _exerciseHistory = history;
+      });
       
-      final currentMinutes = prefs.getInt('exercise_minutes_$dateStr') ?? 0;
-      await prefs.setInt('exercise_minutes_$dateStr', 
-          currentMinutes + int.parse(_durationController.text));
+      // Build exercise defaults from history
+      _buildExerciseDefaults();
       
-      final currentCalories = prefs.getDouble('exercise_calories_$dateStr') ?? 0;
-      final newCalories = _caloriesController.text.isNotEmpty 
-          ? double.parse(_caloriesController.text) 
-          : 0.0;
-      await prefs.setDouble('exercise_calories_$dateStr', currentCalories + newCalories);
+      // Load progressive overload data
+      await _loadProgressHistory();
       
-      final currentCount = prefs.getInt('exercise_count_$dateStr') ?? 0;
-      await prefs.setInt('exercise_count_$dateStr', currentCount + 1);
-      
-      _showSuccessSnackBar('Exercise logged successfully!');
-      _clearForm();
-      await _loadExerciseData(); // Reload data
-
-
-
-
     } catch (e) {
-      _showErrorSnackBar('Failed to log exercise');
+      print('Error loading exercise data: $e');
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  void _clearForm() {
-    _exerciseNameController.clear();
-    _durationController.clear();
-    _caloriesController.clear();
-    _distanceController.clear();
-    _setsController.clear();
-    _repsController.clear();
-    _weightController.clear();
-    _notesController.clear();
+  Future<void> _loadCustomExercises() async {
+    final prefs = await SharedPreferences.getInstance();
+    final customExercisesJson = prefs.getStringList('custom_exercises_${widget.userProfile.id}') ?? [];
     setState(() {
-      _selectedExerciseType = 'cardio';
-      _selectedIntensity = 'moderate';
-      _selectedDate = DateTime.now();
+      _customExercises = customExercisesJson;
     });
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
+  Future<void> _saveCustomExercises() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('custom_exercises_${widget.userProfile.id}', _customExercises);
+  }
+
+  void _buildExerciseDefaults() {
+    final defaults = <String, ExerciseDefaults>{};
+    
+    for (final exercise in _exerciseHistory) {
+      final name = exercise['exercise_name'] as String;
+      
+      if (!defaults.containsKey(name)) {
+        defaults[name] = ExerciseDefaults(
+          sets: exercise['sets'] ?? 0,
+          reps: exercise['reps'] ?? 0,
+          weight: exercise['weight_kg']?.toDouble() ?? 0.0,
+          duration: exercise['duration_minutes'] ?? 0,
+          distance: exercise['distance_km']?.toDouble() ?? 0.0,
+          frequency: 1,
+          lastPerformed: DateTime.parse(exercise['exercise_date']),
+        );
+      } else {
+        // Update averages and frequency
+        final current = defaults[name]!;
+        defaults[name] = ExerciseDefaults(
+          sets: ((current.sets + (exercise['sets'] ?? 0)) / 2).round(),
+          reps: ((current.reps + (exercise['reps'] ?? 0)) / 2).round(),
+          weight: (current.weight + (exercise['weight_kg']?.toDouble() ?? 0.0)) / 2,
+          duration: ((current.duration + (exercise['duration_minutes'] ?? 0)) / 2).round(),
+          distance: (current.distance + (exercise['distance_km']?.toDouble() ?? 0.0)) / 2,
+          frequency: current.frequency + 1,
+          lastPerformed: DateTime.parse(exercise['exercise_date']),
+        );
+      }
+    }
+    
+    setState(() {
+      _exerciseDefaults = defaults;
+    });
+  }
+
+  Future<void> _loadProgressHistory() async {
+    final progressData = <String, List<Map<String, dynamic>>>{};
+    
+    // Group history by exercise name
+    for (final exercise in _exerciseHistory) {
+      final name = exercise['exercise_name'] as String;
+      if (!progressData.containsKey(name)) {
+        progressData[name] = [];
+      }
+      progressData[name]!.add(exercise);
+    }
+    
+    // Sort each exercise history by date
+    for (final entry in progressData.entries) {
+      entry.value.sort((a, b) {
+        return DateTime.parse(b['exercise_date']).compareTo(DateTime.parse(a['exercise_date']));
       });
     }
-  }
-
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    
+    setState(() {
+      _progressHistory = progressData;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Exercise Tracking'),
+        title: Text(_getAppBarTitle()),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
+        leading: _currentStep > 0 
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: _goBack,
+            )
+          : null,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ExerciseHistoryPage(
-                    userProfile: widget.userProfile,
-                  ),
-                ),
-              );
-            },
+          if (_currentStep == 1)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _showAddCustomExerciseDialog,
+            ),
+        ],
+      ),
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : _buildCurrentStep(),
+      bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
+
+  String _getAppBarTitle() {
+    switch (_currentStep) {
+      case 0:
+        return 'Select Muscle Group';
+      case 1:
+        return '$_selectedMuscleGroup Exercises';
+      case 2:
+        return 'Log Your Workout';
+      default:
+        return 'Exercise Logging';
+    }
+  }
+
+  Widget _buildCurrentStep() {
+    switch (_currentStep) {
+      case 0:
+        return _buildMuscleGroupSelection();
+      case 1:
+        return _buildExerciseSelection();
+      case 2:
+        return _buildExerciseLogging();
+      default:
+        return Container();
+    }
+  }
+
+  Widget _buildMuscleGroupSelection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'What did you work on today?',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Select the muscle group you exercised • ${DateFormat('MMM d, yyyy').format(_selectedDate)}',
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+          
+          // Quick date picker
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.calendar_today, color: Colors.orange),
+              title: const Text('Workout Date'),
+              subtitle: Text(DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _selectDate(context),
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.2,
+              ),
+              itemCount: _muscleGroupExercises.keys.length,
+              itemBuilder: (context, index) {
+                final muscleGroup = _muscleGroupExercises.keys.elementAt(index);
+                return _buildMuscleGroupCard(muscleGroup);
+              },
+            ),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Stats Card
-                  if (_exerciseStats != null) _buildStatsCard(),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Log New Exercise Form
-                  Card(
-                    elevation: 4,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Log New Exercise',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            // Exercise Name
-                            TextFormField(
-                              controller: _exerciseNameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Exercise Name*',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.fitness_center),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter exercise name';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            
-                            // Exercise Type and Intensity
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _selectedExerciseType,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Type',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    items: _exerciseTypes.map((type) {
-                                      return DropdownMenuItem(
-                                        value: type,
-                                        child: Text(type.toUpperCase()),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedExerciseType = value!;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _selectedIntensity,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Intensity',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    items: _intensityLevels.map((level) {
-                                      return DropdownMenuItem(
-                                        value: level,
-                                        child: Text(level.toUpperCase()),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedIntensity = value!;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            
-                            // Duration and Calories
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _durationController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Duration (min)*',
-                                      border: OutlineInputBorder(),
-                                      prefixIcon: Icon(Icons.timer),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Required';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _caloriesController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Calories',
-                                      border: OutlineInputBorder(),
-                                      prefixIcon: Icon(Icons.local_fire_department),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            
-                            // Distance (for cardio)
-                            if (_selectedExerciseType == 'cardio')
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: TextFormField(
-                                  controller: _distanceController,
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Distance (km)',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.straighten),
-                                  ),
-                                ),
-                              ),
-                            
-                            // Sets, Reps, Weight (for strength)
-                            if (_selectedExerciseType == 'strength')
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _setsController,
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Sets',
-                                          border: OutlineInputBorder(),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _repsController,
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Reps',
-                                          border: OutlineInputBorder(),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _weightController,
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Weight (kg)',
-                                          border: OutlineInputBorder(),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            
-                            // Date selector
-                            ListTile(
-                              title: Text(
-                                'Date: ${DateFormat('MMM d, yyyy').format(_selectedDate)}',
-                              ),
-                              trailing: const Icon(Icons.calendar_today),
-                              onTap: () => _selectDate(context),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(color: Colors.grey.shade400),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            
-                            // Notes
-                            TextFormField(
-                              controller: _notesController,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                labelText: 'Notes',
-                                border: OutlineInputBorder(),
-                                alignLabelWithHint: true,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            
-                            // Submit button
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _logExercise,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                ),
-                                child: const Text(
-                                  'Log Exercise',
-                                  style: TextStyle(fontSize: 16, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+    );
+  }
+
+  Widget _buildMuscleGroupCard(String muscleGroup) {
+    final isSelected = _selectedMuscleGroup == muscleGroup;
+    final recentWorkouts = _getRecentWorkoutsForMuscleGroup(muscleGroup);
+    
+    return Card(
+      elevation: isSelected ? 8 : 2,
+      color: isSelected ? Colors.orange.shade50 : null,
+      child: InkWell(
+        onTap: () => _selectMuscleGroup(muscleGroup),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _getMuscleGroupIcon(muscleGroup),
+                size: 40,
+                color: isSelected ? Colors.orange : Colors.grey.shade600,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                muscleGroup,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.orange : Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${_muscleGroupExercises[muscleGroup]!.length} exercises',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              if (recentWorkouts > 0)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$recentWorkouts this week',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.green.shade800,
                     ),
                   ),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Recent Exercises
-                  if (_recentExercises.isNotEmpty) _buildRecentExercises(),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExerciseSelection() {
+    final exercises = _muscleGroupExercises[_selectedMuscleGroup]!;
+    final customExercisesForGroup = _customExercises
+        .where((name) => _getCustomExerciseMuscleGroup(name) == _selectedMuscleGroup)
+        .toList();
+    
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Select $_selectedMuscleGroup Exercises',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Choose the exercises you performed • Tap + to add custom exercises',
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          
+          Expanded(
+            child: ListView(
+              children: [
+                // Standard exercises
+                ...exercises.map((exercise) => _buildExerciseCard(exercise, false)),
+                
+                // Custom exercises
+                if (customExercisesForGroup.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Your Custom Exercises',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  ...customExercisesForGroup.map((exerciseName) => 
+                    _buildCustomExerciseCard(exerciseName)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExerciseCard(Exercise exercise, bool isCustom) {
+    final isSelected = _selectedExercises.contains(exercise.name);
+    final defaults = _exerciseDefaults[exercise.name];
+    final lastPerformed = defaults?.lastPerformed;
+    final frequency = defaults?.frequency ?? 0;
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: isSelected ? 4 : 1,
+      child: CheckboxListTile(
+        title: Text(exercise.name),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              exercise.type == 'cardio' 
+                ? 'Cardio • ${exercise.calorieRate.toInt()} cal/min'
+                : 'Strength • ${exercise.calorieRate} cal/rep',
+            ),
+            if (defaults != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.history, size: 14, color: Colors.grey.shade600),
+                  const SizedBox(width: 4),
+                  Text(
+                    lastPerformed != null
+                      ? 'Last: ${_getTimeAgo(lastPerformed)} • ${frequency}x total'
+                      : 'New exercise',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+              if (exercise.type == 'strength' && defaults.weight > 0)
+                Row(
+                  children: [
+                    Icon(Icons.fitness_center, size: 14, color: Colors.grey.shade600),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Last: ${defaults.sets} sets × ${defaults.reps} reps @ ${defaults.weight.toStringAsFixed(1)}kg',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+            ],
+          ],
+        ),
+        value: isSelected,
+        onChanged: (bool? value) {
+          setState(() {
+            if (value == true) {
+              _selectedExercises.add(exercise.name);
+            } else {
+              _selectedExercises.remove(exercise.name);
+            }
+          });
+        },
+        activeColor: Colors.orange,
+        secondary: frequency > 5 
+          ? Icon(Icons.star, color: Colors.orange.shade700, size: 20)
+          : null,
+      ),
+    );
+  }
+
+  Widget _buildCustomExerciseCard(String exerciseName) {
+    final isSelected = _selectedExercises.contains(exerciseName);
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: isSelected ? 4 : 1,
+      child: CheckboxListTile(
+        title: Text(exerciseName),
+        subtitle: const Text('Custom Exercise'),
+        value: isSelected,
+        onChanged: (bool? value) {
+          setState(() {
+            if (value == true) {
+              _selectedExercises.add(exerciseName);
+            } else {
+              _selectedExercises.remove(exerciseName);
+            }
+          });
+        },
+        activeColor: Colors.orange,
+        secondary: IconButton(
+          icon: const Icon(Icons.delete, color: Colors.red),
+          onPressed: () => _deleteCustomExercise(exerciseName),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExerciseLogging() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Log Your Workout',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => _selectDate(context),
+                icon: const Icon(Icons.calendar_today),
+                label: Text(DateFormat('MMM d').format(_selectedDate)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Workout summary
+          Card(
+            color: Colors.orange.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Icon(Icons.fitness_center, color: Colors.orange.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$_selectedMuscleGroup Workout',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '${_selectedExercises.length} exercises • ${_calculateTotalCalories().toInt()} calories estimated',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-    );
-  }
-
-  Widget _buildStatsCard() {
-    // ✅ Provide safe defaults
-    final stats = _exerciseStats ?? {
-      'total_workouts': 0,
-      'total_minutes': 0,
-      'total_calories': 0.0,
-      'avg_duration': 0.0,
-      'most_common_type': null,
-      'type_breakdown': <String, int>{},
-    };
-    
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'This Month\'s Stats',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(
-                  'Workouts',
-                  '${stats['total_workouts'] ?? 0}',
-                  Icons.fitness_center,
-                ),
-                _buildStatItem(
-                  'Minutes',
-                  '${stats['total_minutes'] ?? 0}',
-                  Icons.timer,
-                ),
-                _buildStatItem(
-                  'Calories',
-                  '${stats['total_calories']?.toStringAsFixed(0) ?? '0'}',
-                  Icons.local_fire_department,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.orange, size: 24),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey[600], fontSize: 12),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentExercises() {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Recent Exercises',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _recentExercises.length > 5 ? 5 : _recentExercises.length,
+          ),
+          
+          const SizedBox(height: 16),
+          
+          Expanded(
+            child: ListView.builder(
+              itemCount: _selectedExercises.length,
               itemBuilder: (context, index) {
-                final exercise = _recentExercises[index];
-                return _buildExerciseListItem(exercise);
+                final exerciseName = _selectedExercises[index];
+                final exercise = _getExerciseByName(exerciseName);
+                return _buildExerciseLogCard(exercise);
               },
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExerciseLogCard(Exercise exercise) {
+    final log = _exerciseLogs[exercise.name] ?? ExerciseLog();
+    final defaults = _exerciseDefaults[exercise.name];
+    final progressData = _progressHistory[exercise.name];
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: ExpansionTile(
+        title: Text(
+          exercise.name,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          'Estimated: ${_calculateCalories(exercise, log).toInt()} calories',
+          style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.w600),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Progressive overload indicator
+                if (progressData != null && progressData.isNotEmpty)
+                  _buildProgressIndicator(exercise, progressData),
+                
+                const SizedBox(height: 16),
+                
+                // Input fields
+                if (exercise.type == 'cardio') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                            labelText: 'Duration (min)',
+                            border: const OutlineInputBorder(),
+                            hintText: defaults?.duration.toString(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateExerciseLog(exercise.name, duration: int.tryParse(value) ?? 0);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                            labelText: 'Distance (km)',
+                            border: const OutlineInputBorder(),
+                            hintText: defaults?.distance.toStringAsFixed(1),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateExerciseLog(exercise.name, distance: double.tryParse(value) ?? 0.0);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                            labelText: 'Sets',
+                            border: const OutlineInputBorder(),
+                            hintText: defaults?.sets.toString(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateExerciseLog(exercise.name, sets: int.tryParse(value) ?? 0);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                            labelText: 'Reps',
+                            border: const OutlineInputBorder(),
+                            hintText: defaults?.reps.toString(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateExerciseLog(exercise.name, reps: int.tryParse(value) ?? 0);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          decoration: InputDecoration(
+                            labelText: 'Weight (kg)',
+                            border: const OutlineInputBorder(),
+                            hintText: defaults?.weight.toStringAsFixed(1),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateExerciseLog(exercise.name, weight: double.tryParse(value) ?? 0.0);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                
+                const SizedBox(height: 12),
+                
+                // Smart defaults button
+                if (defaults != null)
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _applyDefaults(exercise.name, defaults),
+                        icon: const Icon(Icons.auto_fix_high),
+                        label: const Text('Use Last Workout'),
+                      ),
+                      const Spacer(),
+                      if (exercise.type == 'strength' && log.weight > 0)
+                        Text(
+                          'Volume: ${(log.sets * log.reps * log.weight).toStringAsFixed(1)}kg',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressIndicator(Exercise exercise, List<Map<String, dynamic>> progressData) {
+    if (progressData.length < 2) return Container();
+    
+    final latest = progressData.first;
+    final previous = progressData[1];
+    
+    if (exercise.type == 'strength') {
+      final latestVolume = (latest['sets'] ?? 0) * (latest['reps'] ?? 0) * (latest['weight_kg'] ?? 0.0);
+      final previousVolume = (previous['sets'] ?? 0) * (previous['reps'] ?? 0) * (previous['weight_kg'] ?? 0.0);
+      
+      if (latestVolume > previousVolume) {
+        final improvement = ((latestVolume - previousVolume) / previousVolume * 100);
+        return Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.trending_up, color: Colors.green.shade700, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Progressive overload! +${improvement.toStringAsFixed(1)}% volume vs last workout',
+                  style: TextStyle(
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+    
+    return Container();
+  }
+
+  Widget _buildBottomNavigation() {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _getNextButtonAction(),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          child: Text(
+            _getNextButtonText(),
+            style: const TextStyle(fontSize: 16, color: Colors.white),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildExerciseListItem(Map<String, dynamic> exercise) {
-    final date = exercise['exercise_date'] != null 
-        ? DateTime.parse(exercise['exercise_date'])
-        : DateTime.now();
-    final formattedDate = DateFormat('MMM d').format(date);
+  // Helper methods
+  IconData _getMuscleGroupIcon(String muscleGroup) {
+    switch (muscleGroup) {
+      case 'Chest':
+        return Icons.fitness_center;
+      case 'Back':
+        return Icons.accessibility_new;
+      case 'Shoulders':
+        return Icons.open_with;
+      case 'Arms':
+        return Icons.sports_gymnastics;
+      case 'Legs':
+        return Icons.directions_run;
+      case 'Core':
+        return Icons.center_focus_strong;
+      case 'Cardio':
+        return Icons.favorite;
+      default:
+        return Icons.fitness_center;
+    }
+  }
+      
+  int _getRecentWorkoutsForMuscleGroup(String muscleGroup) {
+   final oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
+   return _exerciseHistory.where((exercise) {
+     final exerciseDate = DateTime.parse(exercise['exercise_date']);
+     final exerciseName = exercise['exercise_name'] as String;
+     
+     // Check if this exercise belongs to the muscle group
+     final belongsToGroup = _muscleGroupExercises[muscleGroup]
+         ?.any((e) => e.name == exerciseName) ?? false;
+     
+     return exerciseDate.isAfter(oneWeekAgo) && belongsToGroup;
+   }).length;
+ }
+
+ String _getCustomExerciseMuscleGroup(String exerciseName) {
+   // Simple heuristic - you could make this more sophisticated
+   // For now, we'll assume custom exercises belong to the currently selected muscle group
+   return _selectedMuscleGroup.isNotEmpty ? _selectedMuscleGroup : 'Other';
+ }
+
+ String _getTimeAgo(DateTime date) {
+   final now = DateTime.now();
+   final difference = now.difference(date);
+   
+   if (difference.inDays > 0) {
+     return '${difference.inDays}d ago';
+   } else if (difference.inHours > 0) {
+     return '${difference.inHours}h ago';
+   } else {
+     return 'Today';
+   }
+ }
+
+ void _selectMuscleGroup(String muscleGroup) {
+   setState(() {
+     _selectedMuscleGroup = muscleGroup;
+   });
+ }
+
+ VoidCallback? _getNextButtonAction() {
+   switch (_currentStep) {
+     case 0:
+       return _selectedMuscleGroup.isNotEmpty ? _goToExerciseSelection : null;
+     case 1:
+       return _selectedExercises.isNotEmpty ? _goToLogging : null;
+     case 2:
+       return _canSubmit() ? _submitWorkout : null;
+     default:
+       return null;
+   }
+ }
+
+ String _getNextButtonText() {
+   switch (_currentStep) {
+     case 0:
+       return 'Continue';
+     case 1:
+       return 'Log Exercises (${_selectedExercises.length})';
+     case 2:
+       return 'Complete Workout';
+     default:
+       return 'Continue';
+   }
+ }
+
+ void _goToExerciseSelection() {
+   setState(() {
+     _currentStep = 1;
+   });
+ }
+
+ void _goToLogging() {
+   setState(() {
+     _currentStep = 2;
+     // Initialize exercise logs for selected exercises with smart defaults
+     for (final exerciseName in _selectedExercises) {
+       final defaults = _exerciseDefaults[exerciseName];
+       _exerciseLogs[exerciseName] = ExerciseLog(
+         sets: defaults?.sets ?? 0,
+         reps: defaults?.reps ?? 0,
+         weight: defaults?.weight ?? 0.0,
+         duration: defaults?.duration ?? 0,
+         distance: defaults?.distance ?? 0.0,
+       );
+     }
+   });
+ }
+
+ void _goBack() {
+   setState(() {
+     if (_currentStep > 0) {
+       _currentStep--;
+     }
+   });
+ }
+
+ bool _canSubmit() {
+   for (final exerciseName in _selectedExercises) {
+     final exercise = _getExerciseByName(exerciseName);
+     final log = _exerciseLogs[exerciseName];
+     
+     if (log == null) return false;
+     
+     if (exercise.type == 'cardio') {
+       if (log.duration <= 0) return false;
+     } else {
+       if (log.sets <= 0 || log.reps <= 0) return false;
+     }
+   }
+   return true;
+ }
+
+ Exercise _getExerciseByName(String name) {
+   // Check standard exercises
+   for (final exercises in _muscleGroupExercises.values) {
+     for (final exercise in exercises) {
+       if (exercise.name == name) return exercise;
+     }
+   }
+   
+   // Check custom exercises - default to strength type
+   if (_customExercises.contains(name)) {
+     return Exercise(name, 'strength', 0.5); // Default calorie rate for custom exercises
+   }
+   
+   throw Exception('Exercise not found: $name');
+ }
+
+ void _updateExerciseLog(String exerciseName, {
+   int? sets,
+   int? reps,
+   double? weight,
+   int? duration,
+   double? distance,
+ }) {
+   setState(() {
+     final currentLog = _exerciseLogs[exerciseName] ?? ExerciseLog();
+     _exerciseLogs[exerciseName] = ExerciseLog(
+       sets: sets ?? currentLog.sets,
+       reps: reps ?? currentLog.reps,
+       weight: weight ?? currentLog.weight,
+       duration: duration ?? currentLog.duration,
+       distance: distance ?? currentLog.distance,
+     );
+   });
+ }
+
+ void _applyDefaults(String exerciseName, ExerciseDefaults defaults) {
+   setState(() {
+     _exerciseLogs[exerciseName] = ExerciseLog(
+       sets: defaults.sets,
+       reps: defaults.reps,
+       weight: defaults.weight,
+       duration: defaults.duration,
+       distance: defaults.distance,
+     );
+   });
+   
+   // Show feedback
+   ScaffoldMessenger.of(context).showSnackBar(
+     SnackBar(
+       content: Text('Applied defaults from your last $exerciseName workout'),
+       backgroundColor: Colors.orange,
+       duration: const Duration(seconds: 2),
+     ),
+   );
+ }
+
+double _calculateCalories(Exercise exercise, ExerciseLog log) {
+  if (exercise.type == 'cardio') {
+    return exercise.calorieRate * log.duration.toDouble();
+  } else {
+    return exercise.calorieRate * (log.sets.toDouble() * log.reps.toDouble());
+  }
+}
+
+double _calculateTotalCalories() {
+  double total = 0;
+  for (final exerciseName in _selectedExercises) {
+    final exercise = _getExerciseByName(exerciseName);
+    final log = _exerciseLogs[exerciseName] ?? ExerciseLog();
+    total += _calculateCalories(exercise, log);
+  }
+  return total;
+}
+
+ Future<void> _selectDate(BuildContext context) async {
+   final picked = await showDatePicker(
+     context: context,
+     initialDate: _selectedDate,
+     firstDate: DateTime.now().subtract(const Duration(days: 365)),
+     lastDate: DateTime.now(),
+   );
+   if (picked != null && picked != _selectedDate) {
+     setState(() {
+       _selectedDate = picked;
+     });
+   }
+ }
+
+ Future<void> _showAddCustomExerciseDialog() async {
+   return showDialog<void>(
+     context: context,
+     builder: (BuildContext context) {
+       return AlertDialog(
+         title: const Text('Add Custom Exercise'),
+         content: TextField(
+           controller: _customExerciseController,
+           decoration: InputDecoration(
+             labelText: 'Exercise Name',
+             hintText: 'e.g., Cable Flies, Kettlebell Swings',
+             border: const OutlineInputBorder(),
+           ),
+           autofocus: true,
+           textCapitalization: TextCapitalization.words,
+         ),
+         actions: [
+           TextButton(
+             onPressed: () {
+               _customExerciseController.clear();
+               Navigator.of(context).pop();
+             },
+             child: const Text('Cancel'),
+           ),
+           ElevatedButton(
+             onPressed: () {
+               final exerciseName = _customExerciseController.text.trim();
+               if (exerciseName.isNotEmpty) {
+                 _addCustomExercise(exerciseName);
+                 _customExerciseController.clear();
+                 Navigator.of(context).pop();
+               }
+             },
+             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+             child: const Text('Add Exercise', style: TextStyle(color: Colors.white)),
+           ),
+         ],
+       );
+     },
+   );
+ }
+
+ void _addCustomExercise(String exerciseName) {
+   if (!_customExercises.contains(exerciseName)) {
+     setState(() {
+       _customExercises.add(exerciseName);
+     });
+     _saveCustomExercises();
+     
+     ScaffoldMessenger.of(context).showSnackBar(
+       SnackBar(
+         content: Text('Added "$exerciseName" to your exercises'),
+         backgroundColor: Colors.green,
+       ),
+     );
+   }
+ }
+
+ void _deleteCustomExercise(String exerciseName) {
+   showDialog(
+     context: context,
+     builder: (BuildContext context) {
+       return AlertDialog(
+         title: const Text('Delete Custom Exercise'),
+         content: Text('Are you sure you want to delete "$exerciseName"?'),
+         actions: [
+           TextButton(
+             onPressed: () => Navigator.of(context).pop(),
+             child: const Text('Cancel'),
+           ),
+           TextButton(
+             onPressed: () {
+               setState(() {
+                 _customExercises.remove(exerciseName);
+                 _selectedExercises.remove(exerciseName);
+               });
+               _saveCustomExercises();
+               Navigator.of(context).pop();
+               
+               ScaffoldMessenger.of(context).showSnackBar(
+                 SnackBar(
+                   content: Text('Deleted "$exerciseName"'),
+                   backgroundColor: Colors.red,
+                 ),
+               );
+             },
+             child: const Text('Delete', style: TextStyle(color: Colors.red)),
+           ),
+         ],
+       );
+     },
+   );
+ }
+
+ Future<void> _submitWorkout() async {
+   setState(() => _isLoading = true);
+   
+   try {
+     final exercises = <Map<String, dynamic>>[];
+     
+     for (final exerciseName in _selectedExercises) {
+       final exercise = _getExerciseByName(exerciseName);
+       final log = _exerciseLogs[exerciseName]!;
+       final calories = _calculateCalories(exercise, log);
+       
+       exercises.add({
+         'user_id': widget.userProfile.id,
+         'exercise_name': exerciseName,
+         'exercise_type': exercise.type,
+         'muscle_group': _selectedMuscleGroup.toLowerCase(),
+         'sets': exercise.type == 'strength' ? log.sets : null,
+         'reps': exercise.type == 'strength' ? log.reps : null,
+         'weight_kg': exercise.type == 'strength' && log.weight > 0 ? log.weight : null,
+         'duration_minutes': exercise.type == 'cardio' ? log.duration : null,
+         'distance_km': exercise.type == 'cardio' && log.distance > 0 ? log.distance : null,
+         'calories_burned': calories,
+         'exercise_date': _selectedDate.toIso8601String(),
+         'notes': '', // You could add a notes field if needed
+       });
+     }
+     
+     // Submit all exercises
+     for (final exerciseData in exercises) {
+       await _apiService.logExercise(exerciseData);
+     }
+     
+     if (mounted) {
+       // Show success with workout summary
+       _showWorkoutSummary(exercises);
+     }
+   } catch (e) {
+     if (mounted) {
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(
+           content: Text('Error logging workout: $e'),
+           backgroundColor: Colors.red,
+         ),
+       );
+     }
+   } finally {
+     setState(() => _isLoading = false);
+   }
+ }
+
+void _showWorkoutSummary(List<Map<String, dynamic>> exercises) {
+    final totalCalories = exercises.fold<double>(
+      0.0, (sum, ex) => sum + ((ex['calories_burned'] ?? 0) as num).toDouble());
     
-    return ListTile(
-      title: Text(
-        exercise['exercise_name'] ?? 'Unknown Exercise',
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
-      subtitle: Text(
-        '${exercise['duration_minutes'] ?? 0} min • ${exercise['exercise_type'] ?? 'other'}',
-      ),
-      trailing: Text(
-        formattedDate,
-        style: TextStyle(color: Colors.grey[600]),
-      ),
+    final totalVolume = exercises
+        .where((ex) => ex['exercise_type'] == 'strength')
+        .fold<double>(0.0, (sum, ex) {
+          final sets = ((ex['sets'] ?? 0) as num).toDouble();
+          final reps = ((ex['reps'] ?? 0) as num).toDouble();
+          final weight = ((ex['weight_kg'] ?? 0.0) as num).toDouble();
+          return sum + (sets * reps * weight);
+        });
+    
+    final totalCardioMinutes = exercises
+        .where((ex) => ex['exercise_type'] == 'cardio')
+        .fold<int>(0, (sum, ex) => sum + ((ex['duration_minutes'] ?? 0) as num).toInt());
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Workout Complete! 🎉'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Great job on your $_selectedMuscleGroup workout!'),
+              const SizedBox(height: 16),
+              _buildSummaryItem(Icons.fitness_center, '${exercises.length} exercises completed'),
+              _buildSummaryItem(Icons.local_fire_department, '${totalCalories.toInt()} calories burned'),
+              if (totalVolume > 0)
+                _buildSummaryItem(Icons.monitor_weight, '${totalVolume.toStringAsFixed(1)}kg total volume'),
+              if (totalCardioMinutes > 0)
+                _buildSummaryItem(Icons.timer, '$totalCardioMinutes minutes cardio'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(true); // Return to previous screen
+              },
+              child: const Text('View History'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(true); // Return to previous screen
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Done', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  @override
-  void dispose() {
-    _exerciseNameController.dispose();
-    _durationController.dispose();
-    _caloriesController.dispose();
-    _distanceController.dispose();
-    _setsController.dispose();
-    _repsController.dispose();
-    _weightController.dispose();
-    _notesController.dispose();
-    super.dispose();
+  Widget _buildSummaryItem(IconData icon, String text) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.orange),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text)),
+        ],
+      ),
+    );
   }
+}
+
+// Supporting classes
+class Exercise {
+ final String name;
+ final String type; // 'cardio' or 'strength'
+ final double calorieRate; // calories per minute (cardio) or per rep (strength)
+
+ Exercise(this.name, this.type, this.calorieRate);
+}
+
+class ExerciseLog {
+ final int sets;
+ final int reps;
+ final double weight;
+ final int duration;
+ final double distance;
+
+ ExerciseLog({
+   this.sets = 0,
+   this.reps = 0,
+   this.weight = 0.0,
+   this.duration = 0,
+   this.distance = 0.0,
+ });
+}
+
+class ExerciseDefaults {
+ final int sets;
+ final int reps;
+ final double weight;
+ final int duration;
+ final double distance;
+ final int frequency;
+ final DateTime lastPerformed;
+
+ ExerciseDefaults({
+   required this.sets,
+   required this.reps,
+   required this.weight,
+   required this.duration,
+   required this.distance,
+   required this.frequency,
+   required this.lastPerformed,
+ });
 }

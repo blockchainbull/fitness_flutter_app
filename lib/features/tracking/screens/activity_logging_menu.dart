@@ -102,7 +102,7 @@ class ActivityLoggingMenu extends StatelessWidget {
         'subtitle': 'Record workouts',
         'icon': Icons.fitness_center,
         'color': Colors.orange,
-        'page': ExerciseLoggingPage(userProfile: userProfile),
+        'page': EnhancedExerciseLoggingPage(userProfile: userProfile),
       },
       {
         'title': 'Steps',

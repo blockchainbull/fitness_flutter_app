@@ -62,7 +62,7 @@ class ActivityDrawer extends StatelessWidget {
                   'Log your workouts and activities',
                   Icons.fitness_center,
                   Colors.orange,
-                  () => _navigateToPage(context, ExerciseLoggingPage(userProfile: userProfile)),
+                  () => _navigateToPage(context, EnhancedExerciseLoggingPage(userProfile: userProfile)),
                 ),
                 _buildActivityTile(
                   context,

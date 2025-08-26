@@ -1446,7 +1446,7 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
         page = SleepLoggingPage(userProfile: widget.userProfile);
         break;
       case 'exercise':
-        page = ExerciseLoggingPage(userProfile: widget.userProfile);
+        page = EnhancedExerciseLoggingPage(userProfile: widget.userProfile);
         break;
       case 'steps':
         page = StepsLoggingPage(userProfile: widget.userProfile);
