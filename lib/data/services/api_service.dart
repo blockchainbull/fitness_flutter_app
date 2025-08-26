@@ -1389,6 +1389,12 @@ class ApiService {
   }
 
   // Exercise Logging Functions
+  Future<Map<String, dynamic>> createExerciseEntry(Map<String, dynamic> exerciseData) async {
+    // This just calls the existing logExercise method
+    return await logExercise(exerciseData);
+  }
+
+
   Future<Map<String, dynamic>> logExercise(Map<String, dynamic> exerciseData) async {
     try {
       print('[ApiService] Logging exercise: ${exerciseData['exercise_name']}');
@@ -1516,9 +1522,10 @@ class ApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/exercise/log/$exerciseId?user_id=$userId'),
+        headers: {'Content-Type': 'application/json'},
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception('Failed to delete exercise: ${response.body}');
       }
     } catch (e) {
@@ -1569,8 +1576,10 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        return data['summary'] ?? {};
       } else {
+        print('[ApiService] Weekly summary error: ${response.body}');
         return {};
       }
     } catch (e) {
