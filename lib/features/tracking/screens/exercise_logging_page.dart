@@ -1129,57 +1129,78 @@ double _calculateTotalCalories() {
    );
  }
 
- Future<void> _submitWorkout() async {
-   setState(() => _isLoading = true);
-   
-   try {
-     final exercises = <Map<String, dynamic>>[];
-     
-     for (final exerciseName in _selectedExercises) {
-       final exercise = _getExerciseByName(exerciseName);
-       final log = _exerciseLogs[exerciseName]!;
-       final calories = _calculateCalories(exercise, log);
-       
-       exercises.add({
-         'user_id': widget.userProfile.id,
-         'exercise_name': exerciseName,
-         'exercise_type': exercise.type,
-         'muscle_group': _selectedMuscleGroup.toLowerCase(),
-         'sets': exercise.type == 'strength' ? log.sets : null,
-         'reps': exercise.type == 'strength' ? log.reps : null,
-         'weight_kg': exercise.type == 'strength' && log.weight > 0 ? log.weight : null,
-         'duration_minutes': exercise.type == 'cardio' ? log.duration : null,
-         'distance_km': exercise.type == 'cardio' && log.distance > 0 ? log.distance : null,
-         'calories_burned': calories,
-         'exercise_date': _selectedDate.toIso8601String(),
-         'notes': '', // You could add a notes field if needed
-       });
-     }
-     
-     // Submit all exercises
-     for (final exerciseData in exercises) {
-       await _apiService.logExercise(exerciseData);
-     }
-     
-     if (mounted) {
-       // Show success with workout summary
-       _showWorkoutSummary(exercises);
-     }
-   } catch (e) {
-     if (mounted) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-           content: Text('Error logging workout: $e'),
-           backgroundColor: Colors.red,
-         ),
-       );
-     }
-   } finally {
-     setState(() => _isLoading = false);
-   }
- }
+  Future<void> _submitWorkout() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final exercises = <Map<String, dynamic>>[];
+      
+      for (final exerciseName in _selectedExercises) {
+        final exercise = _getExerciseByName(exerciseName);
+        final log = _exerciseLogs[exerciseName]!;
+        final calories = _calculateCalories(exercise, log);
+        
+        // Base exercise data
+        final exerciseData = <String, dynamic>{
+          'user_id': widget.userProfile.id,
+          'exercise_name': exerciseName,
+          'exercise_type': exercise.type,
+          'muscle_group': _selectedMuscleGroup.toLowerCase(),
+          'calories_burned': calories,
+          'exercise_date': _selectedDate.toIso8601String(),
+          'notes': '', // Add if needed
+        };
+        
+        // Add type-specific data only if values exist
+        if (exercise.type == 'cardio') {
+          if (log.duration > 0) {
+            exerciseData['duration_minutes'] = log.duration;
+          }
+          if (log.distance > 0) {
+            exerciseData['distance_km'] = log.distance;
+          }
+        } else {
+          // Strength exercise
+          if (log.sets > 0) {
+            exerciseData['sets'] = log.sets;
+          }
+          if (log.reps > 0) {
+            exerciseData['reps'] = log.reps;
+          }
+          if (log.weight > 0) {
+            exerciseData['weight_kg'] = log.weight;
+          }
+        }
+        
+        exercises.add(exerciseData);
+      }
+      
+      print('Submitting exercises: $exercises'); // Debug print
+      
+      // Submit all exercises
+      for (final exerciseData in exercises) {
+        await _apiService.logExercise(exerciseData);
+      }
+      
+      if (mounted) {
+        _showWorkoutSummary(exercises);
+      }
+    } catch (e) {
+      print('Error submitting workout: $e'); // Debug print
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging workout: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
-void _showWorkoutSummary(List<Map<String, dynamic>> exercises) {
+  void _showWorkoutSummary(List<Map<String, dynamic>> exercises) {
     final totalCalories = exercises.fold<double>(
       0.0, (sum, ex) => sum + ((ex['calories_burned'] ?? 0) as num).toDouble());
     

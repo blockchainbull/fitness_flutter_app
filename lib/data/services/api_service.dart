@@ -1398,6 +1398,7 @@ class ApiService {
   Future<Map<String, dynamic>> logExercise(Map<String, dynamic> exerciseData) async {
     try {
       print('[ApiService] Logging exercise: ${exerciseData['exercise_name']}');
+      print('[ApiService] Exercise data: $exerciseData'); // Debug print
       
       final response = await http.post(
         Uri.parse('$baseUrl/exercise/log'),
@@ -1406,11 +1407,13 @@ class ApiService {
       );
 
       print('[ApiService] Exercise log response: ${response.statusCode}');
+      print('[ApiService] Exercise log response body: ${response.body}'); // Debug print
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
         final errorData = jsonDecode(response.body);
+        print('[ApiService] Exercise log error details: $errorData'); // Debug print
         throw Exception(errorData['detail'] ?? 'Failed to log exercise');
       }
     } catch (e) {
