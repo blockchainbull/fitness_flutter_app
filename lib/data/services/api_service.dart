@@ -8,6 +8,7 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
 import 'package:user_onboarding/data/models/step_entry.dart';
+import 'package:user_onboarding/utils/timezone_helper.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -17,10 +18,15 @@ class ApiService {
     ? 'http://localhost:8000/api/health'  // For local development
     : 'https://health-ai-backend-i28b.onrender.com/api/health';  // For production
 
-  Map<String, String> get headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  Map<String, String> get headers {
+    final timezoneInfo = TimezoneHelper.getTimezoneInfo();
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Timezone-Offset': timezoneInfo['offset_minutes'].toString(),
+      'X-Timezone-String': timezoneInfo['offset_string'],
+    };
+  }
 
   //  static final String baseUrl = kDebugMode 
   //    ? 'http://10.0.2.2:8000/api/health'  // Android emulator
@@ -37,7 +43,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/onboarding/complete'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(onboardingData),
       );
 
@@ -61,7 +67,7 @@ class ApiService {
       // Use the correct endpoint - your backend appears to have this at /api/health/users/{id}
       final response = await http.put(
         Uri.parse('$baseUrl/users/update-user/${userProfile.id}'),  
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'height': userProfile.height,
           'weight': userProfile.weight,
@@ -163,7 +169,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('$baseUrl/chat'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'user_id': userId,
           'message': message,
@@ -190,7 +196,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/chat/context/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Chat context response status: ${response.statusCode}');
@@ -219,7 +225,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/user/$userId/framework'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Framework response status: ${response.statusCode}');
@@ -248,7 +254,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/frameworks/compare'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Framework comparison response status: ${response.statusCode}');
@@ -272,7 +278,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('$baseUrl/weight'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'user_id': weightEntry.userId,
           'date': weightEntry.date.toIso8601String(),
@@ -306,8 +312,8 @@ class ApiService {
       print('[ApiService] Getting weight history for user: $userId');
       
       final response = await http.get(
-        Uri.parse('$baseUrl/weight/$userId?limit=$limit'),  // Should be /weight/ not /user/
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$baseUrl/weight/$userId?limit=$limit'), 
+        headers: headers,
       );
 
       print('[ApiService] Weight history response status: ${response.statusCode}');
@@ -340,7 +346,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/weight/$userId/latest'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Latest weight response status: ${response.statusCode}');
@@ -371,7 +377,7 @@ class ApiService {
       
       final response = await http.delete(
         Uri.parse('$baseUrl/weight/$entryId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Delete weight response status: ${response.statusCode}');
@@ -390,7 +396,7 @@ class ApiService {
       
       final response = await http.patch(
         Uri.parse('http://localhost:8000/api/health/user/$userId/weight'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'weight': newWeight,
         }),
@@ -414,7 +420,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('http://localhost:8000/api/health/user/$userId/set-starting-weight'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'starting_weight': startingWeight,
         }),
@@ -440,7 +446,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/chat/history/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -460,7 +466,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/chat/messages/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -480,7 +486,7 @@ class ApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/chat/messages/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -517,7 +523,7 @@ class ApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/chat/history/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -537,7 +543,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/users/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] User profile response status: ${response.statusCode}');
@@ -582,7 +588,7 @@ class ApiService {
       // This is a workaround since we don't have a dedicated email check endpoint
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'email': email,
           'password': 'dummy_password_for_check',
@@ -653,7 +659,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('$baseUrl/supplements/preferences'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'user_id': userId,
           'supplements': supplements,
@@ -688,7 +694,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] 💊 Status response status: ${response.statusCode}');
@@ -714,7 +720,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/supplements/preferences/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Get preferences response status: ${response.statusCode}');
@@ -745,7 +751,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('$baseUrl/supplements/log'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(logData),
       );
 
@@ -778,7 +784,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Supplement history response status: ${response.statusCode}');
@@ -802,7 +808,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/supplements/status/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Supplement status response status: ${response.statusCode}');
@@ -839,7 +845,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('$baseUrl/water'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(waterEntry.toMap()),
       );
 
@@ -865,7 +871,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/water/$userId?limit=$limit'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -891,7 +897,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/water/$userId/stats?days=$days'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Water stats response status: ${response.statusCode}');
@@ -916,7 +922,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/water/$userId/today'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] 💧 Water response status: ${response.statusCode}');
@@ -979,7 +985,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('$baseUrl/sleep/entries'),  // This becomes /api/health/sleep/entries
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(sleepData),
       );
 
@@ -1005,7 +1011,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/sleep/entries/$userId/$date'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Sleep entry response status: ${response.statusCode}');
@@ -1030,7 +1036,7 @@ class ApiService {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/sleep/entries/$entryId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(updateData),
       );
 
@@ -1055,7 +1061,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Sleep history response status: ${response.statusCode}');
@@ -1095,7 +1101,7 @@ class ApiService {
       
       final response = await http.delete(
         Uri.parse('$baseUrl/sleep/entries/$entryId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Delete sleep response status: ${response.statusCode}');
@@ -1113,7 +1119,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/sleep/stats/$userId?days=$days'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Sleep stats response status: ${response.statusCode}');
@@ -1139,7 +1145,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('$baseUrl/meals/analyze'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(mealData),
       );
 
@@ -1248,7 +1254,7 @@ class ApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/meals/$mealId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       return response.statusCode == 200;
@@ -1283,7 +1289,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/period'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'id': entry.id,
           'user_id': entry.userId,
@@ -1314,7 +1320,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/period/$userId?limit=$limit'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Period history response status: ${response.statusCode}');
@@ -1356,7 +1362,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/period/$userId/current'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -1376,7 +1382,7 @@ class ApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/period/$entryId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
@@ -1402,7 +1408,7 @@ class ApiService {
       
       final response = await http.post(
         Uri.parse('$baseUrl/exercise/log'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(exerciseData),
       );
 
@@ -1442,7 +1448,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Exercise logs response status: ${response.statusCode}');
@@ -1481,7 +1487,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/exercise/stats/$userId?days=$days'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Exercise stats response status: ${response.statusCode}');
@@ -1525,7 +1531,7 @@ class ApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/exercise/log/$exerciseId?user_id=$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
@@ -1552,7 +1558,7 @@ class ApiService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Exercise history response: ${response.statusCode}');
@@ -1575,7 +1581,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/exercise/weekly-summary/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -1596,7 +1602,7 @@ class ApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/exercise/$exerciseId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       return response.statusCode == 200;
@@ -1614,7 +1620,7 @@ class ApiService {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/exercise/$exerciseId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(updateData),
       );
 
@@ -1636,7 +1642,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/steps/$userId/today'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Today\'s steps response status: ${response.statusCode}');
@@ -1677,7 +1683,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/steps/$userId/range?start_date=${startDate.toIso8601String()}&end_date=${endDate.toIso8601String()}'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Steps range response status: ${response.statusCode}');
@@ -1722,7 +1728,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/steps'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(entry.toJson()),
       );
 
@@ -1740,7 +1746,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/steps/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] All steps response status: ${response.statusCode}');
@@ -1789,7 +1795,7 @@ class ApiService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/steps/$userId/${date.toIso8601String()}'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
@@ -1806,7 +1812,7 @@ class ApiService {
       
       final response = await http.get(
         Uri.parse('$baseUrl/steps/$userId/stats?days=$days'),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
       );
 
       print('[ApiService] Step stats response status: ${response.statusCode}');
