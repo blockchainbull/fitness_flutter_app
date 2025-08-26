@@ -609,7 +609,6 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       
       print('[Reports] Getting exercise status for user: $userId, date: $date');
       
-      // ✅ Use getExerciseLogs instead of getExerciseHistory
       final exercises = await apiService.getExerciseLogs(
         userId,
         startDate: date,
@@ -619,29 +618,67 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       
       print('[Reports] Found ${exercises.length} exercises for $date');
       
-      // Calculate totals
+      // Calculate totals for both cardio and strength exercises
       int totalMinutes = 0;
       double totalCalories = 0;
+      int strengthSets = 0;
+      int cardioSessions = 0;
+      int strengthSessions = 0;
       
       for (var exercise in exercises) {
-        final duration = exercise['duration_minutes'] as int? ?? 0;
+        final exerciseType = exercise['exercise_type'] as String? ?? 'strength';
         final calories = (exercise['calories_burned'] as num? ?? 0).toDouble();
-        
-        totalMinutes += duration;
         totalCalories += calories;
         
-        print('[Reports] Exercise: ${exercise['exercise_name']} - ${duration} min, ${calories} cal');
+        if (exerciseType == 'cardio') {
+          final duration = exercise['duration_minutes'] as int? ?? 0;
+          totalMinutes += duration;
+          cardioSessions++;
+          print('[Reports] Cardio Exercise: ${exercise['exercise_name']} - ${duration} min, ${calories} cal');
+        } else {
+          // Strength exercise
+          final sets = exercise['sets'] as int? ?? 0;
+          final reps = exercise['reps'] as int? ?? 0;
+          strengthSets += sets;
+          strengthSessions++;
+          
+          // Estimate time for strength exercises (assume 3 minutes per set on average)
+          final estimatedMinutes = sets * 3;
+          totalMinutes += estimatedMinutes;
+          
+          print('[Reports] Strength Exercise: ${exercise['exercise_name']} - ${sets}x${reps}, ${calories} cal, ~${estimatedMinutes} min');
+        }
       }
       
       final targetMinutes = 30;
-      final sessionCount = exercises.length;
+      final totalSessions = exercises.length;
       
-      print('[Reports] Totals - Minutes: $totalMinutes, Calories: $totalCalories, Sessions: $sessionCount');
+      print('[Reports] Totals - Minutes: $totalMinutes, Calories: $totalCalories, Sessions: $totalSessions');
+      print('[Reports] Breakdown - Cardio: $cardioSessions, Strength: $strengthSessions, Sets: $strengthSets');
       
       // Store in SharedPreferences as backup
       await prefs.setInt('exercise_minutes_$date', totalMinutes);
       await prefs.setDouble('exercise_calories_$date', totalCalories);
-      await prefs.setInt('exercise_count_$date', sessionCount);
+      await prefs.setInt('exercise_count_$date', totalSessions);
+      
+      // Enhanced details for both exercise types
+      final details = <String, dynamic>{
+        'Total Time': '$totalMinutes min',
+        'Target': '$targetMinutes min',
+        'Calories': totalCalories > 0 ? '${totalCalories.toInt()} cal' : 'Not tracked',
+        'Sessions': totalSessions,
+      };
+      
+      // Add type-specific details
+      if (cardioSessions > 0) {
+        details['Cardio Sessions'] = cardioSessions;
+      }
+      if (strengthSessions > 0) {
+        details['Strength Sessions'] = strengthSessions;
+        details['Total Sets'] = strengthSets;
+      }
+      
+      details['Status'] = totalMinutes >= targetMinutes ? 'Target Reached! 🎯' : 'Keep Going! 💪';
       
       return TrackingStatus(
         category: 'Exercise',
@@ -649,13 +686,7 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
         color: Colors.orange,
         completed: totalMinutes,
         total: targetMinutes,
-        details: {
-          'Duration': '$totalMinutes min',
-          'Target': '$targetMinutes min',
-          'Calories': totalCalories > 0 ? '${totalCalories.toInt()} cal' : 'Not tracked',
-          'Sessions': sessionCount,
-          'Status': totalMinutes >= targetMinutes ? 'Complete' : 'In Progress',
-        },
+        details: details,
         unit: 'min',
         isComplete: totalMinutes >= targetMinutes,
         excludeFromProgress: false,
@@ -683,7 +714,7 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
           'Target': '$targetMinutes min',
           'Calories': calories > 0 ? '${calories.toInt()} cal' : 'Not tracked',
           'Sessions': count,
-          'Status': minutes >= targetMinutes ? 'Complete' : 'In Progress',
+          'Status': minutes >= targetMinutes ? 'Target Reached!' : 'Keep Going!',
         },
         unit: 'min',
         isComplete: minutes >= targetMinutes,

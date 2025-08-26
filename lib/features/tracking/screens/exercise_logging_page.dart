@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:user_onboarding/features/tracking/screens/exercise_history_page.dart';
+
 
 class EnhancedExerciseLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -249,6 +251,19 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
             )
           : null,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EnhancedExerciseHistoryPage(
+                    userProfile: widget.userProfile,
+                  ),
+                ),
+              );
+            },
+          ),
           if (_currentStep == 1)
             IconButton(
               icon: const Icon(Icons.add),

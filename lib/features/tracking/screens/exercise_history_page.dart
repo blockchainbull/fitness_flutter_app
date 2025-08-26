@@ -1,4 +1,4 @@
-// lib/features/tracking/screens/enhanced_exercise_history_page.dart
+// lib/features/tracking/screens/exercise_history_page.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
