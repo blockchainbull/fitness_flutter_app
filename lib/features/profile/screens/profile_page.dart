@@ -30,7 +30,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     currentProfile = widget.userProfile;
-  }
+}
 
   Future<void> _refreshProfile() async {
     setState(() {

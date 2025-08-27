@@ -9,9 +9,8 @@ import 'package:user_onboarding/features/tracking/screens/period_logging_page.da
 import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ActivityDrawer extends StatelessWidget {
   final UserProfile userProfile;
@@ -145,59 +144,17 @@ class ActivityDrawer extends StatelessWidget {
   }
                   
   Future<void> _handleLogout(BuildContext context) async {
-    // Close drawer first
     Navigator.pop(context);
-
-    // Show confirmation dialog (exact copy from ProfilePage)
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
+    
+    // Nuclear option - just clear everything
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
     );
-
-    if (shouldLogout == true) {
-      try {
-        // Use the exact same logout sequence as ProfilePage
-        await UserManager.logout();
-        
-        final dataManager = DataManager();
-        await dataManager.clearData(); // This is the key difference!
-        
-        if (context.mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-            (Route<dynamic> route) => false,
-          );
-        }
-      } catch (e) {
-        print('[ActivityDrawer] Error during logout: $e');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Logout failed: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
   }    
 
   Widget _buildDrawerHeader() {
