@@ -13,10 +13,13 @@ import 'package:user_onboarding/utils/timezone_helper.dart';
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   
+  static final String baseUrl = 'https://health-ai-backend-i28b.onrender.com/api/health';
+
+
   // Updated API base URL to match unified backend
-  static final String baseUrl = kDebugMode 
-    ? 'http://localhost:8000/api/health'  // For local development
-    : 'https://health-ai-backend-i28b.onrender.com/api/health';  // For production
+  // static final String baseUrl = kDebugMode 
+  //   ? 'http://localhost:8000/api/health'  // For local development
+  //   : 'https://health-ai-backend-i28b.onrender.com/api/health';  // For production
 
   Map<String, String> get headers {
     final timezoneInfo = TimezoneHelper.getTimezoneInfo();
