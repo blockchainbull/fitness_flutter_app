@@ -11,6 +11,8 @@ import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dar
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:user_onboarding/data/managers/user_manager.dart';
 
 class ActivityDrawer extends StatelessWidget {
   final UserProfile userProfile;
@@ -144,18 +146,148 @@ class ActivityDrawer extends StatelessWidget {
   }
                   
   Future<void> _handleLogout(BuildContext context) async {
-    Navigator.pop(context);
-    
-    // Nuclear option - just clear everything
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-      (route) => false,
-    );
-  }    
+    try {
+      // Close drawer first
+      Navigator.pop(context);
+
+      // Show confirmation dialog
+      final shouldLogout = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Logout'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldLogout != true) return;
+
+      print('DEBUG: Starting logout process...');
+
+      // Show loading
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      // Get SharedPreferences directly
+      final prefs = await SharedPreferences.getInstance();
+      
+      // MANUAL CLEANUP - Clear every possible auth key
+      print('DEBUG: Clearing all auth keys...');
+      
+      // UserManager keys (from your UserManager class)
+      await prefs.remove('user_id');
+      await prefs.remove('user_profile');
+      await prefs.setBool('is_logged_in', false); // THIS IS THE KEY ONE!
+      await prefs.setBool('onboarding_completed', false);
+      
+      // DataManager keys (from your DataManager class) 
+      await prefs.remove('user_email');
+      
+      // Clear any additional auth-related keys
+      await prefs.remove('userId'); // Alternative spelling
+      await prefs.remove('userProfile'); // Alternative spelling
+      
+      print('DEBUG: Auth keys cleared manually');
+
+      // Also call the logout methods just in case
+      try {
+        await UserManager.logout();
+        print('DEBUG: UserManager.logout() called');
+      } catch (e) {
+        print('DEBUG: UserManager.logout() failed: $e');
+      }
+
+      try {
+        final dataManager = DataManager();
+        await dataManager.logout();
+        print('DEBUG: DataManager.logout() called');
+      } catch (e) {
+        print('DEBUG: DataManager.logout() failed: $e');
+      }
+
+      // Verify the logout worked
+      final isStillLoggedIn = await UserManager.isLoggedIn();
+      print('DEBUG: After logout, isLoggedIn = $isStillLoggedIn');
+      
+      if (isStillLoggedIn) {
+        print('DEBUG: WARNING - User still shows as logged in!');
+        // Nuclear option - clear EVERYTHING
+        await prefs.clear();
+        print('DEBUG: Cleared all SharedPreferences');
+      }
+
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+
+      // Small delay to ensure state is cleared
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Navigate to login screen
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+
+      print('DEBUG: Logout completed, navigated to LoginScreen');
+
+    } catch (e) {
+      print('DEBUG: Logout error: $e');
+      
+      // Close any dialogs
+      if (context.mounted) {
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+
+      // Emergency logout - clear everything
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+        print('DEBUG: Emergency clear completed');
+        
+        if (context.mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+      } catch (emergencyError) {
+        print('DEBUG: Emergency logout also failed: $emergencyError');
+        
+        // Show error to user
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Logout failed: Please restart the app'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }   
 
   Widget _buildDrawerHeader() {
     return Container(
