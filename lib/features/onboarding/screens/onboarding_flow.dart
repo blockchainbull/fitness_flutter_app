@@ -9,7 +9,6 @@ import 'package:user_onboarding/features/onboarding/screens/basic_info_page.dart
 import 'package:user_onboarding/features/onboarding/screens/period_cycle_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/sleep_info_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/weight_goal_page.dart';
-import 'package:user_onboarding/features/onboarding/screens/primary_goal_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/exercise_setup_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/dietary_preferences_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/workout_preferences_page.dart';
@@ -26,7 +25,7 @@ class OnboardingFlow extends StatefulWidget {
 class _OnboardingFlowState extends State<OnboardingFlow> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  int _totalPages = 7;
+  int _totalPages = 6;
 
   // Form data
   final _formData = {
@@ -53,6 +52,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     'sleepIssues': <String>[],
     'dietaryPreferences': <String>[],
     'waterIntake': 2.0,
+    'waterIntakeGlasses': 8,
     'medicalConditions': <String>[],
     'otherMedicalCondition': '',
     'preferredWorkouts': <String>[],
@@ -101,23 +101,21 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   void _updateTotalPages() {
     setState(() {
       if (_formData['gender'] == 'Female') {
-        _totalPages = 8; // Add 1 for period cycle page
+        _totalPages = 7; // Add 1 for period cycle page
       } else {
-        _totalPages = 7;
+        _totalPages = 6;
       }
     });
   }
 
-  String _getPredefinedWeightGoal(String primaryGoal) {
+  String _getPrimaryGoalFromWeightGoal(String weightGoal) {
     const goalMapping = {
-      'Lose Weight': 'lose_weight',
-      'Build Muscle': 'gain_weight',
-      'Improve Fitness': 'maintain_weight',
-      'Maintain Health': 'maintain_weight',
-      'Reduce Stress': 'maintain_weight',
+      'lose_weight': 'Lose Weight',
+      'gain_weight': 'Build Muscle',
+      'maintain_weight': 'Maintain Health',
     };
     
-    return goalMapping[primaryGoal] ?? '';
+    return goalMapping[weightGoal] ?? 'Improve Fitness';
   }
 
   void _onDataChanged(String key, dynamic value) {
@@ -129,17 +127,28 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _updateTotalPages();
     }
 
-    // Auto-map weight goal when primary goal is selected
-    if (key == 'primaryGoal' && value != null && value.toString().isNotEmpty) {
-      final predefinedWeightGoal = _getPredefinedWeightGoal(value.toString());
-      if (predefinedWeightGoal.isNotEmpty) {
-        setState(() {
-          _formData['weightGoal'] = predefinedWeightGoal;
-        });
-        print('Auto-mapped weight goal: $predefinedWeightGoal based on primary goal: $value');
-      }
+    if (key == 'weightGoal' && value != null && value.toString().isNotEmpty) {
+      final primaryGoal = _getPrimaryGoalFromWeightGoal(value.toString());
+      setState(() {
+        _formData['primaryGoal'] = primaryGoal;
+      });
+      print('Auto-mapped primary goal: $primaryGoal based on weight goal: $value');
+    }
+
+    // Sync water intake values
+    if (key == 'waterIntake') {
+      // Convert litres to glasses (1 glass = 250ml)
+      setState(() {
+        _formData['waterIntakeGlasses'] = ((value as double) * 4).round();
+      });
+    } else if (key == 'waterIntakeGlasses') {
+      // Convert glasses to litres
+      setState(() {
+        _formData['waterIntake'] = (value as int) / 4.0;
+      });
     }
   }
+  
 
   Widget _buildCurrentPage() {
     // Determine the actual page index considering female-only period cycle page
@@ -164,31 +173,26 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onDataChanged: _onDataChanged,
         );
       case 2:
-        return PrimaryHealthGoalPage(
-          formData: _formData,
-          onDataChanged: _onDataChanged,
-        );
-      case 3:
         return WeightGoalPage(
           formData: _formData,
           onDataChanged: _onDataChanged,
         );
-      case 4:
+      case 3:
         return SleepInfoPage(
           formData: _formData,
           onDataChanged: _onDataChanged,
         );
-      case 5:
+      case 4:
         return DietaryPreferencesPage(
           formData: _formData,
           onDataChanged: _onDataChanged,
         );
-      case 6:
+      case 5:
         return WorkoutPreferencesPage(
           formData: _formData,
           onDataChanged: _onDataChanged,
         );
-      case 7:
+      case 6:
         return CurrentExerciseSetupPage(
           formData: _formData,
           onDataChanged: _onDataChanged,
@@ -274,6 +278,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         'dietaryPreferences': {
           'dietaryPreferences': _formData['dietaryPreferences'],
           'waterIntake': _formData['waterIntake'],
+          'waterIntakeGlasses': _formData['waterIntakeGlasses'],
           'medicalConditions': _formData['medicalConditions'],
           'otherCondition': _formData['otherMedicalCondition'],
         },

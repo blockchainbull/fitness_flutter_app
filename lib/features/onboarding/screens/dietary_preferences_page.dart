@@ -1,5 +1,5 @@
+// lib/features/onboarding/screens/dietary_preferences_page.dart
 import 'package:flutter/material.dart';
-
 
 class DietaryPreferencesPage extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -18,6 +18,8 @@ class DietaryPreferencesPage extends StatefulWidget {
 class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
   List<String> _selectedDiets = [];
   double _waterIntake = 2.0; // Default 2 liters
+  int _waterIntakeGlasses = 8;
+  bool _useGlasses = true;
   List<String> _medicalConditions = [];
   final _otherMedicalController = TextEditingController();
 
@@ -66,6 +68,21 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
   void dispose() {
     _otherMedicalController.dispose();
     super.dispose();
+  }
+
+  void _updateWaterIntake({double? liters, int? glasses}) {
+    setState(() {
+      if (liters != null) {
+        _waterIntake = liters;
+        _waterIntakeGlasses = (liters * 4).round(); // 250ml per glass
+      } else if (glasses != null) {
+        _waterIntakeGlasses = glasses;
+        _waterIntake = glasses / 4.0; // Convert to liters
+      }
+    });
+    
+    widget.onDataChanged('waterIntake', _waterIntake);
+    widget.onDataChanged('waterIntakeGlasses', _waterIntakeGlasses);
   }
 
   @override
@@ -139,59 +156,122 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
           ),
           const SizedBox(height: 24),
           
-          // Water intake
-          const Text(
-            'Daily Water Intake Goal',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Column(
+          // Water intake section with toggle
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.water_drop, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${_waterIntake.toStringAsFixed(1)} liters',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ],
+              const Text(
+                'Daily Water Intake Goal',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              Slider(
-                value: _waterIntake,
-                min: 0.5,
-                max: 5.0,
-                divisions: 18,
-                label: '${_waterIntake.toStringAsFixed(1)} L',
-                onChanged: (value) {
+              // Toggle button
+              ToggleButtons(
+                borderRadius: BorderRadius.circular(8),
+                isSelected: [_useGlasses, !_useGlasses],
+                onPressed: (index) {
                   setState(() {
-                    _waterIntake = value;
+                    _useGlasses = index == 0;
                   });
-                  widget.onDataChanged('waterIntake', value);
                 },
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [
-                  Text('0.5L', style: TextStyle(color: Colors.grey)),
-                  Text('5.0L', style: TextStyle(color: Colors.grey)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('Glasses'),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('Liters'),
+                  ),
                 ],
               ),
             ],
           ),
+          const SizedBox(height: 16),
+
+          // Water intake display
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.water_drop, color: Colors.blue, size: 32),
+                    const SizedBox(width: 12),
+                    Column(
+                      children: [
+                        Text(
+                          _useGlasses 
+                              ? '$_waterIntakeGlasses glasses'
+                              : '${_waterIntake.toStringAsFixed(1)} liters',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        Text(
+                          _useGlasses 
+                              ? '(${_waterIntake.toStringAsFixed(1)} liters)'
+                              : '($_waterIntakeGlasses glasses)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // Slider for adjustment
+                if (_useGlasses) ...[
+                  Slider(
+                    value: _waterIntakeGlasses.toDouble(),
+                    min: 4,
+                    max: 16,
+                    divisions: 12,
+                    label: '$_waterIntakeGlasses glasses',
+                    onChanged: (value) {
+                      _updateWaterIntake(glasses: value.round());
+                    },
+                  ),
+                  Text(
+                    'Recommended: 8-10 glasses per day',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ] else ...[
+                  Slider(
+                    value: _waterIntake,
+                    min: 1.0,
+                    max: 4.0,
+                    divisions: 12,
+                    label: '${_waterIntake.toStringAsFixed(1)} L',
+                    onChanged: (value) {
+                      _updateWaterIntake(liters: value);
+                    },
+                  ),
+                  Text(
+                    'Recommended: 2-2.5 liters per day',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ],
+            ),
+          ),
           const SizedBox(height: 24),
           
-          // Medical conditions
+          // Medical conditions section
           const Text(
-            'Pre-existing Medical Conditions',
+            'Medical Conditions',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -199,62 +279,76 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Select all that apply',
+            'Select any that apply to you:',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey,
             ),
           ),
           const SizedBox(height: 12),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _commonMedicalConditions.length,
-            itemBuilder: (context, index) {
-              final condition = _commonMedicalConditions[index];
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _commonMedicalConditions.map((condition) {
               final isSelected = _medicalConditions.contains(condition);
-              
-              return CheckboxListTile(
-                title: Text(condition),
-                value: isSelected,
-                activeColor: Colors.blue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                onChanged: (bool? value) {
+              return FilterChip(
+                label: Text(condition),
+                selected: isSelected,
+                onSelected: (selected) {
                   setState(() {
-                    if (value == true) {
-                      if (condition == 'None') {
-                        _medicalConditions = ['None'];
-                      } else {
-                        _medicalConditions.remove('None');
+                    if (condition == 'None') {
+                      _medicalConditions.clear();
+                      if (selected) {
                         _medicalConditions.add(condition);
                       }
                     } else {
-                      _medicalConditions.remove(condition);
+                      _medicalConditions.remove('None');
+                      if (selected) {
+                        _medicalConditions.add(condition);
+                      } else {
+                        _medicalConditions.remove(condition);
+                      }
                     }
                   });
                   widget.onDataChanged('medicalConditions', _medicalConditions);
+
+                  if (condition == 'Other (please specify)' && selected) {
+                    _showOtherMedicalDialog();
+                  }
                 },
+                selectedColor: Colors.orange.withOpacity(0.2),
+                checkmarkColor: Colors.orange,
               );
-            },
+            }).toList(),
           ),
-          
-          // Other medical condition text field
-          if (_medicalConditions.contains('Other (please specify)'))
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0, left: 32.0, right: 16.0),
-              child: TextField(
-                controller: _otherMedicalController,
-                decoration: const InputDecoration(
-                  hintText: 'Please specify your condition',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  widget.onDataChanged('otherMedicalCondition', value);
-                },
-              ),
-            ),
+        ],
+      ),
+    );
+  }
+
+  void _showOtherMedicalDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Other Medical Condition'),
+        content: TextField(
+          controller: _otherMedicalController,
+          decoration: const InputDecoration(
+            hintText: 'Please specify...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              widget.onDataChanged('otherMedicalCondition', _otherMedicalController.text);
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
         ],
       ),
     );

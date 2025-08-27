@@ -278,6 +278,7 @@ class UserRepository {
         sleepIssues: sleepIssues,
         dietaryPreferences: dietaryPreferences,
         waterIntake: userData['water_intake'] != null ? (userData['water_intake'] as num).toDouble() : 2.0,
+        waterIntakeGlasses: userData['water_intake_glasses'] != null ? (userData['water_intake_glasses'] as num).toInt() : 8,
         medicalConditions: medicalConditions,
         otherMedicalCondition: otherMedicalCondition,
         preferredWorkouts: preferredWorkouts,

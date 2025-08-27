@@ -44,6 +44,19 @@ class ApiService {
   // Complete onboarding using unified backend format
   Future<Map<String, dynamic>> completeOnboarding(Map<String, dynamic> onboardingData) async {
     try {
+
+      // Ensure water_intake_glasses is included
+      if (onboardingData['dietaryPreferences'] != null) {
+        final dietPrefs = onboardingData['dietaryPreferences'] as Map<String, dynamic>;
+        
+        // Ensure both water intake values are present
+        if (!dietPrefs.containsKey('waterIntakeGlasses') && dietPrefs.containsKey('waterIntake')) {
+          dietPrefs['waterIntakeGlasses'] = ((dietPrefs['waterIntake'] as double) * 4).round();
+        } else if (dietPrefs.containsKey('waterIntakeGlasses') && !dietPrefs.containsKey('waterIntake')) {
+          dietPrefs['waterIntake'] = (dietPrefs['waterIntakeGlasses'] as int) / 4.0;
+        }
+      }
+      
       final response = await http.post(
         Uri.parse('$baseUrl/onboarding/complete'),
         headers: headers,
@@ -85,6 +98,7 @@ class ApiService {
           'sleep_issues': userProfile.sleepIssues,
           'dietary_preferences': userProfile.dietaryPreferences,
           'water_intake': userProfile.waterIntake,
+          'water_intake_glasses': userProfile.waterIntakeGlasses,
           'medical_conditions': userProfile.medicalConditions,
           'other_medical_condition': userProfile.otherMedicalCondition,
           'preferred_workouts': userProfile.preferredWorkouts,
