@@ -1,11 +1,10 @@
-// lib/main.dart
+// lib/main.dart - Update your runApp call to use the global key
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/app.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/data/services/database_service.dart';
 import 'package:user_onboarding/data/managers/user_manager.dart';
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +36,7 @@ void main() async {
   }
   
   runApp(HealthAIApp(
+    key: appStateKey, // Add the global key here
     hasValidLogin: hasValidLogin,
     userProfile: userProfile,
   ));
