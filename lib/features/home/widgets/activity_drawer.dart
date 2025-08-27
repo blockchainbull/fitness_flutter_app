@@ -10,9 +10,7 @@ import 'package:user_onboarding/features/tracking/screens/weight_logging_page.da
 import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
-import 'package:user_onboarding/app.dart';
+import 'package:flutter/services.dart';
 
 class ActivityDrawer extends StatelessWidget {
   final UserProfile userProfile;
@@ -146,96 +144,48 @@ class ActivityDrawer extends StatelessWidget {
   }
                   
   Future<void> _handleLogout(BuildContext context) async {
-    try {
-      // Close drawer first
-      Navigator.pop(context);
+    Navigator.pop(context); // Close drawer
 
-      // Show confirmation dialog
-      final shouldLogout = await showDialog<bool>(
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure? You\'ll need to restart the app.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (shouldLogout) {
+      // Clear auth data
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      
+      // Show message and close app
+      showDialog(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
+        builder: (context) => AlertDialog(
+          title: const Text('Logged Out'),
+          content: const Text('Please restart the app to continue.'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Logout'),
+              onPressed: () => SystemNavigator.pop(),
+              child: const Text('Close App'),
             ),
           ],
         ),
       );
-
-      if (shouldLogout != true) return;
-
-      print('DEBUG: Starting logout process...');
-
-      // Show loading dialog
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
-
-      // Perform logout
-      final prefs = await SharedPreferences.getInstance();
-      
-      // Clear all auth keys manually (belt and suspenders approach)
-      await prefs.remove('user_id');
-      await prefs.remove('user_profile');
-      await prefs.setBool('is_logged_in', false);
-      await prefs.setBool('onboarding_completed', false);
-      
-      // Call logout methods
-      await UserManager.logout();
-      final dataManager = DataManager();
-      await dataManager.logout();
-
-      print('DEBUG: Logout completed, refreshing app auth state...');
-
-      // Close loading dialog
-      if (context.mounted) {
-        Navigator.pop(context);
-      }
-
-      // THIS IS THE KEY: Refresh the main app's authentication state
-      HealthAIApp.refreshAuthState();
-
-      // Small delay to allow state to update
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      print('DEBUG: Auth state refreshed');
-
-    } catch (e) {
-      print('DEBUG: Logout error: $e');
-      
-      // Close any open dialogs
-      if (context.mounted) {
-        Navigator.popUntil(context, (route) => route.isFirst);
-        
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Logout failed: $e'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: () => _handleLogout(context),
-            ),
-          ),
-        );
-      }
     }
-  } 
+  }
 
   Widget _buildDrawerHeader() {
     return Container(

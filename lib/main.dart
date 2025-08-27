@@ -1,4 +1,4 @@
-// lib/main.dart - Update your runApp call to use the global key
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/app.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
@@ -27,16 +27,15 @@ void main() async {
 
   final bool hasValidLogin = await UserManager.isLoggedIn();
   UserProfile? userProfile;
-  
+
   if (hasValidLogin) {
     userProfile = await UserManager.getCurrentUser();
     if (userProfile != null) {
       print('Successfully loaded profile for: ${userProfile.name}');
     }
   }
-  
+
   runApp(HealthAIApp(
-    key: appStateKey, // Add the global key here
     hasValidLogin: hasValidLogin,
     userProfile: userProfile,
   ));
