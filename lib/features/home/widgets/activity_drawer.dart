@@ -9,8 +9,6 @@ import 'package:user_onboarding/features/tracking/screens/period_logging_page.da
 import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart';
 
 class ActivityDrawer extends StatelessWidget {
   final UserProfile userProfile;
@@ -126,65 +124,12 @@ class ActivityDrawer extends StatelessWidget {
                     );
                   },
                 ),
-
-                const Divider(),
-          
-                // logout button
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.red),
-                  title: const Text('Logout', style: TextStyle(color: Colors.red)),
-                  onTap: () => _handleLogout(context),
-                ),
               ]
-            ),
-          ),
+            )
+          )
         ]
       )
     );
-  }
-                  
-  Future<void> _handleLogout(BuildContext context) async {
-    Navigator.pop(context); // Close drawer
-
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure? You\'ll need to restart the app.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    ) ?? false;
-
-    if (shouldLogout) {
-      // Clear auth data
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      
-      // Show message and close app
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Logged Out'),
-          content: const Text('Please restart the app to continue.'),
-          actions: [
-            TextButton(
-              onPressed: () => SystemNavigator.pop(),
-              child: const Text('Close App'),
-            ),
-          ],
-        ),
-      );
-    }
   }
 
   Widget _buildDrawerHeader() {
