@@ -109,14 +109,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   String _getPrimaryGoalFromWeightGoal(String weightGoal) {
-    const goalMapping = {
-      'lose_weight': 'Lose Weight',
-      'gain_weight': 'Build Muscle',
-      'maintain_weight': 'Maintain Health',
-    };
-    
-    return goalMapping[weightGoal] ?? 'Improve Fitness';
-  }
+  const goalMapping = {
+    'lose_weight': 'Lose Weight',
+    'gain_weight': 'Gain Weight',
+    'maintain_weight': 'Maintain Weight',  
+  };
+  
+  // Default to 'Improve Fitness' only if no match found
+  return goalMapping[weightGoal]!;
+}
 
   void _onDataChanged(String key, dynamic value) {
     setState(() {
@@ -267,7 +268,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         'weightGoal': {
           'weightGoal': _formData['weightGoal'],
           'targetWeight': _formData['targetWeight'],
-          'timeline': _formData['goalTimeline'] ?? '',
+          'timeline': _formData['goalTimeline'] ?? '12_weeks',
         },
         'sleepInfo': {
           'sleepHours': _formData['sleepHours'],
