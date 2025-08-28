@@ -53,6 +53,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     'dietaryPreferences': <String>[],
     'waterIntake': 2.0,
     'waterIntakeGlasses': 8,
+    'dailyMealsCount': 3,
+    'dailyStepGoal': 10000, 
     'medicalConditions': <String>[],
     'otherMedicalCondition': '',
     'preferredWorkouts': <String>[],
@@ -254,6 +256,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           'bmi': _formData['bmi'] ?? 0.0,
           'bmr': _formData['bmr'] ?? 0.0,
           'tdee': _formData['tdee'] ?? 0.0,
+          'dailyStepGoal': _formData['dailyStepGoal'] ?? 10000,
         },
         if (_formData['gender'] == 'Female') 
         'periodCycle': {
@@ -280,6 +283,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           'dietaryPreferences': _formData['dietaryPreferences'],
           'waterIntake': _formData['waterIntake'],
           'waterIntakeGlasses': _formData['waterIntakeGlasses'],
+          'dailyMealsCount': _formData['dailyMealsCount'] ?? 3,
           'medicalConditions': _formData['medicalConditions'],
           'otherCondition': _formData['otherMedicalCondition'],
         },

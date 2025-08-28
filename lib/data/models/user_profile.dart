@@ -29,7 +29,8 @@ class UserProfile {
   final double sleepHours;
   final String bedtime;
   final String wakeupTime;
-  final int? dailyStepGoal;
+  final int dailyStepGoal;
+  final int dailyMealsCount;
   final List<String> sleepIssues;
   final List<String> dietaryPreferences;
   final double waterIntake;
@@ -73,7 +74,8 @@ class UserProfile {
     required this.sleepHours,
     required this.bedtime,
     required this.wakeupTime,
-    this.dailyStepGoal,
+    required this.dailyStepGoal,
+    this.dailyMealsCount = 3,
     required this.sleepIssues,
     required this.dietaryPreferences,
     required this.waterIntake,
@@ -156,6 +158,7 @@ class UserProfile {
       bedtime: map['bedtime'] ?? '22:00',
       wakeupTime: map['wakeupTime'] ?? map['wakeup_time'] ?? '06:00', 
       dailyStepGoal: map['dailyStepGoal'] ?? map['daily_step_goal'] ?? 10000,
+      dailyMealsCount: map['dailyMealsCount'] ?? map['daily_meals_count'] ?? 3,
       sleepIssues: _parseStringList(map['sleepIssues'] ?? map['sleep_issues']),
       dietaryPreferences: List<String>.from(map['dietaryPreferences'] ?? []),
       waterIntake: map['waterIntake']?.toDouble() ?? 2.0,
@@ -221,6 +224,8 @@ class UserProfile {
       dietaryPreferences: List<String>.from(data['dietaryPreferences'] ?? []),
       waterIntake: (data['waterIntake'] ?? 2.0).toDouble(),
       waterIntakeGlasses: (data['waterIntakeGlasses'] ?? 8).toInt(),
+      dailyStepGoal: (data['dailyStepGoal'] ?? 10000).toInt(),
+      dailyMealsCount: (data['dailyMealsCount'] ?? 3).toInt(),
       medicalConditions: List<String>.from(data['medicalConditions'] ?? []),
       otherMedicalCondition: data['otherMedicalCondition'] ?? '',
       preferredWorkouts: List<String>.from(data['preferredWorkouts'] ?? []),
@@ -268,6 +273,7 @@ class UserProfile {
       'bedtime': bedtime,
       'wakeupTime': wakeupTime,
       'dailyStepGoal': dailyStepGoal,
+      'dailyMealsCount': dailyMealsCount,
       'sleepIssues': sleepIssues,
       'dietaryPreferences': dietaryPreferences,
       'waterIntake': waterIntake,
@@ -347,6 +353,7 @@ class UserProfile {
         'dietaryPreferences': dietaryPreferences,
         'waterIntake': waterIntake,
         'waterIntakeGlasses': waterIntakeGlasses,
+        'dailyMealsCount': dailyMealsCount,
         'medicalConditions': medicalConditions,
         'otherCondition': otherMedicalCondition,
       },
@@ -397,6 +404,7 @@ class UserProfile {
     List<String>? dietaryPreferences,
     double? waterIntake,
     int? waterIntakeGlasses,
+    int? dailyMealsCount,
     List<String>? medicalConditions,
     String? otherMedicalCondition,
     List<String>? preferredWorkouts,
@@ -441,6 +449,7 @@ class UserProfile {
       dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
       waterIntake: waterIntake ?? this.waterIntake,
       waterIntakeGlasses: waterIntakeGlasses ?? this.waterIntakeGlasses,
+      dailyMealsCount: dailyMealsCount ?? this.dailyMealsCount,
       medicalConditions: medicalConditions ?? this.medicalConditions,
       otherMedicalCondition: otherMedicalCondition ?? this.otherMedicalCondition,
       preferredWorkouts: preferredWorkouts ?? this.preferredWorkouts,

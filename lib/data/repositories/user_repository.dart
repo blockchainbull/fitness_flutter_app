@@ -277,6 +277,8 @@ class UserRepository {
         wakeupTime: sleepData['wakeup_time'] as String? ?? '',
         sleepIssues: sleepIssues,
         dietaryPreferences: dietaryPreferences,
+        dailyStepGoal: userData['daily_step_goal'] != null ? (userData['daily_step_goal'] as num).toInt() : 10000,
+        dailyMealsCount: userData['daily_meals_count'] != null ? (userData['daily_meals_count'] as num).toInt() : 3,
         waterIntake: userData['water_intake'] != null ? (userData['water_intake'] as num).toDouble() : 2.0,
         waterIntakeGlasses: userData['water_intake_glasses'] != null ? (userData['water_intake_glasses'] as num).toInt() : 8,
         medicalConditions: medicalConditions,

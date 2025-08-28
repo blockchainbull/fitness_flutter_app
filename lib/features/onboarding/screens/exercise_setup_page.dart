@@ -1,5 +1,5 @@
+// lib/features/onboarding/screens/exercise_setup_page.dart
 import 'package:flutter/material.dart';
-
 
 class CurrentExerciseSetupPage extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -20,6 +20,8 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
   List<String> _availableEquipment = [];
   String _fitnessLevel = 'Beginner';
   bool _hasTrainer = false;
+  int _dailyStepGoal = 10000;
+  final TextEditingController _stepGoalController = TextEditingController();
 
   final List<Map<String, dynamic>> _locationOptions = [
     {
@@ -69,6 +71,14 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
     'Advanced',
   ];
 
+  final List<int> _presetStepGoals = [
+    5000,
+    7500,
+    10000,
+    12500,
+    15000,
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -78,6 +88,30 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
     }
     _fitnessLevel = widget.formData['fitnessLevel'] ?? 'Beginner';
     _hasTrainer = widget.formData['hasTrainer'] ?? false;
+    _dailyStepGoal = widget.formData['dailyStepGoal'] ?? 10000;
+    _stepGoalController.text = _dailyStepGoal.toString();
+  }
+
+  @override
+  void dispose() {
+    _stepGoalController.dispose();
+    super.dispose();
+  }
+
+  String _getStepGoalDescription(int steps) {
+    if (steps < 5000) return 'Light activity';
+    if (steps < 7500) return 'Somewhat active';
+    if (steps < 10000) return 'Active';
+    if (steps < 12500) return 'Very active';
+    return 'Highly active';
+  }
+
+  Color _getStepGoalColor(int steps) {
+    if (steps < 5000) return Colors.orange;
+    if (steps < 7500) return Colors.amber;
+    if (steps < 10000) return Colors.lightGreen;
+    if (steps < 12500) return Colors.green;
+    return Colors.blue;
   }
 
   @override
@@ -88,7 +122,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Your Current Exercise Setup',
+            'Your current Exercise & Activity Setup',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -96,10 +130,191 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Tell us about where and how you currently exercise.',
+            'Tell us about your exercise routine and daily activity goals.',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Daily Step Goal Section
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  _getStepGoalColor(_dailyStepGoal).withOpacity(0.1),
+                  _getStepGoalColor(_dailyStepGoal).withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _getStepGoalColor(_dailyStepGoal).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.directions_walk,
+                      color: _getStepGoalColor(_dailyStepGoal),
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Daily Step Goal',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                
+                // Display current goal
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        _dailyStepGoal.toString(),
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: _getStepGoalColor(_dailyStepGoal),
+                        ),
+                      ),
+                      Text(
+                        'steps per day',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getStepGoalColor(_dailyStepGoal).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getStepGoalDescription(_dailyStepGoal),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _getStepGoalColor(_dailyStepGoal),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Preset goals
+                const Text(
+                  'Quick select:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: _presetStepGoals.map((goal) {
+                    final isSelected = _dailyStepGoal == goal;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _dailyStepGoal = goal;
+                          _stepGoalController.text = goal.toString();
+                        });
+                        widget.onDataChanged('dailyStepGoal', goal);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected 
+                              ? _getStepGoalColor(goal)
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${(goal / 1000).toStringAsFixed(goal % 1000 == 0 ? 0 : 1)}k',
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                
+                // Custom input
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _stepGoalController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Custom goal',
+                          hintText: 'Enter your step goal',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          prefixIcon: const Icon(Icons.edit),
+                        ),
+                        onChanged: (value) {
+                          final goal = int.tryParse(value);
+                          if (goal != null && goal > 0) {
+                            setState(() {
+                              _dailyStepGoal = goal;
+                            });
+                            widget.onDataChanged('dailyStepGoal', goal);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                
+                // Info box
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'The WHO recommends at least 10,000 steps per day for general health. Adjust based on your fitness level and goals.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
