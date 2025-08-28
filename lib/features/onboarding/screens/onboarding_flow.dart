@@ -240,8 +240,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         );
       },
     );
-    
+
     try {
+      // FIX 1: For maintain weight, set target weight to current weight
+      if (_formData['weightGoal'] == 'maintain_weight' || 
+          _formData['weightGoal'] == 'Maintain Weight') {
+        _formData['targetWeight'] = _formData['weight'];
+      }
+    
       // Convert form data to unified onboarding format
       final onboardingData = {
         'basicInfo': {
