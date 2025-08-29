@@ -494,32 +494,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 
-  // Optional: Add a visual indicator for incomplete fields
-  Widget _buildValidationIndicator() {
-    bool isPageValid = _validateCurrentPage();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      color: isPageValid ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-      child: Row(
-        children: [
-          Icon(
-            isPageValid ? Icons.check_circle : Icons.info,
-            color: isPageValid ? Colors.green : Colors.orange,
-            size: 16,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            isPageValid ? 'All required fields completed' : 'Please complete all required fields',
-            style: TextStyle(
-              color: isPageValid ? Colors.green : Colors.orange,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCurrentPage() {
     // Determine the actual page index considering female-only period cycle page
     int actualPageIndex = _currentPage;
