@@ -1,5 +1,5 @@
+// lib/features/onboarding/screens/workout_preferences_page.dart
 import 'package:flutter/material.dart';
-
 
 class WorkoutPreferencesPage extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -19,54 +19,27 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
   List<String> _selectedWorkouts = [];
   int _workoutFrequency = 3;
   int _workoutDuration = 30;
+  bool _showValidationErrors = false;
 
-  final List<Map<String, dynamic>> _workoutOptions = [
-    {
-      'title': 'Cardio',
-      'description': 'Running, cycling, swimming, etc.',
-      'icon': Icons.directions_run,
-    },
-    {
-      'title': 'Strength Training',
-      'description': 'Weightlifting, resistance training',
-      'icon': Icons.fitness_center,
-    },
-    {
-      'title': 'HIIT',
-      'description': 'High-intensity interval training',
-      'icon': Icons.timer,
-    },
-    {
-      'title': 'Yoga',
-      'description': 'Flexibility, balance, and mindfulness',
-      'icon': Icons.self_improvement,
-    },
-    {
-      'title': 'Pilates',
-      'description': 'Core strength and stability',
-      'icon': Icons.accessibility_new,
-    },
-    {
-      'title': 'Sports',
-      'description': 'Basketball, tennis, soccer, etc.',
-      'icon': Icons.sports_basketball,
-    },
-    {
-      'title': 'Walking',
-      'description': 'Low-impact aerobic exercise',
-      'icon': Icons.directions_walk,
-    },
-    {
-      'title': 'Dancing',
-      'description': 'Fun, rhythmic movement',
-      'icon': Icons.music_note,
-    },
-    {
-      'title': 'Crossfit',
-      'description': 'High-intensity functional training',
-      'icon': Icons.flash_on,
-    },
+  final List<Map<String, dynamic>> _workoutTypes = [
+    {'name': 'Running', 'icon': Icons.directions_run, 'color': Colors.orange},
+    {'name': 'Walking', 'icon': Icons.directions_walk, 'color': Colors.green},
+    {'name': 'Cycling', 'icon': Icons.directions_bike, 'color': Colors.blue},
+    {'name': 'Swimming', 'icon': Icons.pool, 'color': Colors.cyan},
+    {'name': 'Gym/Weights', 'icon': Icons.fitness_center, 'color': Colors.red},
+    {'name': 'Yoga', 'icon': Icons.self_improvement, 'color': Colors.purple},
+    {'name': 'Pilates', 'icon': Icons.accessibility_new, 'color': Colors.pink},
+    {'name': 'Dancing', 'icon': Icons.music_note, 'color': Colors.deepPurple},
+    {'name': 'Martial Arts', 'icon': Icons.sports_martial_arts, 'color': Colors.brown},
+    {'name': 'Team Sports', 'icon': Icons.sports_basketball, 'color': Colors.indigo},
+    {'name': 'HIIT', 'icon': Icons.timer, 'color': Colors.deepOrange},
+    {'name': 'CrossFit', 'icon': Icons.sports, 'color': Colors.teal},
+    {'name': 'Home Workouts', 'icon': Icons.home, 'color': Colors.amber},
+    {'name': 'Other', 'icon': Icons.more_horiz, 'color': Colors.grey},
   ];
+
+  final List<int> _frequencyOptions = [1, 2, 3, 4, 5, 6, 7];
+  final List<int> _durationOptions = [15, 30, 45, 60, 90, 120];
 
   @override
   void initState() {
@@ -76,6 +49,40 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
     }
     _workoutFrequency = widget.formData['workoutFrequency'] ?? 3;
     _workoutDuration = widget.formData['workoutDuration'] ?? 30;
+  }
+
+  bool _isFieldValid(String fieldName) {
+    if (!_showValidationErrors) return true;
+    
+    switch (fieldName) {
+      case 'workouts':
+        return _selectedWorkouts.isNotEmpty;
+      case 'frequency':
+        return _workoutFrequency > 0 && _workoutFrequency <= 7;
+      case 'duration':
+        return _workoutDuration >= 15 && _workoutDuration <= 120;
+      default:
+        return true;
+    }
+  }
+
+  String _getFrequencyMessage() {
+    if (_workoutFrequency <= 2) {
+      return 'Good start! Consistency is key.';
+    } else if (_workoutFrequency <= 4) {
+      return 'Great balance! This is optimal for most people.';
+    } else if (_workoutFrequency <= 6) {
+      return 'Very active! Make sure to include rest days.';
+    } else {
+      return 'Highly active! Consider recovery time.';
+    }
+  }
+
+  Color _getFrequencyColor() {
+    if (_workoutFrequency <= 2) return Colors.orange;
+    if (_workoutFrequency <= 4) return Colors.green;
+    if (_workoutFrequency <= 6) return Colors.blue;
+    return Colors.purple;
   }
 
   @override
@@ -94,7 +101,7 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Tell us what types of workouts you enjoy.',
+            'Tell us about your exercise routine to personalize your fitness plan.',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey,
@@ -102,13 +109,21 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
           ),
           const SizedBox(height: 24),
           
-          // Workout type selection
-          const Text(
-            'What types of workouts do you prefer?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          // Workout Types Selection
+          Row(
+            children: const [
+              Text(
+                'What types of exercise do you enjoy?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           const Text(
@@ -118,67 +133,91 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
               color: Colors.grey,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          
+          if (!_isFieldValid('workouts') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select at least one workout type',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 1.5,
+              crossAxisCount: 3,
+              childAspectRatio: 1.0,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
-            itemCount: _workoutOptions.length,
+            itemCount: _workoutTypes.length,
             itemBuilder: (context, index) {
-              final workout = _workoutOptions[index];
-              final isSelected = _selectedWorkouts.contains(workout['title']);
+              final workout = _workoutTypes[index];
+              final isSelected = _selectedWorkouts.contains(workout['name']);
               
               return GestureDetector(
                 onTap: () {
                   setState(() {
                     if (isSelected) {
-                      _selectedWorkouts.remove(workout['title']);
+                      _selectedWorkouts.remove(workout['name']);
                     } else {
-                      _selectedWorkouts.add(workout['title']);
+                      _selectedWorkouts.add(workout['name'] as String);
                     }
+                    _showValidationErrors = false;
                   });
                   widget.onDataChanged('preferredWorkouts', _selectedWorkouts);
                 },
                 child: Container(
-                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.blue.withOpacity(0.2) : Colors.grey[100],
+                    color: isSelected 
+                        ? (workout['color'] as Color).withOpacity(0.1)
+                        : Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
-                    border: isSelected
-                        ? Border.all(color: Colors.blue, width: 2)
-                        : null,
+                    border: Border.all(
+                      color: isSelected 
+                          ? workout['color'] as Color
+                          : (!_isFieldValid('workouts') && _showValidationErrors
+                              ? Colors.red[300]!
+                              : Colors.grey[300]!),
+                      width: isSelected ? 2 : 1,
+                    ),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        workout['icon'],
-                        color: isSelected ? Colors.blue : Colors.grey[700],
-                        size: 28,
+                        workout['icon'] as IconData,
+                        size: 32,
+                        color: isSelected 
+                            ? workout['color'] as Color
+                            : Colors.grey,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        workout['title'],
+                        workout['name'] as String,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.blue : Colors.black,
-                        ),
-                      ),
-                      Text(
-                        workout['description'],
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isSelected ? Colors.blue[700] : Colors.grey[600],
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected 
+                              ? workout['color'] as Color
+                              : Colors.black87,
                         ),
                         textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -186,102 +225,370 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
               );
             },
           ),
-          const SizedBox(height: 24),
           
-          // Workout frequency
-          const Text(
-            'How many days per week do you want to work out?',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(7, (index) {
-              final days = index + 1;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _workoutFrequency = days;
-                  });
-                  widget.onDataChanged('workoutFrequency', days);
-                },
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _workoutFrequency == days ? Colors.blue : Colors.grey[100],
-                  ),
-                  child: Center(
+          // Selected workouts summary
+          if (_selectedWorkouts.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green[700], size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: Text(
-                      '$days',
+                      '${_selectedWorkouts.length} workout type${_selectedWorkouts.length > 1 ? 's' : ''} selected',
                       style: TextStyle(
-                        color: _workoutFrequency == days ? Colors.white : Colors.black,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: Colors.green[700],
                       ),
                     ),
                   ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 8),
-          const Center(
-            child: Text(
-              'days per week',
-              style: TextStyle(
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          
-          // Workout duration
-          const Text(
-            'How long do you prefer your workouts to be?',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Column(
-            children: [
-              Text(
-                '$_workoutDuration minutes',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-              Slider(
-                value: _workoutDuration.toDouble(),
-                min: 15,
-                max: 90,
-                divisions: 15,
-                label: '$_workoutDuration min',
-                onChanged: (value) {
-                  setState(() {
-                    _workoutDuration = value.toInt();
-                  });
-                  widget.onDataChanged('workoutDuration', value.toInt());
-                },
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text('15 min', style: TextStyle(color: Colors.grey)),
-                  Text('90 min', style: TextStyle(color: Colors.grey)),
                 ],
               ),
+            ),
+          
+          const SizedBox(height: 24),
+          
+          // Workout Frequency
+          Row(
+            children: const [
+              Text(
+                'How often do you want to workout?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
             ],
+          ),
+          const SizedBox(height: 16),
+          
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _getFrequencyColor().withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: !_isFieldValid('frequency') && _showValidationErrors
+                    ? Colors.red
+                    : _getFrequencyColor().withOpacity(0.3),
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 24,
+                      color: _getFrequencyColor(),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '$_workoutFrequency',
+                      style: TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: _getFrequencyColor(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'days/week',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: _getFrequencyColor(),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: _frequencyOptions.map((freq) {
+                    final isSelected = _workoutFrequency == freq;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _workoutFrequency = freq;
+                          _showValidationErrors = false;
+                        });
+                        widget.onDataChanged('workoutFrequency', freq);
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isSelected 
+                              ? _getFrequencyColor()
+                              : Colors.grey[200],
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$freq',
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black87,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: _getFrequencyColor(),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _getFrequencyMessage(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _getFrequencyColor(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Workout Duration
+          Row(
+            children: const [
+              Text(
+                'How long are your typical workouts?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          if (!_isFieldValid('duration') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select workout duration',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: _durationOptions.map((duration) {
+              final isSelected = _workoutDuration == duration;
+              final hours = duration >= 60 ? duration ~/ 60 : 0;
+              final minutes = duration % 60;
+              String displayText = '';
+              
+              if (hours > 0 && minutes > 0) {
+                displayText = '${hours}h ${minutes}m';
+              } else if (hours > 0) {
+                displayText = '${hours} hour${hours > 1 ? 's' : ''}';
+              } else {
+                displayText = '$minutes min';
+              }
+              
+              Color durationColor = Colors.blue;
+              if (duration <= 30) durationColor = Colors.orange;
+              else if (duration <= 60) durationColor = Colors.green;
+              else durationColor = Colors.purple;
+              
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _workoutDuration = duration;
+                    _showValidationErrors = false;
+                  });
+                  widget.onDataChanged('workoutDuration', duration);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? durationColor.withOpacity(0.1)
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected 
+                          ? durationColor
+                          : (!_isFieldValid('duration') && _showValidationErrors
+                              ? Colors.red[300]!
+                              : Colors.grey[300]!),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.timer,
+                        size: 16,
+                        color: isSelected ? durationColor : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        displayText,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? durationColor : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Summary Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue[50]!, Colors.purple[50]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Your Workout Plan Summary',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (_selectedWorkouts.isNotEmpty)
+                  _buildSummaryRow(
+                    Icons.fitness_center,
+                    'Activities',
+                    _selectedWorkouts.length <= 3 
+                        ? _selectedWorkouts.join(', ')
+                        : '${_selectedWorkouts.take(2).join(', ')} + ${_selectedWorkouts.length - 2} more',
+                    Colors.purple,
+                  ),
+                if (_workoutFrequency > 0)
+                  _buildSummaryRow(
+                    Icons.calendar_today,
+                    'Frequency',
+                    '$_workoutFrequency days per week',
+                    Colors.green,
+                  ),
+                if (_workoutDuration > 0)
+                  _buildSummaryRow(
+                    Icons.timer,
+                    'Duration',
+                    '$_workoutDuration minutes per session',
+                    Colors.orange,
+                  ),
+                if (_workoutFrequency > 0 && _workoutDuration > 0)
+                  _buildSummaryRow(
+                    Icons.schedule,
+                    'Weekly Total',
+                    '${(_workoutFrequency * _workoutDuration)} minutes',
+                    Colors.blue,
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+  
+  Widget _buildSummaryRow(IconData icon, String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[600],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void validateFields() {
+    setState(() {
+      _showValidationErrors = true;
+    });
   }
 }

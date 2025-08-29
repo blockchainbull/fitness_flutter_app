@@ -17,149 +17,90 @@ class WeightGoalPage extends StatefulWidget {
 
 class _WeightGoalPageState extends State<WeightGoalPage> {
   String _selectedWeightGoal = '';
-  String _selectedTimeline = '';
   final _targetWeightController = TextEditingController();
-  double _currentWeight = 0;
+  String _selectedTimeline = '';
   String? _weightError;
+  late double _currentWeight;
+  bool _showValidationErrors = false;
 
   final List<Map<String, dynamic>> _weightGoals = [
     {
+      'id': 'lose_weight',
       'title': 'Lose Weight',
-      'description': 'Burn fat and reduce overall weight',
+      'description': 'Reduce body weight',
       'icon': Icons.trending_down,
+      'color': Colors.red,
     },
     {
+      'id': 'maintain_weight',
       'title': 'Maintain Weight',
-      'description': 'Stay at your current weight',
-      'icon': Icons.compare_arrows,
+      'description': 'Keep current weight',
+      'icon': Icons.horizontal_rule,
+      'color': Colors.blue,
     },
     {
+      'id': 'gain_weight',
       'title': 'Gain Weight',
-      'description': 'Add healthy weight to your frame',
+      'description': 'Increase body weight',
       'icon': Icons.trending_up,
+      'color': Colors.green,
     },
   ];
 
-  // UPDATED: Changed from months to weeks
-  final List<Map<String, dynamic>> _timelines = [
-    {
-      'title': 'Gradual',
-      'description': '16-24 weeks',
-      'value': '20_weeks', // Backend value
-      'weeks': 20, // Average weeks
-    },
-    {
-      'title': 'Moderate', 
-      'description': '8-16 weeks',
-      'value': '12_weeks', // Backend value
-      'weeks': 12, // Average weeks
-    },
-    {
-      'title': 'Ambitious',
-      'description': '4-8 weeks',
-      'value': '6_weeks', // Backend value
-      'weeks': 6, // Average weeks
-    },
+  final List<Map<String, String>> _timelines = [
+    {'id': '4_weeks', 'title': '4 weeks', 'description': 'Quick results'},
+    {'id': '8_weeks', 'title': '8 weeks', 'description': 'Moderate pace'},
+    {'id': '12_weeks', 'title': '12 weeks', 'description': 'Recommended'},
+    {'id': '16_weeks', 'title': '16 weeks', 'description': 'Steady progress'},
+    {'id': '24_weeks', 'title': '6 months', 'description': 'Sustainable'},
   ];
 
   @override
   void initState() {
     super.initState();
+    _currentWeight = widget.formData['weight'] ?? 70.0;
     _selectedWeightGoal = widget.formData['weightGoal'] ?? '';
-    _currentWeight = widget.formData['weight'] ?? 0.0;
     _selectedTimeline = widget.formData['goalTimeline'] ?? '';
     
-    // If target weight is already set, use it
-    if (widget.formData['targetWeight'] != null) {
+    if (widget.formData['targetWeight'] != null && 
+        widget.formData['targetWeight'] != 0.0) {
       _targetWeightController.text = widget.formData['targetWeight'].toString();
-    } else if (_selectedWeightGoal == 'Maintain Weight') {
-      // For maintain weight, set target same as current
-      _targetWeightController.text = _currentWeight.toString();
     }
   }
 
-  @override
-  void dispose() {
-    _targetWeightController.dispose();
-    super.dispose();
+  bool _isFieldValid(String fieldName) {
+    if (!_showValidationErrors) return true;
+    
+    switch (fieldName) {
+      case 'goal':
+        return _selectedWeightGoal.isNotEmpty;
+      case 'target':
+        if (_selectedWeightGoal == 'maintain_weight') return true;
+        return _targetWeightController.text.isNotEmpty && _validateTargetWeight();
+      case 'timeline':
+        return _selectedTimeline.isNotEmpty;
+      default:
+        return true;
+    }
   }
 
-  // Validate the target weight based on the selected goal
-  bool _validateTargetWeight(String value) {
-    if (value.isEmpty) {
-      setState(() {
-        _weightError = 'Please enter a target weight';
-      });
-      return false;
-    }
-
-    double? targetWeight = double.tryParse(value);
-    if (targetWeight == null) {
-      setState(() {
-        _weightError = 'Please enter a valid number';
-      });
-      return false;
-    }
-
-    // Validation based on goal
-    if (_selectedWeightGoal == 'Lose Weight' && targetWeight >= _currentWeight) {
-      setState(() {
-        _weightError = 'Target weight should be less than current weight';
-      });
-      return false;
-    } else if (_selectedWeightGoal == 'Gain Weight' && targetWeight <= _currentWeight) {
-      setState(() {
-        _weightError = 'Target weight should be more than current weight';
-      });
-      return false;
-    }
-
-    setState(() {
-      _weightError = null;
-    });
-    return true;
-  }
-
-  // Calculate recommended timeline based on weight difference
-  String _getRecommendedTimeline() {
-    if (_targetWeightController.text.isEmpty || _selectedWeightGoal.isEmpty) {
-      return '';
-    }
-
+  bool _validateTargetWeight() {
+    if (_selectedWeightGoal == 'maintain_weight') return true;
+    
     double? targetWeight = double.tryParse(_targetWeightController.text);
-    if (targetWeight == null) return '';
-
-    double weightDifference = (_currentWeight - targetWeight).abs();
+    if (targetWeight == null) return false;
     
-    // Safe weight change: 0.5-1 kg per week
-    // Calculate weeks needed
-    int weeksNeeded = (weightDifference / 0.75).round(); // Using 0.75kg/week as average
-    
-    if (weeksNeeded <= 8) {
-      return 'Ambitious (4-8 weeks) - Recommended for ${weightDifference.toStringAsFixed(1)}kg change';
-    } else if (weeksNeeded <= 16) {
-      return 'Moderate (8-16 weeks) - Recommended for ${weightDifference.toStringAsFixed(1)}kg change';
-    } else {
-      return 'Gradual (16-24 weeks) - Recommended for ${weightDifference.toStringAsFixed(1)}kg change';
+    if (_selectedWeightGoal == 'lose_weight') {
+      return targetWeight < _currentWeight && targetWeight > _currentWeight * 0.5;
+    } else if (_selectedWeightGoal == 'gain_weight') {
+      return targetWeight > _currentWeight && targetWeight < _currentWeight * 1.5;
     }
+    
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Calculate weight difference for display
-    double targetWeight = double.tryParse(_targetWeightController.text) ?? 0;
-    double weightDifference = (targetWeight - _currentWeight).abs();
-    bool shouldShowWeightDifference = 
-        _selectedWeightGoal.isNotEmpty && 
-        _selectedWeightGoal != 'Maintain Weight' &&
-        _targetWeightController.text.isNotEmpty &&
-        _weightError == null;
-    
-    String actionText = _selectedWeightGoal == 'Lose Weight' ? 'Lose' : 'Gain';
-    Color buttonColor = _selectedWeightGoal == 'Lose Weight' 
-        ? Colors.red 
-        : (_selectedWeightGoal == 'Gain Weight' ? Colors.green : Colors.blue);
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -173,73 +114,114 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Current weight: ${_currentWeight.toStringAsFixed(1)} kg',
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
+          Row(
+            children: [
+              Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Your current weight: ${_currentWeight.toStringAsFixed(1)} kg',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
-
-          // Weight goal selection
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _weightGoals.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final goal = _weightGoals[index];
-              final isSelected = _selectedWeightGoal == goal['title'];
-
-              return GestureDetector(
+          
+          // Weight Goal Selection with validation
+          Row(
+            children: const [
+              Text(
+                'Select your goal',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          if (!_isFieldValid('goal') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select a weight goal',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          
+          ...List.generate(_weightGoals.length, (index) {
+            final goal = _weightGoals[index];
+            final isSelected = _selectedWeightGoal == goal['id'];
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GestureDetector(
                 onTap: () {
                   setState(() {
-                    _selectedWeightGoal = goal['title'];
+                    _selectedWeightGoal = goal['id'];
+                    _showValidationErrors = false;
                     
-                    // Set target weight to current if maintaining
-                    if (goal['title'] == 'Maintain Weight') {
+                    // Auto-set target weight for maintain
+                    if (goal['id'] == 'maintain_weight') {
                       _targetWeightController.text = _currentWeight.toString();
+                      widget.onDataChanged('targetWeight', _currentWeight);
+                    } else {
+                      _targetWeightController.clear();
+                      widget.onDataChanged('targetWeight', 0.0);
                     }
                   });
-
-                  // Save to form data with correct key format
-                  String weightGoalKey = '';
-                  switch (goal['title']) {
-                    case 'Lose Weight':
-                      weightGoalKey = 'lose_weight';
-                      break;
-                    case 'Gain Weight':
-                      weightGoalKey = 'gain_weight';
-                      break;
-                    case 'Maintain Weight':
-                      weightGoalKey = 'maintain_weight';
-                      break;
-                  }
-                  
-                  // Save to form data
-                  widget.onDataChanged('weightGoal', weightGoalKey);
-                  
-                  // Validate if target weight is already entered
-                  if (_targetWeightController.text.isNotEmpty) {
-                    _validateTargetWeight(_targetWeightController.text);
-                  }
+                  widget.onDataChanged('weightGoal', goal['id']);
                 },
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
+                    color: isSelected 
+                        ? (goal['color'] as Color).withOpacity(0.1)
+                        : Colors.grey[50],
                     borderRadius: BorderRadius.circular(12),
-                    border: isSelected
-                        ? Border.all(color: Colors.blue, width: 2)
-                        : Border.all(color: Colors.grey[300]!),
+                    border: Border.all(
+                      color: isSelected 
+                          ? goal['color'] as Color
+                          : (!_isFieldValid('goal') && _showValidationErrors 
+                              ? Colors.red[300]! 
+                              : Colors.grey[300]!),
+                      width: isSelected ? 2 : 1,
+                    ),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        goal['icon'],
-                        size: 30,
-                        color: isSelected ? Colors.blue : Colors.grey[600],
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (goal['color'] as Color).withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          goal['icon'] as IconData,
+                          color: goal['color'] as Color,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -251,212 +233,280 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.blue : Colors.black87,
+                                color: isSelected ? goal['color'] as Color : Colors.black,
                               ),
                             ),
-                            const SizedBox(height: 4),
                             Text(
                               goal['description'],
                               style: TextStyle(
                                 fontSize: 14,
-                                color: isSelected ? Colors.blue[700] : Colors.grey[600],
+                                color: Colors.grey[600],
                               ),
                             ),
                           ],
                         ),
                       ),
+                      if (isSelected)
+                        Icon(
+                          Icons.check_circle,
+                          color: goal['color'] as Color,
+                          size: 24,
+                        ),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }),
           
-          // Target weight input (show only if a weight goal is selected)
-          if (_selectedWeightGoal.isNotEmpty && _selectedWeightGoal != 'Maintain Weight')
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 32),
-                const Text(
-                  'What\'s your target weight?',
+          // Target Weight Input (show only if not maintaining)
+          if (_selectedWeightGoal.isNotEmpty && _selectedWeightGoal != 'maintain_weight') ...[
+            const SizedBox(height: 24),
+            Row(
+              children: const [
+                Text(
+                  'Target Weight (kg)',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _targetWeightController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: 'Target weight (kg)',
-                    hintText: 'Enter your target weight',
-                    suffixText: 'kg',
-                    errorText: _weightError,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    if (_validateTargetWeight(value)) {
-                      widget.onDataChanged('targetWeight', double.tryParse(value) ?? 0);
-                    }
-                  },
+                Text(
+                  ' *',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
-          
-          // Weight difference display
-          if (shouldShowWeightDifference)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _targetWeightController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                hintText: _selectedWeightGoal == 'lose_weight' 
+                    ? 'Enter weight less than ${_currentWeight.toStringAsFixed(1)} kg'
+                    : 'Enter weight more than ${_currentWeight.toStringAsFixed(1)} kg',
+                prefixIcon: const Icon(Icons.fitness_center),
+                suffixText: 'kg',
+                border: const OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: (!_isFieldValid('target') && _showValidationErrors)
+                        ? Colors.red[300]!
+                        : Colors.grey[300]!,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: (!_isFieldValid('target') && _showValidationErrors)
+                        ? Colors.red
+                        : Colors.blue,
+                    width: 2,
+                  ),
+                ),
+                errorText: (!_isFieldValid('target') && _showValidationErrors)
+                    ? _getTargetWeightError()
+                    : null,
+              ),
+              onChanged: (value) {
+                double? target = double.tryParse(value);
+                widget.onDataChanged('targetWeight', target ?? 0.0);
+                if (_showValidationErrors) {
+                  setState(() {});
+                }
+              },
+            ),
+            
+            // Weight difference indicator
+            if (_targetWeightController.text.isNotEmpty && _validateTargetWeight())
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: buttonColor.withOpacity(0.1),
+                  color: Colors.blue[50],
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: buttonColor, width: 1),
                 ),
-                child: Text(
-                  '$actionText ${weightDifference.toStringAsFixed(1)} kg',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: buttonColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-          
-          // Show recommended timeline
-          if (shouldShowWeightDifference)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _getRecommendedTimeline(),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.green[700],
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          
-          // Timeline selection (only show if a valid weight goal is set)
-          if (_selectedWeightGoal.isNotEmpty && (_selectedWeightGoal != 'Maintain Weight' ? _weightError == null && _targetWeightController.text.isNotEmpty : true))
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 32),
-                const Text(
-                  'How quickly do you want to reach your goal?',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Choose a realistic timeline. Healthy weight change is 0.5-1 kg per week.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Timeline options
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _timelines.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final timeline = _timelines[index];
-                    final isSelected = _selectedTimeline == timeline['value'];
-                    
-                    // Calculate weekly rate for this timeline
-                    double weeklyRate = weightDifference / timeline['weeks'];
-                    bool isSafe = weeklyRate <= 1.0; // Max 1kg per week is safe
-                    
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedTimeline = timeline['value'];
-                        });
-                        widget.onDataChanged('goalTimeline', timeline['value']);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.blue.withOpacity(0.2) : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          border: isSelected
-                              ? Border.all(color: Colors.blue, width: 2)
-                              : Border.all(color: Colors.grey[300]!),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  timeline['title'],
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected ? Colors.blue : Colors.black87,
-                                  ),
-                                ),
-                                if (!isSafe && _selectedWeightGoal == 'Lose Weight')
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      'Aggressive',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.orange,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              timeline['description'],
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isSelected ? Colors.blue[700] : Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Rate: ${weeklyRate.toStringAsFixed(2)} kg/week',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isSafe ? Colors.green : Colors.orange,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _getWeightChangeMessage(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[700],
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          
+          // Timeline Selection
+          if (_selectedWeightGoal.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: const [
+                Text(
+                  'Timeline',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  ' *',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Choose a realistic timeline for your goal',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            if (!_isFieldValid('timeline') && _showValidationErrors)
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.warning, size: 16, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text(
+                      'Please select a timeline',
+                      style: TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _timelines.map((timeline) {
+                final isSelected = _selectedTimeline == timeline['id'];
+                final isRecommended = timeline['id'] == '12_weeks';
+                
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedTimeline = timeline['id']!;
+                      _showValidationErrors = false;
+                    });
+                    widget.onDataChanged('goalTimeline', timeline['id']);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected 
+                          ? Colors.blue.withOpacity(0.1)
+                          : Colors.grey[50],
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected 
+                            ? Colors.blue
+                            : (!_isFieldValid('timeline') && _showValidationErrors
+                                ? Colors.red[300]!
+                                : Colors.grey[300]!),
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              timeline['title']!,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.blue : Colors.black,
+                              ),
+                            ),
+                            if (isRecommended) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'RECOMMENDED',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          timeline['description']!,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  String _getTargetWeightError() {
+    if (_targetWeightController.text.isEmpty) {
+      return 'Target weight is required';
+    }
+    
+    double? target = double.tryParse(_targetWeightController.text);
+    if (target == null) {
+      return 'Please enter a valid number';
+    }
+    
+    if (_selectedWeightGoal == 'lose_weight' && target >= _currentWeight) {
+      return 'Target must be less than current weight';
+    } else if (_selectedWeightGoal == 'gain_weight' && target <= _currentWeight) {
+      return 'Target must be more than current weight';
+    } else if ((target - _currentWeight).abs() / _currentWeight > 0.5) {
+      return 'Please set a more realistic target (less than 50% change)';
+    }
+    
+    return '';
+  }
+
+  String _getWeightChangeMessage() {
+    double target = double.tryParse(_targetWeightController.text) ?? _currentWeight;
+    double difference = (target - _currentWeight).abs();
+    String action = _selectedWeightGoal == 'lose_weight' ? 'lose' : 'gain';
+    
+    return 'You want to $action ${difference.toStringAsFixed(1)} kg. '
+           'Healthy rate is 0.5-1 kg per week.';
+  }
+  
+  void validateFields() {
+    setState(() {
+      _showValidationErrors = true;
+    });
   }
 }

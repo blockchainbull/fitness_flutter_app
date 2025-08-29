@@ -1,3 +1,4 @@
+// lib/features/onboarding/screens/basic_info_page.dart
 import 'package:flutter/material.dart';
 
 class BasicInfoPage extends StatefulWidget {
@@ -34,12 +35,15 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
   double _bmr = 0.0;
   double _tdee = 0.0;
 
+  // Validation
+  bool _showValidationErrors = false;
+
   final List<String> _activityLevels = [
-    'Sedentary (little or no exercise)',
-    'Lightly active (light exercise 1-3 days/week)',
-    'Moderately active (moderate exercise 3-5 days/week)',
-    'Very active (hard exercise 6-7 days/week)',
-    'Extra active (very hard exercise & physical job)'
+    'Sedentary',
+    'Lightly active',
+    'Moderately active',
+    'Very active',
+    'Extra active'
   ];
 
   @override
@@ -81,6 +85,47 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
     super.dispose();
   }
 
+  // Validation helpers
+  bool _isFieldValid(String fieldName) {
+    if (!_showValidationErrors) return true;
+    
+    switch (fieldName) {
+      case 'name':
+        return _nameController.text.trim().isNotEmpty;
+      case 'email':
+        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+        return _emailController.text.trim().isNotEmpty && 
+               emailRegex.hasMatch(_emailController.text);
+      case 'password':
+        return _passwordController.text.length >= 6;
+      case 'confirmPassword':
+        return _confirmPasswordController.text == _passwordController.text && 
+               _passwordController.text.length >= 6;
+      case 'gender':
+        return _selectedGender.isNotEmpty;
+      case 'age':
+        int? age = int.tryParse(_ageController.text);
+        return age != null && age >= 13 && age <= 120;
+      case 'height':
+        double? height = double.tryParse(_heightController.text);
+        return height != null && height >= 100 && height <= 250;
+      case 'weight':
+        double? weight = double.tryParse(_weightController.text);
+        return weight != null && weight >= 30 && weight <= 300;
+      case 'activityLevel':
+        return _selectedActivityLevel.isNotEmpty;
+      default:
+        return true;
+    }
+  }
+
+  Widget _buildRequiredIndicator() {
+    return const Text(
+      ' *',
+      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+    );
+  }
+
   // Validate password
   String? _validatePassword(String password) {
     if (password.length < 6) {
@@ -94,67 +139,70 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
     return _passwordController.text == _confirmPasswordController.text;
   }
 
-  // Calculate BMI, BMR, and TDEE based on user inputs
-  void _calculateHealthMetrics() {
-    _updateLocalMetrics();
-    
-    // Only after updating local metrics, update form data
-    widget.onDataChanged('bmi', _bmi);
-    widget.onDataChanged('bmr', _bmr);
-    widget.onDataChanged('tdee', _tdee);
-  }
-  
-  // Update local metric values without calling widget.onDataChanged
   void _updateLocalMetrics() {
-    double? height = double.tryParse(_heightController.text);
-    double? weight = double.tryParse(_weightController.text);
-    int? age = int.tryParse(_ageController.text);
-    String gender = _selectedGender;
-
-    // Calculate BMI if height and weight are available
-    if (height != null && weight != null && height > 0) {
-      // BMI = weight(kg) / (height(m))²
-      double heightInMeters = height / 100; // Convert cm to m
-      _bmi = weight / (heightInMeters * heightInMeters);
-    } else {
-      _bmi = 0.0;
+    if (widget.formData['bmi'] != null) {
+      _bmi = widget.formData['bmi'] as double;
     }
+    if (widget.formData['bmr'] != null) {
+      _bmr = widget.formData['bmr'] as double;
+    }
+    if (widget.formData['tdee'] != null) {
+      _tdee = widget.formData['tdee'] as double;
+    }
+  }
 
-    // Calculate BMR if all required data is available
-    if (height != null && weight != null && age != null && gender.isNotEmpty) {
-      // Mifflin-St Jeor Equation for BMR - rounded to match expected values
+  void _calculateHealthMetrics() {
+    final height = double.tryParse(_heightController.text) ?? 0;
+    final weight = double.tryParse(_weightController.text) ?? 0;
+    final age = int.tryParse(_ageController.text) ?? 0;
+    final gender = _selectedGender;
+    final activityLevel = _selectedActivityLevel;
+
+    if (height > 0 && weight > 0 && age > 0 && gender.isNotEmpty) {
+      // Calculate BMI
+      final heightInMeters = height / 100;
+      setState(() {
+        _bmi = weight / (heightInMeters * heightInMeters);
+      });
+      widget.onDataChanged('bmi', _bmi);
+
+      // Calculate BMR
+      double bmr;
       if (gender == 'Male') {
-        _bmr = (10 * weight + 6.25 * height - 5 * age + 5).roundToDouble();
-      } else if (gender == 'Female') {
-        _bmr = (10 * weight + 6.25 * height - 5 * age - 161).roundToDouble();
-      }
-    } else {
-      _bmr = 0.0;
-    }
-
-    // Calculate TDEE if BMR and activity level are available
-    if (_bmr > 0 && _selectedActivityLevel.isNotEmpty) {
-      double activityMultiplier;
-      
-      // Assign activity multiplier based on selected level
-      if (_selectedActivityLevel.contains('Sedentary')) {
-        activityMultiplier = 1.2;
-      } else if (_selectedActivityLevel.contains('Lightly active')) {
-        activityMultiplier = 1.375;
-      } else if (_selectedActivityLevel.contains('Moderately active')) {
-        activityMultiplier = 1.55;
-      } else if (_selectedActivityLevel.contains('Very active')) {
-        activityMultiplier = 1.725;
-      } else if (_selectedActivityLevel.contains('Extra active')) {
-        activityMultiplier = 1.9;
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
       } else {
-        activityMultiplier = 1.2; // Default to sedentary
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
       }
-      
-      // Round to the nearest whole number to match expected values
-      _tdee = (_bmr * activityMultiplier).roundToDouble();
-    } else {
-      _tdee = 0.0;
+      setState(() {
+        _bmr = bmr;
+      });
+      widget.onDataChanged('bmr', _bmr);
+
+      // Calculate TDEE
+      if (activityLevel.isNotEmpty) {
+        double activityMultiplier = 1.2;
+        switch (activityLevel.toLowerCase()) {
+          case 'sedentary':
+            activityMultiplier = 1.2;
+            break;
+          case 'lightly active':
+            activityMultiplier = 1.375;
+            break;
+          case 'moderately active':
+            activityMultiplier = 1.55;
+            break;
+          case 'very active':
+            activityMultiplier = 1.725;
+            break;
+          case 'extra active':
+            activityMultiplier = 1.9;
+            break;
+        }
+        setState(() {
+          _tdee = bmr * activityMultiplier;
+        });
+        widget.onDataChanged('tdee', _tdee);
+      }
     }
   }
 
@@ -163,7 +211,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
     if (_bmi < 18.5) {
       return 'Underweight';
     } else if (_bmi >= 18.5 && _bmi < 25) {
-      return 'Normal';
+      return 'Normal weight';
     } else if (_bmi >= 25 && _bmi < 30) {
       return 'Overweight';
     } else if (_bmi >= 30) {
@@ -204,47 +252,75 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'We need some basic information to personalize your experience.',
+            'Fields marked with * are required',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               color: Colors.grey,
             ),
           ),
           const SizedBox(height: 24),
           
           // Name field
-          const Text('Name', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Text('Name', style: TextStyle(fontWeight: FontWeight.bold)),
+              _buildRequiredIndicator(),
+            ],
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _nameController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Enter your name',
-              prefixIcon: Icon(Icons.person),
+              prefixIcon: const Icon(Icons.person),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: _isFieldValid('name') ? Colors.grey : Colors.red,
+                ),
+              ),
+              errorText: !_isFieldValid('name') ? 'Name is required' : null,
             ),
             onChanged: (value) {
               widget.onDataChanged('name', value);
+              if (_showValidationErrors) setState(() {});
             },
           ),
           const SizedBox(height: 16),
           
           // Email field
-          const Text('Email', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Text('Email', style: TextStyle(fontWeight: FontWeight.bold)),
+              _buildRequiredIndicator(),
+            ],
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _emailController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Enter your email',
-              prefixIcon: Icon(Icons.email),
+              prefixIcon: const Icon(Icons.email),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorText: !_isFieldValid('email') ? 'Valid email is required' : null,
             ),
             keyboardType: TextInputType.emailAddress,
             onChanged: (value) {
               widget.onDataChanged('email', value);
+              if (_showValidationErrors) setState(() {});
             },
           ),
           const SizedBox(height: 16),
           
           // Password field
-          const Text('Password', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Text('Password', style: TextStyle(fontWeight: FontWeight.bold)),
+              _buildRequiredIndicator(),
+            ],
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _passwordController,
@@ -262,19 +338,27 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                   });
                 },
               ),
-              errorText: _passwordController.text.isNotEmpty 
-                  ? _validatePassword(_passwordController.text) 
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorText: !_isFieldValid('password') 
+                  ? 'Password must be at least 6 characters' 
                   : null,
             ),
             onChanged: (value) {
               widget.onDataChanged('password', value);
-              setState(() {}); // Refresh to show/hide validation error
+              if (_showValidationErrors) setState(() {});
             },
           ),
           const SizedBox(height: 16),
           
           // Confirm Password field
-          const Text('Confirm Password', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Text('Confirm Password', style: TextStyle(fontWeight: FontWeight.bold)),
+              _buildRequiredIndicator(),
+            ],
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _confirmPasswordController,
@@ -292,19 +376,44 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                   });
                 },
               ),
-              errorText: _confirmPasswordController.text.isNotEmpty && !_doPasswordsMatch() 
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorText: !_isFieldValid('confirmPassword') 
                   ? 'Passwords do not match' 
                   : null,
             ),
             onChanged: (value) {
-              setState(() {}); // Refresh to show/hide validation error
+              if (_showValidationErrors) setState(() {});
             },
           ),
           const SizedBox(height: 16),
           
           // Gender selection
-          const Text('Gender', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Text('Gender', style: TextStyle(fontWeight: FontWeight.bold)),
+              _buildRequiredIndicator(),
+            ],
+          ),
           const SizedBox(height: 8),
+          if (!_isFieldValid('gender'))
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Please select your gender', style: TextStyle(color: Colors.red, fontSize: 12)),
+                ],
+              ),
+            ),
           Row(
             children: [
               Expanded(
@@ -312,10 +421,9 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                   onTap: () {
                     setState(() {
                       _selectedGender = 'Male';
+                      _showValidationErrors = false;
                     });
                     widget.onDataChanged('gender', 'Male');
-                    
-                    // We need to wait for the next frame before calculating metrics
                     Future.microtask(() => _calculateHealthMetrics());
                   },
                   child: Container(
@@ -323,9 +431,12 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                     decoration: BoxDecoration(
                       color: _selectedGender == 'Male' ? Colors.blue.withOpacity(0.2) : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
-                      border: _selectedGender == 'Male'
-                          ? Border.all(color: Colors.blue, width: 2)
-                          : null,
+                      border: Border.all(
+                        color: _selectedGender == 'Male'
+                            ? Colors.blue
+                            : (!_isFieldValid('gender') ? Colors.red[300]! : Colors.grey[300]!),
+                        width: _selectedGender == 'Male' ? 2 : 1,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -335,54 +446,44 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                           color: _selectedGender == 'Male' ? Colors.blue : Colors.grey,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Male',
-                          style: TextStyle(
-                            color: _selectedGender == 'Male' ? Colors.blue : Colors.black,
-                            fontWeight: _selectedGender == 'Male' ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
+                        const Text('Male'),
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: GestureDetector(
                   onTap: () {
                     setState(() {
                       _selectedGender = 'Female';
+                      _showValidationErrors = false;
                     });
                     widget.onDataChanged('gender', 'Female');
-                    
-                    // We need to wait for the next frame before calculating metrics
                     Future.microtask(() => _calculateHealthMetrics());
                   },
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _selectedGender == 'Female' ? Colors.blue.withOpacity(0.2) : Colors.grey[100],
+                      color: _selectedGender == 'Female' ? Colors.pink.withOpacity(0.2) : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
-                      border: _selectedGender == 'Female'
-                          ? Border.all(color: Colors.blue, width: 2)
-                          : null,
+                      border: Border.all(
+                        color: _selectedGender == 'Female'
+                            ? Colors.pink
+                            : (!_isFieldValid('gender') ? Colors.red[300]! : Colors.grey[300]!),
+                        width: _selectedGender == 'Female' ? 2 : 1,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.female,
-                          color: _selectedGender == 'Female' ? Colors.blue : Colors.grey,
+                          color: _selectedGender == 'Female' ? Colors.pink : Colors.grey,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Female',
-                          style: TextStyle(
-                            color: _selectedGender == 'Female' ? Colors.blue : Colors.black,
-                            fontWeight: _selectedGender == 'Female' ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
+                        const Text('Female'),
                       ],
                     ),
                   ),
@@ -400,21 +501,30 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Age', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        const Text('Age', style: TextStyle(fontWeight: FontWeight.bold)),
+                        _buildRequiredIndicator(),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _ageController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Years',
-                        prefixIcon: Icon(Icons.calendar_today),
+                        prefixIcon: const Icon(Icons.calendar_today),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        errorText: !_isFieldValid('age') ? 'Required' : null,
                       ),
                       keyboardType: TextInputType.number,
                       onChanged: (value) {
                         if (value.isNotEmpty) {
-                          widget.onDataChanged('age', int.parse(value));
-                          // Wait for next frame to calculate metrics
+                          widget.onDataChanged('age', int.tryParse(value));
                           Future.microtask(() => _calculateHealthMetrics());
                         }
+                        if (_showValidationErrors) setState(() {});
                       },
                     ),
                   ],
@@ -426,21 +536,30 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Height (cm)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        const Text('Height', style: TextStyle(fontWeight: FontWeight.bold)),
+                        _buildRequiredIndicator(),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _heightController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'cm',
-                        prefixIcon: Icon(Icons.height),
+                        prefixIcon: const Icon(Icons.height),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        errorText: !_isFieldValid('height') ? 'Required' : null,
                       ),
                       keyboardType: TextInputType.number,
                       onChanged: (value) {
                         if (value.isNotEmpty) {
-                          widget.onDataChanged('height', double.parse(value));
-                          // Wait for next frame to calculate metrics
+                          widget.onDataChanged('height', double.tryParse(value));
                           Future.microtask(() => _calculateHealthMetrics());
                         }
+                        if (_showValidationErrors) setState(() {});
                       },
                     ),
                   ],
@@ -452,21 +571,30 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Weight (kg)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        const Text('Weight', style: TextStyle(fontWeight: FontWeight.bold)),
+                        _buildRequiredIndicator(),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _weightController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'kg',
-                        prefixIcon: Icon(Icons.monitor_weight),
+                        prefixIcon: const Icon(Icons.monitor_weight),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        errorText: !_isFieldValid('weight') ? 'Required' : null,
                       ),
                       keyboardType: TextInputType.number,
                       onChanged: (value) {
                         if (value.isNotEmpty) {
-                          widget.onDataChanged('weight', double.parse(value));
-                          // Wait for next frame to calculate metrics
+                          widget.onDataChanged('weight', double.tryParse(value));
                           Future.microtask(() => _calculateHealthMetrics());
                         }
+                        if (_showValidationErrors) setState(() {});
                       },
                     ),
                   ],
@@ -477,203 +605,176 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
           const SizedBox(height: 16),
           
           // Activity level
-          const Text('Activity Level', style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              const Text('Activity Level', style: TextStyle(fontWeight: FontWeight.bold)),
+              _buildRequiredIndicator(),
+            ],
+          ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          if (!_isFieldValid('activityLevel'))
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
               ),
-              hint: const Text('Select your activity level'),
-              value: _selectedActivityLevel.isNotEmpty ? _selectedActivityLevel : null,
-              items: _activityLevels.map((String level) {
-                return DropdownMenuItem<String>(
-                  value: level,
-                  child: Text(level),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                if (newValue != null) {
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Please select your activity level', style: TextStyle(color: Colors.red, fontSize: 12)),
+                ],
+              ),
+            ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: !_isFieldValid('activityLevel') ? Colors.red[300]! : Colors.grey[300]!,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedActivityLevel.isEmpty ? null : _selectedActivityLevel,
+                hint: const Text('Select your activity level'),
+                isExpanded: true,
+                items: _activityLevels.map((String level) {
+                  return DropdownMenuItem<String>(
+                    value: level,
+                    child: Text(level),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
                   setState(() {
-                    _selectedActivityLevel = newValue;
+                    _selectedActivityLevel = newValue ?? '';
+                    _showValidationErrors = false;
                   });
                   widget.onDataChanged('activityLevel', newValue);
-                  // Wait for next frame to calculate metrics
-                  Future.microtask(() => _calculateHealthMetrics());
-                }
-              },
+                  _calculateHealthMetrics();
+                },
+              ),
             ),
           ),
           
-          // Health Metrics Section
-          if (_bmi > 0 || _bmr > 0 || _tdee > 0) ...[
-            const SizedBox(height: 24),
+          // Health Metrics Display (if calculated)
+          if (_bmi > 0)
             Container(
+              margin: const EdgeInsets.only(top: 24),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color: Colors.blue[50],
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  const Text(
+                    'Your Health Metrics',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Icon(
-                        Icons.assessment,
-                        color: Colors.blue,
+                      Column(
+                        children: [
+                          Text(
+                            'BMI',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _bmi.toStringAsFixed(1),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: _getBmiColor(),
+                            ),
+                          ),
+                          Text(
+                            _getBmiCategory(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: _getBmiColor(),
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Health Metrics',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
+                      Column(
+                        children: [
+                          Text(
+                            'BMR',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_bmr.toStringAsFixed(0)} cal',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Text(
+                            'Daily burn',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          Text(
+                            'TDEE',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_tdee.toStringAsFixed(0)} cal',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Text(
+                            'Total need',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  
-                  // BMI Row
-                  if (_bmi > 0) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'BMI (Body Mass Index)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'A measure of body fat based on height and weight',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              _bmi.toStringAsFixed(1),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: _getBmiColor(),
-                              ),
-                            ),
-                            Text(
-                              _getBmiCategory(),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: _getBmiColor(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 24),
-                  ],
-                  
-                  // BMR Row
-                  if (_bmr > 0) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'BMR (Basal Metabolic Rate)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Calories needed for basic functions at rest',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Text(
-                          '${_bmr.toInt()} calories/day',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 24),
-                  ],
-                  
-                  // TDEE Row
-                  if (_tdee > 0) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'TDEE (Total Daily Energy Expenditure)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Total calories burned daily based on activity level',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Text(
-                          '${_tdee.toInt()} calories/day',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
-          ],
         ],
       ),
     );
+  }
+  
+  void validateFields() {
+    setState(() {
+      _showValidationErrors = true;
+    });
   }
 }

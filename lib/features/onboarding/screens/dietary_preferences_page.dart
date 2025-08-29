@@ -23,6 +23,7 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
   List<String> _medicalConditions = [];
   final _otherMedicalController = TextEditingController();
   int _dailyMealsCount = 3; // NEW: Default to 3 meals
+  bool _showValidationErrors = false;
 
   final List<String> _dietOptions = [
     'No restrictions',
@@ -73,6 +74,21 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
     super.dispose();
   }
 
+  bool _isFieldValid(String fieldName) {
+    if (!_showValidationErrors) return true;
+    
+    switch (fieldName) {
+      case 'meals':
+        return _dailyMealsCount >= 1 && _dailyMealsCount <= 6;
+      case 'dietary':
+        return _selectedDiets.isNotEmpty;
+      case 'medical':
+        return _medicalConditions.isNotEmpty;
+      default:
+        return true;
+    }
+  }
+
   void _updateWaterIntake({double? liters, int? glasses}) {
     setState(() {
       if (liters != null) {
@@ -113,14 +129,43 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
           const SizedBox(height: 24),
           
           // NEW: Daily Meals Count Section
-          const Text(
-            'How many meals do you typically have per day?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: const [
+              Text(
+                'How many meals do you typically have per day?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
+          
+          if (!_isFieldValid('meals') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select your daily meals count',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -204,13 +249,21 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
           ),
           const SizedBox(height: 24),
           
-          // Dietary preferences
-          const Text(
-            'Dietary Preferences',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          // Dietary preferences with validation
+          Row(
+            children: const [
+              Text(
+                'Dietary Preferences',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           const Text(
@@ -221,6 +274,27 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
             ),
           ),
           const SizedBox(height: 12),
+          
+          if (!_isFieldValid('dietary') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select at least one dietary preference or "No restrictions"',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -241,7 +315,9 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
                     } else {
                       _selectedDiets.remove(diet);
                     }
-                  });
+                    _showValidationErrors = false;
+                    }
+                  );
                   widget.onDataChanged('dietaryPreferences', _selectedDiets);
                 },
                 selectedColor: Colors.blue.withOpacity(0.2),
@@ -365,13 +441,21 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
           
           const SizedBox(height: 24),
           
-          // Medical conditions
-          const Text(
-            'Medical Conditions',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          // Medical conditions with validation
+          Row(
+            children: const [
+              Text(
+                'Medical Conditions',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           const Text(
@@ -382,6 +466,27 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
             ),
           ),
           const SizedBox(height: 12),
+          
+          if (!_isFieldValid('medical') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select your medical conditions or "None"',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -443,6 +548,12 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
         ],
       ),
     );
+  }
+
+  void validateFields() {
+    setState(() {
+      _showValidationErrors = true;
+    });
   }
   
   String _getMealCountAdvice() {

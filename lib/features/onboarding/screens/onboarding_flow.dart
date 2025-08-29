@@ -111,15 +111,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   String _getPrimaryGoalFromWeightGoal(String weightGoal) {
-  const goalMapping = {
-    'lose_weight': 'Lose Weight',
-    'gain_weight': 'Gain Weight',
-    'maintain_weight': 'Maintain Weight',  
-  };
-  
-  // Default to 'Improve Fitness' only if no match found
-  return goalMapping[weightGoal]!;
-}
+    const goalMapping = {
+      'lose_weight': 'Lose Weight',
+      'gain_weight': 'Gain Weight',
+      'maintain_weight': 'Maintain Weight',  
+    };
+    
+    // Default to 'Improve Fitness' only if no match found
+    return goalMapping[weightGoal]!;
+  }
 
   void _onDataChanged(String key, dynamic value) {
     setState(() {
@@ -152,6 +152,373 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
   
+  bool _validateCurrentPage() {
+    // Determine the actual page index considering female-only period cycle page
+    int actualPageIndex = _currentPage;
+    bool isFemale = _formData['gender'] == 'Female';
+
+    // Adjust page indices for non-female users (skip period cycle page)
+    if (!isFemale && _currentPage >= 1) {
+      actualPageIndex = _currentPage + 1;
+    }
+
+    switch (actualPageIndex) {
+      case 0: // Basic Info Page
+        return _validateBasicInfo();
+      case 1: // Period Cycle Page (Female only)
+        return _validatePeriodCycle();
+      case 2: // Weight Goal Page
+        return _validateWeightGoal();
+      case 3: // Sleep Info Page
+        return _validateSleepInfo();
+      case 4: // Dietary Preferences Page
+        return _validateDietaryPreferences();
+      case 5: // Workout Preferences Page
+        return _validateWorkoutPreferences();
+      case 6: // Exercise Setup Page
+        return _validateExerciseSetup();
+      default:
+        return true;
+    }
+  }
+
+  bool _validateBasicInfo() {
+    // Check required fields
+    if (_formData['name'] == null || (_formData['name'] as String).trim().isEmpty) {
+      _showValidationError('Please enter your name');
+      return false;
+    }
+    
+    if (_formData['email'] == null || (_formData['email'] as String).trim().isEmpty) {
+      _showValidationError('Please enter your email');
+      return false;
+    }
+    
+    // Validate email format
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(_formData['email'] as String)) {
+      _showValidationError('Please enter a valid email address');
+      return false;
+    }
+    
+    if (_formData['password'] == null || (_formData['password'] as String).length < 6) {
+      _showValidationError('Password must be at least 6 characters');
+      return false;
+    }
+    
+    if (_formData['gender'] == null || (_formData['gender'] as String).isEmpty) {
+      _showValidationError('Please select your gender');
+      return false;
+    }
+    
+    if (_formData['age'] == null || _formData['age'] == 0) {
+      _showValidationError('Please enter your age');
+      return false;
+    }
+    
+    // Validate age range
+    int age = _formData['age'] as int;
+    if (age < 13 || age > 120) {
+      _showValidationError('Please enter a valid age (13-120)');
+      return false;
+    }
+    
+    if (_formData['height'] == null || _formData['height'] == 0.0) {
+      _showValidationError('Please enter your height');
+      return false;
+    }
+    
+    // Validate height range (in cm)
+    double height = _formData['height'] as double;
+    if (height < 100 || height > 250) {
+      _showValidationError('Please enter a valid height (100-250 cm)');
+      return false;
+    }
+    
+    if (_formData['weight'] == null || _formData['weight'] == 0.0) {
+      _showValidationError('Please enter your weight');
+      return false;
+    }
+    
+    // Validate weight range (in kg)
+    double weight = _formData['weight'] as double;
+    if (weight < 30 || weight > 300) {
+      _showValidationError('Please enter a valid weight (30-300 kg)');
+      return false;
+    }
+    
+    if (_formData['activityLevel'] == null || (_formData['activityLevel'] as String).isEmpty) {
+      _showValidationError('Please select your activity level');
+      return false;
+    }
+    
+    return true;
+  }
+
+  bool _validatePeriodCycle() {
+    // Only validate if user is female
+    if (_formData['gender'] != 'Female') return true;
+    
+    if (_formData['hasPeriods'] == null) {
+      _showValidationError('Please indicate if you have regular periods');
+      return false;
+    }
+    
+    // If user has periods, require additional info
+    if (_formData['hasPeriods'] == true) {
+      if (_formData['lastPeriodDate'] == null || (_formData['lastPeriodDate'] as String).isEmpty) {
+        _showValidationError('Please enter your last period date');
+        return false;
+      }
+      
+      if (_formData['cycleLengthRegular'] == null) {
+        _showValidationError('Please indicate if your cycle is regular');
+        return false;
+      }
+    }
+    
+    if (_formData['pregnancyStatus'] == null || (_formData['pregnancyStatus'] as String).isEmpty) {
+      _showValidationError('Please select your pregnancy status');
+      return false;
+    }
+    
+    if (_formData['trackingPreference'] == null || (_formData['trackingPreference'] as String).isEmpty) {
+      _showValidationError('Please select your tracking preference');
+      return false;
+    }
+    
+    return true;
+  }
+
+  bool _validateWeightGoal() {
+    if (_formData['weightGoal'] == null || (_formData['weightGoal'] as String).isEmpty) {
+      _showValidationError('Please select your weight goal');
+      return false;
+    }
+    
+    // If not maintaining weight, require target weight
+    if (_formData['weightGoal'] != 'maintain_weight' && _formData['weightGoal'] != 'Maintain Weight') {
+      if (_formData['targetWeight'] == null || _formData['targetWeight'] == 0.0) {
+        _showValidationError('Please enter your target weight');
+        return false;
+      }
+      
+      double currentWeight = _formData['weight'] as double? ?? 0.0;
+      double targetWeight = _formData['targetWeight'] as double? ?? 0.0;
+      
+      // Validate target weight based on goal
+      if (_formData['weightGoal'] == 'lose_weight' || _formData['weightGoal'] == 'Lose Weight') {
+        if (targetWeight >= currentWeight) {
+          _showValidationError('Target weight should be less than current weight for weight loss');
+          return false;
+        }
+      } else if (_formData['weightGoal'] == 'gain_weight' || _formData['weightGoal'] == 'Gain Weight') {
+        if (targetWeight <= currentWeight) {
+          _showValidationError('Target weight should be more than current weight for weight gain');
+          return false;
+        }
+      }
+      
+      // Check for reasonable weight goals (not more than 50% change)
+      double percentChange = ((targetWeight - currentWeight).abs() / currentWeight) * 100;
+      if (percentChange > 50) {
+        _showValidationError('Please set a more realistic target weight (less than 50% change)');
+        return false;
+      }
+    }
+    
+    if (_formData['goalTimeline'] == null || (_formData['goalTimeline'] as String).isEmpty) {
+      _showValidationError('Please select your timeline');
+      return false;
+    }
+    
+    return true;
+  }
+
+  bool _validateSleepInfo() {
+    if (_formData['sleepHours'] == null) {
+      _showValidationError('Please select your sleep duration');
+      return false;
+    }
+    
+    double sleepHours = _formData['sleepHours'] as double;
+    if (sleepHours < 3 || sleepHours > 12) {
+      _showValidationError('Please select a valid sleep duration (3-12 hours)');
+      return false;
+    }
+    
+    if (_formData['bedtime'] == null || (_formData['bedtime'] as String).isEmpty) {
+      _showValidationError('Please select your bedtime');
+      return false;
+    }
+    
+    if (_formData['wakeupTime'] == null || (_formData['wakeupTime'] as String).isEmpty) {
+      _showValidationError('Please select your wake-up time');
+      return false;
+    }
+    
+    // Sleep issues can be optional, no validation needed
+    return true;
+  }
+
+  bool _validateDietaryPreferences() {
+    // Dietary preferences are optional but meals count is required
+    if (_formData['dailyMealsCount'] == null || _formData['dailyMealsCount'] == 0) {
+      _showValidationError('Please select your daily meals count');
+      return false;
+    }
+    
+    // Water intake should have default values, but validate if present
+    if (_formData['waterIntake'] != null) {
+      double waterIntake = _formData['waterIntake'] as double;
+      if (waterIntake < 0.5 || waterIntake > 10) {
+        _showValidationError('Please enter a valid water intake (0.5-10 liters)');
+        return false;
+      }
+    }
+    
+    // At least one dietary preference or "No restrictions" should be selected
+    List<String>? dietaryPrefs = _formData['dietaryPreferences'] as List<String>?;
+    if (dietaryPrefs == null || dietaryPrefs.isEmpty) {
+      _showValidationError('Please select at least one dietary preference or "No restrictions"');
+      return false;
+    }
+    
+    // At least one medical condition or "None" should be selected
+    List<String>? medicalConditions = _formData['medicalConditions'] as List<String>?;
+    if (medicalConditions == null || medicalConditions.isEmpty) {
+      _showValidationError('Please select your medical conditions or "None"');
+      return false;
+    }
+    
+    return true;
+  }
+
+  bool _validateWorkoutPreferences() {
+    // At least one workout type should be selected
+    List<String>? workoutTypes = _formData['preferredWorkouts'] as List<String>?;
+    if (workoutTypes == null || workoutTypes.isEmpty) {
+      _showValidationError('Please select at least one workout type');
+      return false;
+    }
+    
+    if (_formData['workoutFrequency'] == null || _formData['workoutFrequency'] == 0) {
+      _showValidationError('Please select your workout frequency');
+      return false;
+    }
+    
+    if (_formData['workoutDuration'] == null || _formData['workoutDuration'] == 0) {
+      _showValidationError('Please select your workout duration');
+      return false;
+    }
+    
+    return true;
+  }
+
+  bool _validateExerciseSetup() {
+    if (_formData['workoutLocation'] == null || (_formData['workoutLocation'] as String).isEmpty) {
+      _showValidationError('Please select where you workout');
+      return false;
+    }
+    
+    // At least one equipment option should be selected (including "None")
+    List<String>? equipment = _formData['availableEquipment'] as List<String>?;
+    if (equipment == null || equipment.isEmpty) {
+      _showValidationError('Please select your available equipment or "None"');
+      return false;
+    }
+    
+    if (_formData['fitnessLevel'] == null || (_formData['fitnessLevel'] as String).isEmpty) {
+      _showValidationError('Please select your fitness level');
+      return false;
+    }
+    
+    if (_formData['hasTrainer'] == null) {
+      _showValidationError('Please indicate if you work with a trainer');
+      return false;
+    }
+    
+    // Validate step goal
+    if (_formData['dailyStepGoal'] == null || _formData['dailyStepGoal'] == 0) {
+      _showValidationError('Please set your daily step goal');
+      return false;
+    }
+    
+    int stepGoal = _formData['dailyStepGoal'] as int;
+    if (stepGoal < 1000 || stepGoal > 50000) {
+      _showValidationError('Please set a realistic step goal (1,000-50,000 steps)');
+      return false;
+    }
+    
+    return true;
+  }
+
+  void _showValidationError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.warning, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // Update the _nextPage method
+  void _nextPage() {
+    // Validate current page before proceeding
+    if (!_validateCurrentPage()) {
+      return; // Don't proceed if validation fails
+    }
+    
+    if (_currentPage < _totalPages - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      // Final validation before submission
+      if (_validateCurrentPage()) {
+        _submitFormData();
+      }
+    }
+  }
+
+  // Optional: Add a visual indicator for incomplete fields
+  Widget _buildValidationIndicator() {
+    bool isPageValid = _validateCurrentPage();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      color: isPageValid ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+      child: Row(
+        children: [
+          Icon(
+            isPageValid ? Icons.check_circle : Icons.info,
+            color: isPageValid ? Colors.green : Colors.orange,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            isPageValid ? 'All required fields completed' : 'Please complete all required fields',
+            style: TextStyle(
+              color: isPageValid ? Colors.green : Colors.orange,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildCurrentPage() {
     // Determine the actual page index considering female-only period cycle page
@@ -205,18 +572,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           formData: _formData,
           onDataChanged: _onDataChanged,
         );
-    }
-  }
-  
-  void _nextPage() {
-    if (_currentPage < _totalPages - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      // Submit form data and navigate to home screen
-      _submitFormData();
     }
   }
 
@@ -487,6 +842,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
+
+            _buildValidationIndicator(),
+
             // Page content
             Expanded(
               child: PageView.builder(
@@ -517,6 +875,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       : const SizedBox(width: 80),
                   ElevatedButton(
                     onPressed: _nextPage,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      disabledBackgroundColor: Colors.grey[300],
+                    ),
                     child: Text(_currentPage < _totalPages - 1 ? 'Next' : 'Finish'),
                   ),
                 ],
