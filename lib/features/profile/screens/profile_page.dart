@@ -261,7 +261,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   _buildGoalsTab(),
                   _buildHealthTab(),
                   _buildExerciseTab(),
-                  _buildLifestyleTab(),
                 ],
               ),
             ),
@@ -328,37 +327,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               _buildMetricRow('Activity Level', 
                 _formatActivityLevel(currentProfile.activityLevel ?? ''),
                 _getActivityDescription(currentProfile.activityLevel ?? ''),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Daily Targets Card
-          _buildCard(
-            title: 'Daily Targets',
-            icon: Icons.flag,
-            children: [
-              _buildProgressRow(
-                'Steps Goal',
-                currentProfile.dailyStepGoal ?? 10000,
-                10000,
-                'steps',
-                Colors.green,
-              ),
-              _buildProgressRow(
-                'Water Intake',
-                currentProfile.waterIntakeGlasses ?? 8,
-                8,
-                'glasses',
-                Colors.blue,
-              ),
-              _buildProgressRow(
-                'Sleep Target',
-                currentProfile.sleepHours?.toInt() ?? 8,
-                8,
-                'hours',
-                Colors.purple,
               ),
             ],
           ),
@@ -659,125 +627,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                     );
                   },
                 ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLifestyleTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Activity Level Card
-          _buildCard(
-            title: 'Activity Level',
-            icon: Icons.directions_walk,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      _getActivityColor(currentProfile.activityLevel ?? '').withOpacity(0.2),
-                      _getActivityColor(currentProfile.activityLevel ?? '').withOpacity(0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      _getActivityIcon(currentProfile.activityLevel ?? ''),
-                      size: 40,
-                      color: _getActivityColor(currentProfile.activityLevel ?? ''),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _formatActivityLevel(currentProfile.activityLevel ?? ''),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _getActivityDescription(currentProfile.activityLevel ?? ''),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Daily Routine Card
-          _buildCard(
-            title: 'Daily Routine',
-            icon: Icons.schedule,
-            children: [
-              _buildTimelineItem('Wake Up', currentProfile.wakeupTime ?? 'Not set', Icons.wb_sunny),
-              _buildTimelineItem('Bedtime', currentProfile.bedtime ?? 'Not set', Icons.bedtime),
-              _buildTimelineItem('Sleep Duration', '${currentProfile.sleepHours ?? 8} hours', Icons.hotel),
-              _buildTimelineItem('Workout Frequency', '${currentProfile.workoutFrequency ?? 0} days/week', Icons.fitness_center),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Hydration Card
-          _buildCard(
-            title: 'Hydration',
-            icon: Icons.water_drop,
-            children: [
-              Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: CircularProgressIndicator(
-                        value: (currentProfile.waterIntakeGlasses ?? 0) / 12,
-                        strokeWidth: 12,
-                        backgroundColor: Colors.blue.withOpacity(0.1),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-                      ),
-                    ),
-                    Column(
-                      children: [
-                        const Icon(Icons.water_drop, color: Colors.blue, size: 30),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${currentProfile.waterIntakeGlasses ?? 0}',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Text(
-                          'glasses/day',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Equivalent to ${currentProfile.waterIntake ?? 2} liters',
-                style: TextStyle(color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
             ],
           ),
         ],
