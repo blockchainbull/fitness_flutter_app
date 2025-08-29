@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:intl/intl.dart';
 
 class EditProfilePage extends StatefulWidget {
   final UserProfile userProfile;
@@ -19,25 +20,54 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _apiService = ApiService();
 
-  // Form controllers
+  // Basic Info Controllers
   late TextEditingController _heightController;
   late TextEditingController _weightController;
-  late TextEditingController _primaryGoalController;
-  late TextEditingController _weightGoalController;
   late TextEditingController _targetWeightController;
 
-  // Form data
+  // Phase 1 Controllers - Daily Targets
+  late TextEditingController _dailyStepGoalController;
+  late TextEditingController _sleepHoursController;
+  late TextEditingController _waterIntakeLitersController;
+  late TextEditingController _waterIntakeGlassesController;
+  late TextEditingController _workoutFrequencyController;
+  late TextEditingController _workoutDurationController;
+
+  // Phase 2
+  late TextEditingController _bedtimeController;
+  late TextEditingController _wakeupTimeController;
+  List<String> _selectedSleepIssues = [];
+  List<String> _selectedDietaryPreferences = [];
+  List<String> _selectedWorkoutTypes = [];
+  String _selectedWorkoutLocation = 'Gym';
+
+  //Phase 3
+  List<String> _selectedMedicalConditions = [];
+  TextEditingController _otherMedicalConditionController = TextEditingController();
+  List<String> _selectedEquipment = [];
+  bool _hasTrainer = false;
+  bool? _hasPeriods;
+  String _pregnancyStatus = '';
+  String _periodTrackingPreference = '';
+  int _cycleLength = 28;
+  bool _cycleLengthRegular = true;
+
+  // Dropdown selections
   late String _selectedActivityLevel;
-  late String _selectedGender;
-  late int _selectedAge;
+  late String _selectedPrimaryGoal;
+  late String _selectedWeightGoal;
+  late String _selectedGoalTimeline;
+  late String _selectedFitnessLevel;
 
   bool _isSaving = false;
   String? _errorMessage;
+  
+  // Calculated values
+  double _bmi = 0.0;
+  double _bmr = 0.0;
+  double _tdee = 0.0;
 
-  // Read-only fields that cannot be edited
-  final List<String> _readOnlyFields = ['name', 'email', 'age', 'gender', 'startingWeight', 'startingWeightDate'];
-
-  // FIXED: Activity level mapping
+  // Activity level options
   final List<String> _activityLevelOptions = [
     'sedentary',
     'lightly_active',
@@ -46,78 +76,205 @@ class _EditProfilePageState extends State<EditProfilePage> {
     'extra_active',
   ];
 
-  String? _selectedPrimaryGoal;
-  String? _selectedWeightGoal;
-  String? _selectedGoalTimeline;
+  // Activity level display names
+  final Map<String, String> _activityLevelDisplayNames = {
+    'sedentary': 'Sedentary (little or no exercise)',
+    'lightly_active': 'Lightly Active (1-3 days/week)',
+    'moderately_active': 'Moderately Active (3-5 days/week)',
+    'very_active': 'Very Active (6-7 days/week)',
+    'extra_active': 'Extra Active (very hard exercise)',
+  };
+
+  // Fitness level options
+  final List<String> _fitnessLevelOptions = [
+    'Beginner',
+    'Intermediate',
+    'Advanced',
+    'Expert',
+  ];
+
+  // Goal timeline options
+  final List<String> _goalTimelineOptions = [
+    '4_weeks',
+    '8_weeks',
+    '12_weeks',
+    '16_weeks',
+    '6_months',
+    '1_year',
+  ];
+
+  final Map<String, String> _goalTimelineDisplayNames = {
+    '4_weeks': '4 Weeks',
+    '8_weeks': '8 Weeks',
+    '12_weeks': '12 Weeks',
+    '16_weeks': '16 Weeks',
+    '6_months': '6 Months',
+    '1_year': '1 Year',
+  };
 
   @override
   void initState() {
     super.initState();
     _initializeControllers();
+    _calculateMetrics();
   }
 
   void _initializeControllers() {
-    // Handle nullable values with null coalescing
+    // Basic info
     _heightController = TextEditingController(
       text: widget.userProfile.height.toString(),
     );
     _weightController = TextEditingController(
       text: widget.userProfile.weight.toString(),
     );
-    _primaryGoalController = TextEditingController(
-      text: widget.userProfile.primaryGoal ?? '',
-    );
-    _weightGoalController = TextEditingController(
-      text: widget.userProfile.weightGoal ?? '',
-    );
     _targetWeightController = TextEditingController(
-      text: widget.userProfile.targetWeight.toString(),
+      text: widget.userProfile.targetWeight?.toString() ?? '',
     );
 
-    // Initialize dropdown values
-    _selectedActivityLevel = _mapToActivityLevelKey(widget.userProfile.activityLevel);
-    _selectedGender = widget.userProfile.gender ?? 'Male';
-    _selectedAge = widget.userProfile.age ?? 25;
+    // Phase 1 - Daily Targets
+    _dailyStepGoalController = TextEditingController(
+      text: (widget.userProfile.dailyStepGoal ?? 10000).toString(),
+    );
+    _sleepHoursController = TextEditingController(
+      text: (widget.userProfile.sleepHours ?? 8).toString(),
+    );
+    _waterIntakeLitersController = TextEditingController(
+      text: (widget.userProfile.waterIntake ?? 2.0).toStringAsFixed(1),
+    );
+    _waterIntakeGlassesController = TextEditingController(
+      text: (widget.userProfile.waterIntakeGlasses ?? 8).toString(),
+    );
+    _workoutFrequencyController = TextEditingController(
+      text: (widget.userProfile.workoutFrequency ?? 3).toString(),
+    );
+    _workoutDurationController = TextEditingController(
+      text: (widget.userProfile.workoutDuration ?? 30).toString(),
+    );
     
-    // Initialize goal selections
-    _selectedPrimaryGoal = widget.userProfile.primaryGoal;
-    _selectedWeightGoal = widget.userProfile.weightGoal;
-    _selectedGoalTimeline = widget.userProfile.goalTimeline;
+    // Phase 2
+    _bedtimeController = TextEditingController(
+      text: widget.userProfile.bedtime ?? '22:00',
+    );
+    _wakeupTimeController = TextEditingController(
+      text: widget.userProfile.wakeupTime ?? '06:00',
+    );
+    _selectedSleepIssues = List<String>.from(widget.userProfile.sleepIssues ?? []);
+    _selectedDietaryPreferences = List<String>.from(widget.userProfile.dietaryPreferences ?? []);
+    _selectedWorkoutTypes = List<String>.from(widget.userProfile.preferredWorkouts ?? []);
+    _selectedWorkoutLocation = widget.userProfile.workoutLocation ?? 'Gym';
 
-    print('🔍 Initialized profile editing with:');
-    print('  Primary Goal: $_selectedPrimaryGoal');
-    print('  Weight Goal: $_selectedWeightGoal');
-    print('  Target Weight: ${_targetWeightController.text}');
-  }
 
-  // FIXED: Map stored activity level to dropdown key
-  String _mapToActivityLevelKey(String? activityLevel) {
-    if (activityLevel == null || activityLevel.isEmpty) {
-      return 'moderately_active'; // Default
+    //Phase 3
+    _selectedMedicalConditions = List<String>.from(widget.userProfile.medicalConditions ?? []);
+    _otherMedicalConditionController = TextEditingController(
+      text: widget.userProfile.otherMedicalCondition ?? '',
+    );
+    _selectedEquipment = List<String>.from(widget.userProfile.availableEquipment ?? []);
+    _hasTrainer = widget.userProfile.hasTrainer ?? false;
+    if (widget.userProfile.gender?.toLowerCase() == 'female') {
+      _hasPeriods = widget.userProfile.hasPeriods;
+      _pregnancyStatus = widget.userProfile.pregnancyStatus ?? '';
+      _periodTrackingPreference = widget.userProfile.periodTrackingPreference ?? '';
+      _cycleLength = widget.userProfile.cycleLength ?? 28;
+      _cycleLengthRegular = widget.userProfile.cycleLengthRegular ?? true;
     }
 
-    // Direct key match
+    // Dropdown values
+    _selectedActivityLevel = _mapToActivityLevelKey(widget.userProfile.activityLevel);
+    _selectedPrimaryGoal = widget.userProfile.primaryGoal ?? 'General Wellness';
+    _selectedWeightGoal = widget.userProfile.weightGoal ?? 'maintain_weight';
+    _selectedGoalTimeline = widget.userProfile.goalTimeline ?? '12_weeks';
+    _selectedFitnessLevel = widget.userProfile.fitnessLevel ?? 'Beginner';
+
+    // Add listeners for water intake synchronization
+    _waterIntakeLitersController.addListener(_onWaterLitersChanged);
+    _waterIntakeGlassesController.addListener(_onWaterGlassesChanged);
+    
+    // Add listeners for metric calculations
+    _heightController.addListener(_calculateMetrics);
+    _weightController.addListener(_calculateMetrics);
+  }
+
+  void _onWaterLitersChanged() {
+    if (_waterIntakeLitersController.text.isNotEmpty) {
+      final liters = double.tryParse(_waterIntakeLitersController.text) ?? 0;
+      final glasses = (liters * 4).round(); // 1 liter = 4 glasses (250ml each)
+      
+      // Remove listener temporarily to avoid infinite loop
+      _waterIntakeGlassesController.removeListener(_onWaterGlassesChanged);
+      _waterIntakeGlassesController.text = glasses.toString();
+      _waterIntakeGlassesController.addListener(_onWaterGlassesChanged);
+    }
+  }
+
+  void _onWaterGlassesChanged() {
+    if (_waterIntakeGlassesController.text.isNotEmpty) {
+      final glasses = int.tryParse(_waterIntakeGlassesController.text) ?? 0;
+      final liters = glasses / 4.0; // 1 glass = 250ml = 0.25 liters
+      
+      // Remove listener temporarily to avoid infinite loop
+      _waterIntakeLitersController.removeListener(_onWaterLitersChanged);
+      _waterIntakeLitersController.text = liters.toStringAsFixed(1);
+      _waterIntakeLitersController.addListener(_onWaterLitersChanged);
+    }
+  }
+
+  void _calculateMetrics() {
+    final height = double.tryParse(_heightController.text) ?? 0;
+    final weight = double.tryParse(_weightController.text) ?? 0;
+    final age = widget.userProfile.age ?? 25;
+    final gender = widget.userProfile.gender ?? 'Male';
+
+    if (height > 0 && weight > 0) {
+      // Calculate BMI
+      final heightInMeters = height / 100;
+      _bmi = weight / (heightInMeters * heightInMeters);
+
+      // Calculate BMR using Mifflin-St Jeor Equation
+      if (gender.toLowerCase() == 'male') {
+        _bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+      } else {
+        _bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+      }
+
+      // Calculate TDEE based on activity level
+      final activityMultipliers = {
+        'sedentary': 1.2,
+        'lightly_active': 1.375,
+        'moderately_active': 1.55,
+        'very_active': 1.725,
+        'extra_active': 1.9,
+      };
+      
+      _tdee = _bmr * (activityMultipliers[_selectedActivityLevel] ?? 1.55);
+      
+      setState(() {});
+    }
+  }
+
+  String _mapToActivityLevelKey(String? activityLevel) {
+    if (activityLevel == null || activityLevel.isEmpty) {
+      return 'moderately_active';
+    }
+
     if (_activityLevelOptions.contains(activityLevel)) {
       return activityLevel;
     }
 
-    // Map formatted text back to keys
     final lowercaseLevel = activityLevel.toLowerCase();
     
-    if (lowercaseLevel.contains('sedentary') || lowercaseLevel.contains('little')) {
+    if (lowercaseLevel.contains('sedentary')) {
       return 'sedentary';
-    } else if (lowercaseLevel.contains('lightly active') || lowercaseLevel.contains('light exercise')) {
+    } else if (lowercaseLevel.contains('lightly')) {
       return 'lightly_active';
-    } else if (lowercaseLevel.contains('moderately active') || lowercaseLevel.contains('moderate exercise')) {
+    } else if (lowercaseLevel.contains('moderately')) {
       return 'moderately_active';
-    } else if (lowercaseLevel.contains('very active') || lowercaseLevel.contains('hard exercise')) {
+    } else if (lowercaseLevel.contains('very')) {
       return 'very_active';
-    } else if (lowercaseLevel.contains('extra active') || lowercaseLevel.contains('very hard exercise')) {
+    } else if (lowercaseLevel.contains('extra')) {
       return 'extra_active';
     }
 
-    // Fallback to default
-    print('[EditProfilePage] Unknown activity level: $activityLevel, using default');
     return 'moderately_active';
   }
 
@@ -125,10 +282,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void dispose() {
     _heightController.dispose();
     _weightController.dispose();
-    _primaryGoalController.dispose();
-    _weightGoalController.dispose();
     _targetWeightController.dispose();
+    _dailyStepGoalController.dispose();
+    _sleepHoursController.dispose();
+    _waterIntakeLitersController.dispose();
+    _waterIntakeGlassesController.dispose();
+    _workoutFrequencyController.dispose();
+    _workoutDurationController.dispose();
+    _bedtimeController.dispose();
+    _wakeupTimeController.dispose();
+    _otherMedicalConditionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectTime(TextEditingController controller, String label) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: int.parse(controller.text.split(':')[0]),
+        minute: int.parse(controller.text.split(':')[1]),
+      ),
+    );
+    if (picked != null) {
+      final formattedTime = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      controller.text = formattedTime;
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -142,53 +320,71 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
 
     try {
-      // Parse values with proper null safety
-      final double height = double.tryParse(_heightController.text) ?? widget.userProfile.height;
-      final double weight = double.tryParse(_weightController.text) ?? widget.userProfile.weight;
-      
-      // Use dropdown values instead of text controllers
-      final String primaryGoal = _selectedPrimaryGoal ?? widget.userProfile.primaryGoal;
-      final String weightGoal = _selectedWeightGoal ?? widget.userProfile.weightGoal;
-      final double targetWeight = _targetWeightController.text.isNotEmpty 
-          ? (double.tryParse(_targetWeightController.text) ?? weight)
-          : widget.userProfile.targetWeight;
-
-      print('[EditProfilePage] Saving with:');
-      print('  Primary Goal: $primaryGoal');
-      print('  Weight Goal: $weightGoal');
-      print('  Activity Level: $_selectedActivityLevel');
-
-      // Create updated UserProfile object instead of Map
       final updatedProfile = widget.userProfile.copyWith(
-        height: height,
-        weight: weight,
+        height: double.tryParse(_heightController.text) ?? widget.userProfile.height,
+        weight: double.tryParse(_weightController.text) ?? widget.userProfile.weight,
         activityLevel: _selectedActivityLevel,
-        primaryGoal: primaryGoal,
-        weightGoal: weightGoal,
-        targetWeight: targetWeight,
+        primaryGoal: _selectedPrimaryGoal,
+        weightGoal: _selectedWeightGoal,
+        targetWeight: double.tryParse(_targetWeightController.text),
+        goalTimeline: _selectedGoalTimeline,
+        dailyStepGoal: int.tryParse(_dailyStepGoalController.text) ?? 10000,
+        sleepHours: double.tryParse(_sleepHoursController.text) ?? 8.0,
+        waterIntake: double.tryParse(_waterIntakeLitersController.text) ?? 2.0,
+        waterIntakeGlasses: int.tryParse(_waterIntakeGlassesController.text) ?? 8,
+        workoutFrequency: int.tryParse(_workoutFrequencyController.text) ?? 3,
+        workoutDuration: int.tryParse(_workoutDurationController.text) ?? 30,
+        fitnessLevel: _selectedFitnessLevel,
+        bmi: _bmi,
+        bmr: _bmr,
+        tdee: _tdee,
+
+        // Phase 2 additions
+        bedtime: _bedtimeController.text,
+        wakeupTime: _wakeupTimeController.text,
+        sleepIssues: _selectedSleepIssues,
+        dietaryPreferences: _selectedDietaryPreferences,
+        preferredWorkouts: _selectedWorkoutTypes,
+        workoutLocation: _selectedWorkoutLocation,
+
+        // Phase 3 additions
+        medicalConditions: _selectedMedicalConditions,
+        otherMedicalCondition: _selectedMedicalConditions.contains('Other') 
+            ? _otherMedicalConditionController.text 
+            : null,
+        availableEquipment: _selectedEquipment,
+        hasTrainer: _hasTrainer,
+        
+        // Women's health (conditional)
+        hasPeriods: widget.userProfile.gender?.toLowerCase() == 'female' ? _hasPeriods : null,
+        pregnancyStatus: widget.userProfile.gender?.toLowerCase() == 'female' ? _pregnancyStatus : null,
+        periodTrackingPreference: widget.userProfile.gender?.toLowerCase() == 'female' 
+            ? _periodTrackingPreference : null,
+        cycleLength: widget.userProfile.gender?.toLowerCase() == 'female' ? _cycleLength : null,
+        cycleLengthRegular: widget.userProfile.gender?.toLowerCase() == 'female' 
+            ? _cycleLengthRegular : null,
+
       );
 
-      // Save using the existing method that takes UserProfile
       await _apiService.updateUserProfile(updatedProfile);
 
-      // Return updated profile to previous screen
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
         Navigator.pop(context, updatedProfile);
       }
-
     } catch (e) {
-      print('[EditProfilePage] Error saving profile: $e');
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-        });
-      }
+      setState(() {
+        _errorMessage = 'Failed to update profile: ${e.toString()}';
+      });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
+      setState(() {
+        _isSaving = false;
+      });
     }
   }
 
@@ -197,8 +393,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Profile'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _saveProfile,
@@ -208,7 +402,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
                 : const Text(
@@ -216,6 +410,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
           ),
@@ -231,32 +426,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error, color: Colors.red.shade600),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red.shade600),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
 
-            _buildSectionHeader('Personal Information'),
+            // Account Info Section (Read-only)
+            _buildSectionHeader('Account Information'),
             _buildReadOnlyField('Name', widget.userProfile.name),
             _buildReadOnlyField('Email', widget.userProfile.email),
             _buildReadOnlyField('Age', '${widget.userProfile.age ?? 0} years'),
             _buildReadOnlyField('Gender', widget.userProfile.gender ?? 'Not specified'),
+            if (widget.userProfile.createdAt != null)
+              _buildReadOnlyField(
+                'Member Since',
+                DateFormat('MMM dd, yyyy').format(widget.userProfile.createdAt!),
+              ),
 
             const SizedBox(height: 24),
-            _buildSectionHeader('Physical Stats'),
+
+            // Body Metrics Section
+            _buildSectionHeader('Body Metrics'),
             _buildNumberField(
               'Height (cm)',
               _heightController,
@@ -271,28 +466,54 @@ class _EditProfilePageState extends State<EditProfilePage> {
               min: 30,
               max: 300,
             ),
-
-            if (widget.userProfile.startingWeight != null) ...[
-              _buildReadOnlyField(
-                'Starting Weight', 
-                '${widget.userProfile.startingWeight!.toStringAsFixed(1)} kg'
-              ),
-              if (widget.userProfile.startingWeightDate != null)
-                _buildReadOnlyField(
-                  'Started Tracking', 
-                  '${widget.userProfile.startingWeightDate!.day}/${widget.userProfile.startingWeightDate!.month}/${widget.userProfile.startingWeightDate!.year}'
-                ),
-            ],
-
             _buildDropdownField(
               'Activity Level',
               _selectedActivityLevel,
-              _activityLevelOptions, // FIXED: Use the predefined list
-              (value) => setState(() => _selectedActivityLevel = value!),
+              _activityLevelOptions,
+              (value) {
+                setState(() {
+                  _selectedActivityLevel = value!;
+                  _calculateMetrics();
+                });
+              },
+              displayNames: _activityLevelDisplayNames,
+            ),
+
+            // Calculated Metrics (Read-only)
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Calculated Metrics',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildMetricDisplay('BMI', _bmi.toStringAsFixed(1)),
+                      _buildMetricDisplay('BMR', '${_bmr.toStringAsFixed(0)} cal'),
+                      _buildMetricDisplay('TDEE', '${_tdee.toStringAsFixed(0)} cal'),
+                    ],
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 24),
-            _buildSectionHeader('Goals'),
+
+            // Goals & Targets Section
+            _buildSectionHeader('Goals & Targets'),
             _buildPrimaryGoalDropdown(),
             _buildWeightGoalDropdown(),
             _buildNumberField(
@@ -303,13 +524,148 @@ class _EditProfilePageState extends State<EditProfilePage> {
               max: 300,
               isRequired: false,
             ),
+            _buildDropdownField(
+              'Goal Timeline',
+              _selectedGoalTimeline,
+              _goalTimelineOptions,
+              (value) => setState(() => _selectedGoalTimeline = value!),
+              displayNames: _goalTimelineDisplayNames,
+            ),
+            _buildNumberField(
+              'Daily Step Goal',
+              _dailyStepGoalController,
+              'Enter your daily step target',
+              min: 1000,
+              max: 50000,
+              isInteger: true,
+            ),
 
-            // Show weight progress if starting weight exists
-           if (widget.userProfile.startingWeight != null) ...[
-             const SizedBox(height: 24),
-             _buildSectionHeader('Weight Progress'),
-             _buildWeightProgressCard(),
-           ],
+            const SizedBox(height: 24),
+
+            // Daily Targets Section
+            _buildSectionHeader('Daily Targets'),
+            _buildNumberField(
+              'Sleep Hours Goal',
+              _sleepHoursController,
+              'Target hours of sleep per night',
+              min: 4,
+              max: 12,
+              step: 0.5,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTimeField(
+                    'Bedtime',
+                    _bedtimeController,
+                    'Preferred bedtime',
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTimeField(
+                    'Wake Time',
+                    _wakeupTimeController,
+                    'Preferred wake time',
+                  ),
+                ),
+              ],
+            ),
+            
+            _buildSleepIssuesSelector(),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: _buildNumberField(
+                    'Water Intake (Liters)',
+                    _waterIntakeLitersController,
+                    'Daily water target',
+                    min: 0.5,
+                    max: 6.0,
+                    step: 0.1,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildNumberField(
+                    'Water (Glasses)',
+                    _waterIntakeGlassesController,
+                    'Glasses per day',
+                    min: 2,
+                    max: 24,
+                    isInteger: true,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            _buildSectionHeader('Nutrition Preferences'),
+            _buildDietaryPreferencesSelector(),
+
+            const SizedBox(height: 24),
+            _buildSectionHeader('Health Information'),
+            _buildMedicalConditionsSelector(),
+            if (_selectedMedicalConditions.contains('Other'))
+              _buildTextField(
+                'Specify Other Condition',
+                _otherMedicalConditionController,
+                'Please specify your condition',
+                isRequired: false,
+              ),
+
+            // Exercise Preferences Section
+            _buildSectionHeader('Exercise Preferences'),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildNumberField(
+                    'Workout Frequency',
+                    _workoutFrequencyController,
+                    'Days per week',
+                    min: 0,
+                    max: 7,
+                    isInteger: true,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildNumberField(
+                    'Workout Duration',
+                    _workoutDurationController,
+                    'Minutes per session',
+                    min: 10,
+                    max: 180,
+                    isInteger: true,
+                  ),
+                ),
+              ],
+            ),
+            _buildDropdownField(
+              'Fitness Level',
+              _selectedFitnessLevel,
+              _fitnessLevelOptions,
+              (value) => setState(() => _selectedFitnessLevel = value!),
+            ),
+
+            _buildWorkoutTypesSelector(),
+            _buildWorkoutLocationDropdown(),
+            _buildEquipmentSelector(),
+            _buildTrainerToggle(),
+            
+            const SizedBox(height: 32),
+
+            // Progress Summary
+            if (widget.userProfile.startingWeight != null)
+              _buildProgressSummary(),
+
+            if (widget.userProfile.gender?.toLowerCase() == 'female') ...[
+              const SizedBox(height: 24),
+              _buildSectionHeader("Women's Health"),
+              _buildWomensHealthSection(),
+            ],
 
             const SizedBox(height: 32),
           ],
@@ -318,160 +674,139 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildPrimaryGoalDropdown() {
-    final primaryGoalOptions = [
-      'Lose Weight',
-      'Gain Weight', 
-      'Build Muscle',
-      'Improve Fitness',
-      'Maintain Health',
-      'General Wellness',
+  Widget _buildTimeField(
+    String label,
+    TextEditingController controller,
+    String hint,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          suffixIcon: const Icon(Icons.access_time),
+        ),
+        onTap: () => _selectTime(controller, label),
+      ),
+    );
+  }
+
+  Widget _buildSleepIssuesSelector() {
+    final sleepIssueOptions = [
+      'Difficulty falling asleep',
+      'Frequent wake-ups',
+      'Early morning awakening',
+      'Snoring',
+      'Sleep apnea',
+      'Restless legs',
+      'Insomnia',
+      'None',
     ];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String>(
-        value: primaryGoalOptions.contains(_selectedPrimaryGoal) ? _selectedPrimaryGoal : null,
-        decoration: InputDecoration(
-          labelText: 'Primary Goal',
-          hintText: 'What is your main fitness goal?',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Sleep Issues (select all that apply)',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
-        ),
-        items: primaryGoalOptions.map((goal) => DropdownMenuItem(
-          value: goal,
-          child: Text(goal),
-        )).toList(),
-        onChanged: (value) {
-          setState(() {
-            _selectedPrimaryGoal = value;
-          });
-        },
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: sleepIssueOptions.map((issue) {
+              final isSelected = _selectedSleepIssues.contains(issue);
+              return FilterChip(
+                label: Text(issue),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (issue == 'None') {
+                      _selectedSleepIssues = selected ? ['None'] : [];
+                    } else {
+                      if (selected) {
+                        _selectedSleepIssues.remove('None');
+                        _selectedSleepIssues.add(issue);
+                      } else {
+                        _selectedSleepIssues.remove(issue);
+                      }
+                    }
+                  });
+                },
+                selectedColor: Colors.blue.withOpacity(0.3),
+                checkmarkColor: Colors.blue,
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildWeightGoalDropdown() {
-    final weightGoalOptions = [
-      'lose_weight',
-      'gain_weight',
-      'maintain_weight',
+  Widget _buildDietaryPreferencesSelector() {
+    final dietaryOptions = [
+      'Vegetarian',
+      'Vegan',
+      'Pescatarian',
+      'Keto',
+      'Paleo',
+      'Mediterranean',
+      'Low Carb',
+      'Low Fat',
+      'Gluten Free',
+      'Dairy Free',
+      'Halal',
+      'Kosher',
+      'None',
     ];
-
-    final weightGoalLabels = {
-      'lose_weight': 'Lose Weight',
-      'gain_weight': 'Gain Weight', 
-      'maintain_weight': 'Maintain Weight',
-    };
-
-    // Map current value to the correct format
-    String? currentValue = _selectedWeightGoal;
-    if (currentValue != null) {
-      // Convert display text to key if needed
-      if (currentValue.toLowerCase().contains('lose')) {
-        currentValue = 'lose_weight';
-      } else if (currentValue.toLowerCase().contains('gain')) {
-        currentValue = 'gain_weight';
-      } else if (currentValue.toLowerCase().contains('maintain')) {
-        currentValue = 'maintain_weight';
-      }
-    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String>(
-        value: weightGoalOptions.contains(currentValue) ? currentValue : null,
-        decoration: InputDecoration(
-          labelText: 'Weight Goal',
-          hintText: 'Do you want to lose, gain, or maintain weight?',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Dietary Preferences',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
-        ),
-        items: weightGoalOptions.map((goal) => DropdownMenuItem(
-          value: goal,
-          child: Text(weightGoalLabels[goal] ?? goal),
-        )).toList(),
-        onChanged: (value) {
-          setState(() {
-            _selectedWeightGoal = value;
-          });
-        },
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'Please select your weight goal';
-          }
-          return null;
-        },
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: dietaryOptions.map((diet) {
+              final isSelected = _selectedDietaryPreferences.contains(diet);
+              return FilterChip(
+                label: Text(diet),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (diet == 'None') {
+                      _selectedDietaryPreferences = selected ? ['None'] : [];
+                    } else {
+                      if (selected) {
+                        _selectedDietaryPreferences.remove('None');
+                        _selectedDietaryPreferences.add(diet);
+                      } else {
+                        _selectedDietaryPreferences.remove(diet);
+                      }
+                    }
+                  });
+                },
+                selectedColor: Colors.green.withOpacity(0.3),
+                checkmarkColor: Colors.green,
+              );
+            }).toList(),
+          ),
+        ],
       ),
-    );
-  }
-
-
-  Widget _buildWeightProgressCard() {
-    final startingWeight = widget.userProfile.startingWeight!;
-    final currentWeight = widget.userProfile.weight;
-    final weightChange = startingWeight - currentWeight;
-    final isLoss = weightChange > 0;
-    final daysTracking = widget.userProfile.startingWeightDate != null 
-        ? DateTime.now().difference(widget.userProfile.startingWeightDate!).inDays 
-        : 0;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildProgressStat('Started', '${startingWeight.toStringAsFixed(1)} kg', Colors.blue),
-                Icon(Icons.arrow_forward, color: Colors.grey[400]),
-                _buildProgressStat('Current', '${currentWeight.toStringAsFixed(1)} kg', Colors.indigo),
-                Icon(isLoss ? Icons.trending_down : Icons.trending_up, 
-                      color: isLoss ? Colors.green : Colors.orange),
-                _buildProgressStat(
-                  isLoss ? 'Lost' : 'Gained', 
-                  '${weightChange.abs().toStringAsFixed(1)} kg', 
-                  isLoss ? Colors.green : Colors.orange
-                ),
-              ],
-            ),
-            if (daysTracking > 0) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Tracking for $daysTracking days',
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressStat(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
     );
   }
 
@@ -481,9 +816,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: Colors.blue,
+          color: Colors.black87,
         ),
       ),
     );
@@ -492,82 +827,541 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _buildReadOnlyField(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        initialValue: value,
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: Colors.grey[100],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        enabled: false,
+      ),
+    );
+  }
+
+  Widget _buildWorkoutTypesSelector() {
+    final workoutTypes = [
+      'Running',
+      'Walking',
+      'Cycling',
+      'Swimming',
+      'Yoga',
+      'Pilates',
+      'Weight Training',
+      'HIIT',
+      'CrossFit',
+      'Dancing',
+      'Martial Arts',
+      'Sports',
+      'Home Workouts',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+          const Text(
+            'Preferred Workout Types',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ),
-                Icon(Icons.lock, color: Colors.grey[400], size: 20),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _getReadOnlyReason(label),
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: workoutTypes.map((workout) {
+              final isSelected = _selectedWorkoutTypes.contains(workout);
+              return FilterChip(
+                label: Text(workout),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _selectedWorkoutTypes.add(workout);
+                    } else {
+                      _selectedWorkoutTypes.remove(workout);
+                    }
+                  });
+                },
+                selectedColor: Colors.orange.withOpacity(0.3),
+                checkmarkColor: Colors.orange,
+              );
+            }).toList(),
           ),
         ],
       ),
     );
   }
 
-  String _getReadOnlyReason(String label) {
-    switch (label) {
-      case 'Name':
-      case 'Email':
-      case 'Age':
-      case 'Gender':
-        return 'This field cannot be edited for security reasons';
-      case 'Starting Weight':
-        return 'Starting weight is locked to preserve your progress history';
-      case 'Started Tracking':
-        return 'This date is automatically set when you first log your weight';
-      default:
-        return 'This field cannot be edited';
-    }
+  Widget _buildWorkoutLocationDropdown() {
+    final locationOptions = [
+      'Home',
+      'Gym',
+      'Outdoor',
+      'Studio',
+      'Mixed',
+    ];
+
+    return _buildDropdownField(
+      'Workout Location',
+      _selectedWorkoutLocation,
+      locationOptions,
+      (value) => setState(() => _selectedWorkoutLocation = value!),
+    );
   }
 
-  Widget _buildTextField(
+  Widget _buildNumberField(
     String label,
     TextEditingController controller,
-    String hint, {
+    String? validationMessage, {
+    double? min,
+    double? max,
     bool isRequired = true,
+    bool isInteger = false,
+    double step = 1.0,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
+        keyboardType: TextInputType.numberWithOptions(
+          decimal: !isInteger,
+        ),
         decoration: InputDecoration(
           labelText: label,
-          hintText: hint,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          suffixIcon: const Icon(Icons.edit, size: 18),
+        ),
+        validator: (value) {
+          if (!isRequired && (value == null || value.isEmpty)) {
+            return null;
+          }
+          if (value == null || value.isEmpty) {
+            return validationMessage;
+          }
+          final number = isInteger
+              ? int.tryParse(value)?.toDouble()
+              : double.tryParse(value);
+          if (number == null) {
+            return 'Please enter a valid number';
+          }
+          if (min != null && number < min) {
+            return 'Minimum value is $min';
+          }
+          if (max != null && number > max) {
+            return 'Maximum value is $max';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildDropdownField<T>(
+    String label,
+    T value,
+    List<T> items,
+    Function(T?) onChanged, {
+    Map<T, String>? displayNames,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: DropdownButtonFormField<T>(
+        value: items.contains(value) ? value : items.first,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        items: items.map((item) {
+          final displayName = displayNames?[item] ?? item.toString();
+          return DropdownMenuItem<T>(
+            value: item,
+            child: Text(displayName),
+          );
+        }).toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildPrimaryGoalDropdown() {
+    final primaryGoalOptions = [
+      'Lose Weight',
+      'Gain Weight',
+      'Build Muscle',
+      'Improve Fitness',
+      'Maintain Health',
+      'General Wellness',
+    ];
+
+    return _buildDropdownField(
+      'Primary Goal',
+      _selectedPrimaryGoal,
+      primaryGoalOptions,
+      (value) => setState(() => _selectedPrimaryGoal = value!),
+    );
+  }
+
+  Widget _buildWeightGoalDropdown() {
+    final weightGoalOptions = {
+      'lose_weight': 'Lose Weight',
+      'gain_weight': 'Gain Weight',
+      'maintain_weight': 'Maintain Weight',
+    };
+
+    return _buildDropdownField(
+      'Weight Goal',
+      _selectedWeightGoal,
+      weightGoalOptions.keys.toList(),
+      (value) => setState(() => _selectedWeightGoal = value!),
+      displayNames: weightGoalOptions,
+    );
+  }
+
+  Widget _buildMetricDisplay(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMedicalConditionsSelector() {
+    final medicalConditions = [
+      'Diabetes',
+      'Hypertension',
+      'Heart Disease',
+      'Asthma',
+      'Arthritis',
+      'Thyroid Disorder',
+      'PCOS',
+      'Anemia',
+      'High Cholesterol',
+      'Anxiety',
+      'Depression',
+      'Back Pain',
+      'Knee Problems',
+      'Allergies',
+      'Other',
+      'None',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Medical Conditions',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'This helps us provide safer exercise and nutrition recommendations',
+                child: Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: medicalConditions.map((condition) {
+              final isSelected = _selectedMedicalConditions.contains(condition);
+              return FilterChip(
+                label: Text(condition),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (condition == 'None') {
+                      _selectedMedicalConditions = selected ? ['None'] : [];
+                      _otherMedicalConditionController.clear();
+                    } else {
+                      if (selected) {
+                        _selectedMedicalConditions.remove('None');
+                        _selectedMedicalConditions.add(condition);
+                      } else {
+                        _selectedMedicalConditions.remove(condition);
+                        if (condition == 'Other') {
+                          _otherMedicalConditionController.clear();
+                        }
+                      }
+                    }
+                  });
+                },
+                selectedColor: Colors.red.withOpacity(0.2),
+                checkmarkColor: Colors.red,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEquipmentSelector() {
+    final equipmentOptions = [
+      'Dumbbells',
+      'Barbell',
+      'Resistance Bands',
+      'Kettlebells',
+      'Pull-up Bar',
+      'Treadmill',
+      'Exercise Bike',
+      'Rowing Machine',
+      'Yoga Mat',
+      'Foam Roller',
+      'Jump Rope',
+      'Medicine Ball',
+      'TRX Straps',
+      'Bench',
+      'None',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Available Equipment',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: equipmentOptions.map((equipment) {
+              final isSelected = _selectedEquipment.contains(equipment);
+              return FilterChip(
+                label: Text(equipment),
+                selected: isSelected,
+                onSelected: (selected) {
+                  setState(() {
+                    if (equipment == 'None') {
+                      _selectedEquipment = selected ? ['None'] : [];
+                    } else {
+                      if (selected) {
+                        _selectedEquipment.remove('None');
+                        _selectedEquipment.add(equipment);
+                      } else {
+                        _selectedEquipment.remove(equipment);
+                      }
+                    }
+                  });
+                },
+                selectedColor: Colors.purple.withOpacity(0.3),
+                checkmarkColor: Colors.purple,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrainerToggle() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Personal Trainer',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Do you work with a personal trainer?',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            Switch(
+              value: _hasTrainer,
+              onChanged: (value) {
+                setState(() {
+                  _hasTrainer = value;
+                });
+              },
+              activeColor: Colors.blue,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWomensHealthSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Period tracking preference
+        _buildDropdownField(
+          'Period Tracking',
+          _periodTrackingPreference,
+          [
+            'track_periods',
+            'general_wellness',
+            'no_tracking',
+          ],
+          (value) => setState(() => _periodTrackingPreference = value!),
+          displayNames: {
+            'track_periods': 'Track my periods',
+            'general_wellness': 'General wellness only',
+            'no_tracking': 'No period tracking',
+          },
+        ),
+
+        // Pregnancy status
+        _buildDropdownField(
+          'Current Status',
+          _pregnancyStatus,
+          [
+            'not_pregnant',
+            'pregnant',
+            'breastfeeding',
+            'trying_to_conceive',
+            'prefer_not_to_say',
+          ],
+          (value) => setState(() => _pregnancyStatus = value!),
+          displayNames: {
+            'not_pregnant': 'Not pregnant',
+            'pregnant': 'Currently pregnant',
+            'breastfeeding': 'Breastfeeding',
+            'trying_to_conceive': 'Trying to conceive',
+            'prefer_not_to_say': 'Prefer not to say',
+          },
+        ),
+
+        // Only show cycle fields if tracking periods
+        if (_periodTrackingPreference == 'track_periods') ...[
+          Row(
+            children: [
+              Expanded(
+                child: _buildNumberField(
+                  'Cycle Length (days)',
+                  TextEditingController(text: _cycleLength.toString()),
+                  'Average cycle length',
+                  min: 21,
+                  max: 40,
+                  isInteger: true,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.pink[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Regular Cycle',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      Switch(
+                        value: _cycleLengthRegular,
+                        onChanged: (value) {
+                          setState(() {
+                            _cycleLengthRegular = value;
+                          });
+                        },
+                        activeColor: Colors.pink,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+
+        // Informational note
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.pink[50],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 16, color: Colors.pink[700]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'This information helps us provide personalized health insights',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.pink[700],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller,
+    String? validationMessage, {
+    bool isRequired = true,
+    int maxLines = 1,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: label,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -575,7 +1369,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         validator: isRequired
             ? (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter $label';
+                  return validationMessage;
                 }
                 return null;
               }
@@ -584,108 +1378,84 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildNumberField(
-    String label,
-    TextEditingController controller,
-    String hint, {
-    double? min,
-    double? max,
-    bool isRequired = true,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+  Widget _buildProgressSummary() {
+    final startWeight = widget.userProfile.startingWeight ?? widget.userProfile.weight;
+    final currentWeight = double.tryParse(_weightController.text) ?? widget.userProfile.weight;
+    final weightChange = currentWeight - startWeight;
+    final isLoss = weightChange < 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isLoss
+              ? [Colors.green.shade50, Colors.green.shade100]
+              : [Colors.orange.shade50, Colors.orange.shade100],
         ),
-        validator: (value) {
-          if (isRequired && (value == null || value.isEmpty)) {
-            return 'Please enter $label';
-          }
-          if (value != null && value.isNotEmpty) {
-            final number = double.tryParse(value);
-            if (number == null) {
-              return 'Please enter a valid number';
-            }
-            if (min != null && number < min) {
-              return 'Value must be at least $min';
-            }
-            if (max != null && number > max) {
-              return 'Value must be at most $max';
-            }
-          }
-          return null;
-        },
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Weight Progress',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildProgressMetric(
+                'Starting',
+                '${startWeight.toStringAsFixed(1)} kg',
+                Icons.flag,
+              ),
+              Icon(
+                isLoss ? Icons.trending_down : Icons.trending_up,
+                color: isLoss ? Colors.green : Colors.orange,
+                size: 30,
+              ),
+              _buildProgressMetric(
+                'Current',
+                '${currentWeight.toStringAsFixed(1)} kg',
+                Icons.monitor_weight,
+              ),
+              _buildProgressMetric(
+                isLoss ? 'Lost' : 'Gained',
+                '${weightChange.abs().toStringAsFixed(1)} kg',
+                isLoss ? Icons.arrow_downward : Icons.arrow_upward,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDropdownField(
-    String label,
-    String value,
-    List<String> options,
-    void Function(String?) onChanged,
-  ) {
-    // FIXED: Ensure the value exists in options
-    final validValue = options.contains(value) ? value : options.first;
-    
-    if (value != validValue) {
-      print('[EditProfilePage] Invalid dropdown value: $value, using: $validValue');
-      // Update the selected value to a valid one
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        setState(() {
-          _selectedActivityLevel = validValue;
-        });
-      });
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String>(
-        value: validValue, // FIXED: Use validated value
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+  Widget _buildProgressMetric(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.grey,
           ),
         ),
-        items: options.map((option) {
-          return DropdownMenuItem(
-            value: option,
-            child: Text(_formatActivityLevel(option)),
-          );
-        }).toList(),
-        onChanged: onChanged,
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'Please select $label';
-          }
-          return null;
-        },
-      ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
-  }
-
-  String _formatActivityLevel(String level) {
-    switch (level) {
-      case 'sedentary':
-        return 'Sedentary (little/no exercise)';
-      case 'lightly_active':
-        return 'Lightly Active (light exercise 1-3 days/week)';
-      case 'moderately_active':
-        return 'Moderately Active (moderate exercise 3-5 days/week)';
-      case 'very_active':
-        return 'Very Active (hard exercise 6-7 days/week)';
-      case 'extra_active':
-        return 'Extra Active (very hard exercise, physical job)';
-      default:
-        return level;
-    }
   }
 }
