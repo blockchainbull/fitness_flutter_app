@@ -1,7 +1,9 @@
 // lib/features/profile/screens/profile_page.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/features/profile/screens/edit_profile_page.dart';
 import 'package:user_onboarding/features/profile/screens/settings_page.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
@@ -24,14 +26,22 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   late UserProfile currentProfile;
   late TabController _tabController;
   final ApiService _apiService = ApiService();
+  final DataManager _dataManager = DataManager();
   bool isLoading = false;
+  
+  // Weight tracking
+  List<WeightEntry> weightHistory = [];
+  double? currentWeight;
+  double? startingWeight;
+  DateTime? lastWeightUpdate;
 
   @override
   void initState() {
     super.initState();
     currentProfile = widget.userProfile;
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 4, vsync: this); // Reduced from 5 to 4
     _refreshProfile();
+    _loadWeightData();
   }
 
   @override
@@ -40,15 +50,41 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     super.dispose();
   }
 
+  Future<void> _loadWeightData() async {
+    try {
+      if (currentProfile.id == null) return;
+      
+      // Get weight history from weight_entries table
+      final history = await _dataManager.getWeightHistory(currentProfile.id!);
+      
+      if (history.isNotEmpty) {
+        // Sort by date to get most recent
+        history.sort((a, b) => b.date.compareTo(a.date));
+        
+        setState(() {
+          weightHistory = history;
+          currentWeight = history.first.weight; // Most recent weight
+          lastWeightUpdate = history.first.date;
+          
+          // Get starting weight (oldest entry)
+          startingWeight = history.last.weight;
+        });
+      }
+    } catch (e) {
+      print('Error loading weight data: $e');
+    }
+  }
+
   Future<void> _refreshProfile() async {
     setState(() => isLoading = true);
     try {
-      final updatedProfile = await _apiService.fetchUserProfile(currentProfile.id!);
-      if (updatedProfile != null && mounted) {
+      final updatedProfile = await _apiService.getUserProfileById(currentProfile.id!);
+      if (mounted) {
         setState(() {
           currentProfile = updatedProfile;
         });
       }
+      await _loadWeightData(); // Refresh weight data too
     } catch (e) {
       print('Error refreshing profile: $e');
     } finally {
@@ -70,6 +106,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
       setState(() {
         currentProfile = result;
       });
+      await _loadWeightData(); // Reload weight data after edit
     }
   }
 
@@ -198,7 +235,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // Quick Stats Row
+                        // Quick Stats Row - Using actual weight from weight_entries
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
@@ -218,7 +255,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                               Icons.height,
                             ),
                             _buildQuickStat(
-                              '${currentProfile.weight?.toStringAsFixed(1) ?? 0} kg',
+                              '${currentWeight?.toStringAsFixed(1) ?? currentProfile.weight?.toStringAsFixed(1) ?? 0} kg',
                               'Weight',
                               Icons.monitor_weight,
                             ),
@@ -235,7 +272,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   color: Colors.white,
                   child: TabBar(
                     controller: _tabController,
-                    isScrollable: true,
+                    isScrollable: false, // Changed to false for 4 tabs
                     labelColor: Colors.blue,
                     unselectedLabelColor: Colors.grey,
                     indicatorColor: Colors.blue,
@@ -245,7 +282,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                       Tab(text: 'Goals'),
                       Tab(text: 'Health'),
                       Tab(text: 'Exercise'),
-                      Tab(text: 'Lifestyle'),
                     ],
                   ),
                 ),
@@ -306,22 +342,40 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Basic Information Card
+          _buildCard(
+            title: 'Basic Information',
+            icon: Icons.person,
+            children: [
+              _buildInfoRow('Name', currentProfile.name),
+              _buildInfoRow('Email', currentProfile.email),
+              _buildInfoRow('Age', '${currentProfile.age ?? 0} years'),
+              _buildInfoRow('Gender', currentProfile.gender ?? 'Not specified'),
+              _buildInfoRow('Height', '${currentProfile.height?.toStringAsFixed(0) ?? 0} cm'),
+              _buildInfoRow('Current Weight', '${currentWeight?.toStringAsFixed(1) ?? currentProfile.weight?.toStringAsFixed(1) ?? 0} kg'),
+              if (lastWeightUpdate != null)
+                _buildInfoRow('Last Weight Update', DateFormat('MMM d, yyyy').format(lastWeightUpdate!)),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
           // Body Metrics Card
           _buildCard(
             title: 'Body Metrics',
             icon: Icons.analytics,
             children: [
               _buildMetricRow('BMI', 
-                currentProfile.bmi?.toStringAsFixed(1) ?? 'Not calculated',
-                _getBMICategory(currentProfile.bmi ?? 0),
-                _getBMIColor(currentProfile.bmi ?? 0),
+                _calculateBMI()?.toStringAsFixed(1) ?? 'Not calculated',
+                _getBMICategory(_calculateBMI() ?? 0),
+                _getBMIColor(_calculateBMI() ?? 0),
               ),
               _buildMetricRow('BMR', 
-                '${currentProfile.bmr?.toStringAsFixed(0) ?? 0} cal/day',
+                '${_calculateBMR()?.toStringAsFixed(0) ?? 0} cal/day',
                 'Basal Metabolic Rate',
               ),
               _buildMetricRow('TDEE', 
-                '${currentProfile.tdee?.toStringAsFixed(0) ?? 0} cal/day',
+                '${_calculateTDEE()?.toStringAsFixed(0) ?? 0} cal/day',
                 'Total Daily Energy Expenditure',
               ),
               _buildMetricRow('Activity Level', 
@@ -338,17 +392,9 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
             title: 'Account Information',
             icon: Icons.account_circle,
             children: [
-              _buildInfoRow('Member Since', 
-                currentProfile.createdAt != null 
-                  ? DateFormat('MMMM d, yyyy').format(currentProfile.createdAt!)
-                  : 'Unknown'
-              ),
-              _buildInfoRow('Last Updated', 
-                currentProfile.updatedAt != null 
-                  ? DateFormat('MMM d, yyyy HH:mm').format(currentProfile.updatedAt!)
-                  : 'Never'
-              ),
               _buildInfoRow('Profile Completion', '${_calculateProfileCompletion()}%'),
+              if (weightHistory.isNotEmpty)
+                _buildInfoRow('Weight Entries', '${weightHistory.length} records'),
             ],
           ),
         ],
@@ -357,6 +403,11 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   }
 
   Widget _buildGoalsTab() {
+    // Use weight from weight_entries for calculations
+    final latestWeight = currentWeight ?? currentProfile.weight ?? 0;
+    final targetWeight = currentProfile.targetWeight ?? latestWeight;
+    final initialWeight = startingWeight ?? currentProfile.weight ?? latestWeight;
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -406,17 +457,82 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           
           const SizedBox(height: 16),
           
-          // Weight Goals Card
+          // Weight Management Card - Using data from weight_entries
           _buildCard(
             title: 'Weight Management',
-            icon: Icons.trending_up,
+            icon: _getWeightGoalIcon(currentProfile.weightGoal ?? ''),
             children: [
-              _buildInfoRow('Current Weight', '${currentProfile.weight?.toStringAsFixed(1) ?? 0} kg'),
-              _buildInfoRow('Target Weight', '${currentProfile.targetWeight?.toStringAsFixed(1) ?? 0} kg'),
-              _buildInfoRow('Weight Goal', _formatWeightGoal(currentProfile.weightGoal ?? '')),
-              _buildInfoRow('Timeline', _formatTimeline(currentProfile.goalTimeline ?? '')),
-              const Divider(),
-              _buildWeightProgress(),
+              // Goal-specific header
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: _getWeightGoalColor(currentProfile.weightGoal ?? '').withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _getWeightGoalColor(currentProfile.weightGoal ?? '').withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _getWeightGoalIcon(currentProfile.weightGoal ?? ''),
+                      color: _getWeightGoalColor(currentProfile.weightGoal ?? ''),
+                      size: 30,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _formatWeightGoal(currentProfile.weightGoal ?? ''),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _getWeightGoalDescription(currentProfile.weightGoal ?? ''),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Weight stats based on goal
+              _buildInfoRow('Starting Weight', '${initialWeight.toStringAsFixed(1)} kg'),
+              _buildInfoRow('Current Weight', '${latestWeight.toStringAsFixed(1)} kg'),
+              
+              // Only show target weight if not maintaining
+              if (currentProfile.weightGoal != 'maintain_weight' && 
+                  currentProfile.weightGoal != 'Maintain Weight') ...[
+                _buildInfoRow('Target Weight', '${targetWeight.toStringAsFixed(1)} kg'),
+                _buildInfoRow('Timeline', _formatTimeline(currentProfile.goalTimeline ?? '')),
+                const Divider(),
+                _buildWeightProgressForGoal(
+                  latestWeight, 
+                  targetWeight, 
+                  initialWeight, 
+                  currentProfile.weightGoal ?? ''
+                ),
+              ] else ...[
+                const Divider(),
+                _buildMaintenanceProgress(latestWeight, initialWeight),
+              ],
+              
+              // Weight trend for all goals
+              if (weightHistory.length > 1) ...[
+                const SizedBox(height: 16),
+                _buildWeightTrendForGoal(currentProfile.weightGoal ?? ''),
+              ],
             ],
           ),
           
@@ -443,6 +559,37 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
+          // Daily Targets Card
+          _buildCard(
+            title: 'Daily Health Targets',
+            icon: Icons.flag,
+            children: [
+              _buildProgressRow(
+                'Steps Goal',
+                0, // Placeholder for actual steps
+                currentProfile.dailyStepGoal ?? 10000,
+                'steps',
+                Colors.green,
+              ),
+              _buildProgressRow(
+                'Water Intake',
+                0, // Placeholder for actual intake
+                currentProfile.waterIntakeGlasses ?? 8,
+                'glasses',
+                Colors.blue,
+              ),
+              _buildProgressRow(
+                'Sleep Target',
+                0, // Placeholder for actual sleep
+                currentProfile.sleepHours?.toInt() ?? 8,
+                'hours',
+                Colors.purple,
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
           // Medical Conditions Card
           _buildCard(
             title: 'Medical Conditions',
@@ -634,7 +781,81 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     );
   }
 
-  // Helper Methods
+  // Weight trend widget
+  Widget _buildWeightTrend() {
+    if (weightHistory.length < 2) return const SizedBox();
+    
+    // Calculate trend
+    final recentWeight = weightHistory.first.weight;
+    final previousWeight = weightHistory[1].weight;
+    final change = recentWeight - previousWeight;
+    final isLoss = change < 0;
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isLoss ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isLoss ? Icons.trending_down : Icons.trending_up,
+            color: isLoss ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${isLoss ? 'Lost' : 'Gained'} ${change.abs().toStringAsFixed(1)} kg since last entry',
+            style: TextStyle(
+              color: isLoss ? Colors.green : Colors.orange,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Updated weight progress using actual weight data
+  Widget _buildWeightProgress(double current, double target, double start) {
+    final totalChange = (target - start).abs();
+    final currentChange = (current - start).abs();
+    final progress = totalChange > 0 ? (currentChange / totalChange).clamp(0.0, 1.0) : 0.0;
+    
+    final isLosing = target < start;
+    final progressColor = isLosing ? Colors.green : Colors.orange;
+    
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildWeightStat('Start', start),
+            _buildWeightStat('Current', current),
+            _buildWeightStat('Target', target),
+          ],
+        ),
+        const SizedBox(height: 12),
+        LinearProgressIndicator(
+          value: progress,
+          backgroundColor: progressColor.withOpacity(0.2),
+          valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+          minHeight: 8,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${(progress * 100).toStringAsFixed(0)}% to goal',
+          style: TextStyle(
+            color: progressColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Helper methods remain the same...
   Widget _buildCard({
     required String title,
     required IconData icon,
@@ -742,7 +963,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   }
 
   Widget _buildProgressRow(String label, int current, int target, String unit, Color color) {
-    final progress = current / target;
+    final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -757,7 +978,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           ),
           const SizedBox(height: 4),
           LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
+            value: progress,
             backgroundColor: color.withOpacity(0.2),
             valueColor: AlwaysStoppedAnimation<Color>(color),
             minHeight: 6,
@@ -778,88 +999,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildTimelineItem(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 20, color: Colors.blue),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeightProgress() {
-   final currentWeight = currentProfile.weight ?? 0;
-   final targetWeight = currentProfile.targetWeight ?? currentWeight;
-   final startWeight = currentProfile.startingWeight ?? currentWeight;
-   
-   final totalChange = (targetWeight - startWeight).abs();
-   final currentChange = (currentWeight - startWeight).abs();
-   final progress = totalChange > 0 ? (currentChange / totalChange).clamp(0.0, 1.0) : 0.0;
-   
-   final isLosing = targetWeight < startWeight;
-   final progressColor = isLosing ? Colors.green : Colors.orange;
-   
-   return Column(
-     children: [
-       Row(
-         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-         children: [
-           _buildWeightStat('Start', startWeight),
-           _buildWeightStat('Current', currentWeight),
-           _buildWeightStat('Target', targetWeight),
-         ],
-       ),
-       const SizedBox(height: 12),
-       LinearProgressIndicator(
-         value: progress,
-         backgroundColor: progressColor.withOpacity(0.2),
-         valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-         minHeight: 8,
-       ),
-       const SizedBox(height: 8),
-       Text(
-         '${(progress * 100).toStringAsFixed(0)}% to goal',
-         style: TextStyle(
-           color: progressColor,
-           fontWeight: FontWeight.bold,
-         ),
-       ),
-     ],
-   );
- }
-
- Widget _buildWeightStat(String label, double weight) {
+  Widget _buildWeightStat(String label, double weight) {
    return Column(
      children: [
        Text(
@@ -881,52 +1021,377 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
    );
  }
 
- // Utility Methods
- String _formatActivityLevel(String level) {
-   final Map<String, String> levels = {
-     'sedentary': 'Sedentary',
-     'lightly_active': 'Lightly Active',
-     'moderately_active': 'Moderately Active',
-     'very_active': 'Very Active',
-     'extra_active': 'Extra Active',
-   };
-   return levels[level] ?? level;
+ // Weight progress for specific goals
+Widget _buildWeightProgressForGoal(
+  double current, 
+  double target, 
+  double start, 
+  String goal
+) {
+  final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+  
+  if (normalizedGoal == 'lose_weight') {
+    // For weight loss: progress from start to target (going down)
+    final totalToLose = start - target;
+    final alreadyLost = start - current;
+    final progress = totalToLose > 0 ? (alreadyLost / totalToLose).clamp(0.0, 1.0) : 0.0;
+    
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildWeightStatWithLabel('Start', start, false),
+            Icon(Icons.arrow_forward, color: Colors.grey),
+            _buildWeightStatWithLabel('Current', current, true),
+            Icon(Icons.arrow_forward, color: Colors.grey),
+            _buildWeightStatWithLabel('Target', target, false),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Progress', style: TextStyle(color: Colors.grey[600])),
+                Text('${(progress * 100).toStringAsFixed(0)}%'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.green.withOpacity(0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+              minHeight: 8,
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'Lost ${alreadyLost.toStringAsFixed(1)} kg of ${totalToLose.toStringAsFixed(1)} kg',
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  } else if (normalizedGoal == 'gain_weight') {
+    // For weight gain: progress from start to target (going up)
+    final totalToGain = target - start;
+    final alreadyGained = current - start;
+    final progress = totalToGain > 0 ? (alreadyGained / totalToGain).clamp(0.0, 1.0) : 0.0;
+    
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildWeightStatWithLabel('Start', start, false),
+            Icon(Icons.arrow_forward, color: Colors.grey),
+            _buildWeightStatWithLabel('Current', current, true),
+            Icon(Icons.arrow_forward, color: Colors.grey),
+            _buildWeightStatWithLabel('Target', target, false),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Progress', style: TextStyle(color: Colors.grey[600])),
+                Text('${(progress * 100).toStringAsFixed(0)}%'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.orange.withOpacity(0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+              minHeight: 8,
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'Gained ${alreadyGained.toStringAsFixed(1)} kg of ${totalToGain.toStringAsFixed(1)} kg',
+                style: const TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+  
+  // Default fallback
+  return _buildWeightProgress(current, target, start);
+}
+
+// Maintenance progress (no target)
+Widget _buildMaintenanceProgress(double current, double initial) {
+  final difference = current - initial;
+  final isDifferent = difference.abs() > 0.1;
+  
+  return Column(
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildWeightStatWithLabel('Starting', initial, false),
+          Icon(
+            Icons.swap_horiz,
+            color: Colors.blue,
+            size: 30,
+          ),
+          _buildWeightStatWithLabel('Current', current, true),
+        ],
+      ),
+      const SizedBox(height: 16),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isDifferent 
+                ? (difference > 0 ? Icons.arrow_upward : Icons.arrow_downward)
+                : Icons.check_circle,
+              color: Colors.blue,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isDifferent
+                ? 'Weight ${difference > 0 ? "increased" : "decreased"} by ${difference.abs().toStringAsFixed(1)} kg'
+                : 'Weight maintained successfully',
+              style: const TextStyle(
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+// Enhanced weight stat with highlighting
+Widget _buildWeightStatWithLabel(String label, double weight, bool isHighlighted) {
+  return Column(
+    children: [
+      Text(
+        label,
+        style: TextStyle(
+          color: isHighlighted ? Colors.blue : Colors.grey[600],
+          fontSize: 12,
+          fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isHighlighted ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: isHighlighted 
+            ? Border.all(color: Colors.blue.withOpacity(0.3))
+            : null,
+        ),
+        child: Text(
+          '${weight.toStringAsFixed(1)} kg',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: isHighlighted ? Colors.blue : Colors.black,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+  // Weight trend specific to goal
+  Widget _buildWeightTrendForGoal(String goal) {
+    if (weightHistory.length < 2) return const SizedBox();
+    
+    final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+    final recentWeight = weightHistory.first.weight;
+    final previousWeight = weightHistory[1].weight;
+    final change = recentWeight - previousWeight;
+    
+    // Determine if the trend is positive based on goal
+    bool isPositiveTrend = false;
+    Color trendColor = Colors.grey;
+    IconData trendIcon = Icons.trending_flat;
+    
+    if (normalizedGoal == 'lose_weight') {
+      isPositiveTrend = change < 0;
+      trendColor = isPositiveTrend ? Colors.green : Colors.red;
+      trendIcon = change < 0 ? Icons.trending_down : Icons.trending_up;
+    } else if (normalizedGoal == 'gain_weight') {
+      isPositiveTrend = change > 0;
+      trendColor = isPositiveTrend ? Colors.green : Colors.red;
+      trendIcon = change > 0 ? Icons.trending_up : Icons.trending_down;
+    } else { // maintain_weight
+      isPositiveTrend = change.abs() < 0.5; // Within 0.5kg is good for maintenance
+      trendColor = isPositiveTrend ? Colors.green : Colors.orange;
+      trendIcon = change.abs() < 0.5 ? Icons.horizontal_rule : (change > 0 ? Icons.trending_up : Icons.trending_down);
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: trendColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: trendColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(trendIcon, color: trendColor),
+          const SizedBox(width: 8),
+          Text(
+            _getTrendMessage(normalizedGoal, change),
+            style: TextStyle(
+              color: trendColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+ // Calculation Methods
+ double? _calculateBMI() {
+   final height = currentProfile.height;
+   // Use current weight from weight_entries if available
+   final weight = currentWeight ?? currentProfile.weight;
+   if (height != null && height > 0 && weight != null && weight > 0) {
+     final heightInMeters = height / 100;
+     return weight / (heightInMeters * heightInMeters);
+   }
+   return null;
  }
 
- String _getActivityDescription(String level) {
-   final Map<String, String> descriptions = {
-     'sedentary': 'Little or no exercise',
-     'lightly_active': 'Exercise 1-3 days/week',
-     'moderately_active': 'Exercise 3-5 days/week',
-     'very_active': 'Exercise 6-7 days/week',
-     'extra_active': 'Very intense exercise daily',
-   };
-   return descriptions[level] ?? 'Not specified';
+ double? _calculateBMR() {
+   final height = currentProfile.height;
+   // Use current weight from weight_entries if available
+   final weight = currentWeight ?? currentProfile.weight;
+   final age = currentProfile.age;
+   final gender = currentProfile.gender;
+   
+   if (height != null && weight != null && age != null && gender != null) {
+     if (gender.toLowerCase() == 'male') {
+       return (10 * weight) + (6.25 * height) - (5 * age) + 5;
+     } else {
+       return (10 * weight) + (6.25 * height) - (5 * age) - 161;
+     }
+   }
+   return null;
  }
 
- IconData _getActivityIcon(String level) {
-   final Map<String, IconData> icons = {
-     'sedentary': Icons.weekend,
-     'lightly_active': Icons.directions_walk,
-     'moderately_active': Icons.directions_run,
-     'very_active': Icons.fitness_center,
-     'extra_active': Icons.sports_martial_arts,
-   };
-   return icons[level] ?? Icons.help_outline;
- }
+ double? _calculateTDEE() {
+    final bmr = _calculateBMR();
+    if (bmr != null) {
+      final activityMultipliers = {
+        'sedentary': 1.2,
+        'lightly_active': 1.375,
+        'moderately_active': 1.55,
+        'very_active': 1.725,
+        'extra_active': 1.9,
+      };
+      return bmr * (activityMultipliers[currentProfile.activityLevel] ?? 1.55);
+   }
+   return null;
+  }
 
- Color _getActivityColor(String level) {
-   final Map<String, Color> colors = {
-     'sedentary': Colors.grey,
-     'lightly_active': Colors.lightBlue,
-     'moderately_active': Colors.blue,
-     'very_active': Colors.orange,
-     'extra_active': Colors.red,
-   };
-   return colors[level] ?? Colors.grey;
- }
+  // Get trend message based on goal
+  String _getTrendMessage(String goal, double change) {
+    final absChange = change.abs().toStringAsFixed(1);
+    
+    if (goal == 'lose_weight') {
+      return change < 0 
+        ? '✓ Lost $absChange kg since last entry'
+        : '⚠ Gained $absChange kg since last entry';
+    } else if (goal == 'gain_weight') {
+      return change > 0
+        ? '✓ Gained $absChange kg since last entry'
+        : '⚠ Lost $absChange kg since last entry';
+    } else { // maintain_weight
+      return change.abs() < 0.5
+        ? '✓ Weight stable (${change > 0 ? "+" : ""}${change.toStringAsFixed(1)} kg)'
+        : '⚠ Weight changed by ${change > 0 ? "+" : ""}${change.toStringAsFixed(1)} kg';
+    }
+}
+
+  // Utility Methods
+  String _formatActivityLevel(String? level) {
+    if (level == null || level.isEmpty) return 'Not set';
+    
+    // Handle both snake_case and formatted versions
+    final Map<String, String> levels = {
+      'sedentary': 'Sedentary',
+      'lightly_active': 'Lightly Active',
+      'moderately_active': 'Moderately Active',
+      'very_active': 'Very Active',
+      'extra_active': 'Extra Active',
+      // Also handle if it's already formatted
+      'Sedentary': 'Sedentary',
+      'Lightly Active': 'Lightly Active',
+      'Moderately Active': 'Moderately Active',
+      'Very Active': 'Very Active',
+      'Extra Active': 'Extra Active',
+    };
+    
+    // Try exact match first
+    if (levels.containsKey(level)) {
+      return levels[level]!;
+    }
+    
+    // Try case-insensitive match
+    final lowerLevel = level.toLowerCase().replaceAll(' ', '_');
+    if (levels.containsKey(lowerLevel)) {
+      return levels[lowerLevel]!;
+    }
+    
+    // Return original if no match found
+    return level;
+  }
+
+   String _getActivityDescription(String? level) {
+    if (level == null || level.isEmpty) return 'Activity level not specified';
+    
+    // Normalize the level string
+    final normalizedLevel = level.toLowerCase().replaceAll(' ', '_');
+    
+    final Map<String, String> descriptions = {
+      'sedentary': 'Little or no exercise',
+      'lightly_active': 'Exercise 1-3 days/week',
+      'moderately_active': 'Exercise 3-5 days/week',
+      'very_active': 'Exercise 6-7 days/week',
+      'extra_active': 'Very intense exercise daily',
+    };
+    
+    return descriptions[normalizedLevel] ?? 'Activity level: $level';
+  }
 
  String _getBMICategory(double bmi) {
+   if (bmi == 0) return 'Not calculated';
    if (bmi < 18.5) return 'Underweight';
    if (bmi < 25) return 'Normal weight';
    if (bmi < 30) return 'Overweight';
@@ -934,6 +1399,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
  }
 
  Color _getBMIColor(double bmi) {
+   if (bmi == 0) return Colors.grey;
    if (bmi < 18.5) return Colors.orange;
    if (bmi < 25) return Colors.green;
    if (bmi < 30) return Colors.orange;
@@ -1014,56 +1480,98 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
    return icons[equipment] ?? Icons.sports;
  }
 
+   IconData _getWeightGoalIcon(String goal) {
+    final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+    switch (normalizedGoal) {
+      case 'lose_weight':
+        return Icons.trending_down;
+      case 'gain_weight':
+        return Icons.trending_up;
+      case 'maintain_weight':
+        return Icons.horizontal_rule;
+      default:
+        return Icons.trending_flat;
+    }
+  }
+
+  // Color based on weight goal
+  Color _getWeightGoalColor(String goal) {
+    final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+    switch (normalizedGoal) {
+      case 'lose_weight':
+        return Colors.green;
+      case 'gain_weight':
+        return Colors.orange;
+      case 'maintain_weight':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Description for weight goal
+  String _getWeightGoalDescription(String goal) {
+    final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+    switch (normalizedGoal) {
+      case 'lose_weight':
+        return 'Creating a caloric deficit for healthy weight loss';
+      case 'gain_weight':
+        return 'Building mass through increased nutrition and training';
+      case 'maintain_weight':
+        return 'Maintaining current weight with balanced lifestyle';
+      default:
+        return 'Personalized weight management plan';
+    }
+  }
+
+
  int _calculateProfileCompletion() {
    int filledFields = 0;
-   int totalFields = 35; // Approximate total fields
+   int totalFields = 30; // Adjusted for actual fields
    
-   // Basic info
+   // Basic info (6 fields)
    if (currentProfile.name.isNotEmpty) filledFields++;
    if (currentProfile.email.isNotEmpty) filledFields++;
    if (currentProfile.age != null) filledFields++;
    if (currentProfile.gender != null) filledFields++;
    if (currentProfile.height != null) filledFields++;
-   if (currentProfile.weight != null) filledFields++;
+   if (currentWeight != null || currentProfile.weight != null) filledFields++;
    
-   // Goals
+   // Goals (5 fields)
    if (currentProfile.primaryGoal != null) filledFields++;
    if (currentProfile.weightGoal != null) filledFields++;
    if (currentProfile.targetWeight != null) filledFields++;
    if (currentProfile.goalTimeline != null) filledFields++;
+   if (currentProfile.activityLevel != null) filledFields++;
    
-   // Daily targets
+   // Daily targets (6 fields)
    if (currentProfile.dailyStepGoal != null) filledFields++;
    if (currentProfile.sleepHours != null) filledFields++;
    if (currentProfile.waterIntake != null) filledFields++;
    if (currentProfile.workoutFrequency != null) filledFields++;
    if (currentProfile.workoutDuration != null) filledFields++;
-   
-   // Lifestyle
-   if (currentProfile.activityLevel != null) filledFields++;
    if (currentProfile.fitnessLevel != null) filledFields++;
+   
+   // Lifestyle (4 fields)
    if (currentProfile.bedtime != null) filledFields++;
    if (currentProfile.wakeupTime != null) filledFields++;
+   if (currentProfile.workoutLocation != null) filledFields++;
+   if (currentProfile.hasTrainer != null) filledFields++;
    
-   // Lists
+   // Lists (5 fields)
    if (currentProfile.sleepIssues?.isNotEmpty ?? false) filledFields++;
    if (currentProfile.dietaryPreferences?.isNotEmpty ?? false) filledFields++;
    if (currentProfile.preferredWorkouts?.isNotEmpty ?? false) filledFields++;
    if (currentProfile.medicalConditions?.isNotEmpty ?? false) filledFields++;
    if (currentProfile.availableEquipment?.isNotEmpty ?? false) filledFields++;
    
-   // Additional
-   if (currentProfile.workoutLocation != null) filledFields++;
-   if (currentProfile.hasTrainer != null) filledFields++;
-   
    // Women's health (if applicable)
    if (currentProfile.gender?.toLowerCase() == 'female') {
-     totalFields += 5;
+     totalFields += 4;
      if (currentProfile.hasPeriods != null) filledFields++;
      if (currentProfile.pregnancyStatus != null) filledFields++;
      if (currentProfile.periodTrackingPreference != null) filledFields++;
      if (currentProfile.cycleLength != null) filledFields++;
-     if (currentProfile.cycleLengthRegular != null) filledFields++;
    }
    
    return ((filledFields / totalFields) * 100).round();
