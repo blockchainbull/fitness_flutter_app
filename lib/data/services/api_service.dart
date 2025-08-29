@@ -554,6 +554,15 @@ class ApiService {
     }
   }
 
+  Future<UserProfile?> fetchUserProfile(String userId) async {
+    try {
+      return await getUserProfileById(userId);
+    } catch (e) {
+      debugPrint('Error fetching profile: $e');
+      return null; // Return null instead of throwing
+    }
+  }
+
   Future<UserProfile> getUserProfileById(String userId) async {
     try {
       print('[ApiService] Getting user profile for ID: $userId');
@@ -596,7 +605,7 @@ class ApiService {
       debugPrint('API error when getting user profile: $e');
       rethrow;
     }
-}
+  }
 
   // Check if email exists (you'll need to add this endpoint to your backend)
   Future<bool> emailExists(String email) async {

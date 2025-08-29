@@ -13,6 +13,10 @@ class UserProfile {
   final double? startingWeight;
   final DateTime? startingWeightDate;
   final String activityLevel;
+
+  final double? bmi;
+  final double? bmr;
+  final double? tdee;
   
   final bool? hasPeriods;
   final DateTime? lastPeriodDate;
@@ -44,6 +48,10 @@ class UserProfile {
   final List<String> availableEquipment;
   final String fitnessLevel;
   final bool hasTrainer;
+
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
   final Map<String, dynamic> formData;
 
   UserProfile({
@@ -58,6 +66,10 @@ class UserProfile {
     this.startingWeight,
     this.startingWeightDate,
     required this.activityLevel,
+
+    this.bmi,
+    this.bmr,
+    this.tdee,
     
     this.hasPeriods,
     this.lastPeriodDate,
@@ -89,6 +101,10 @@ class UserProfile {
     required this.availableEquipment,
     required this.fitnessLevel,
     required this.hasTrainer,
+    
+    this.createdAt,
+    this.updatedAt,
+
     this.formData = const {},
   });
 
@@ -141,6 +157,10 @@ class UserProfile {
               ? DateTime.parse(map['startingWeightDate']) 
               : null),
       activityLevel: map['activityLevel'] ?? '',
+
+      bmi: map['bmi']?.toDouble(),
+      bmr: map['bmr']?.toDouble(),
+      tdee: map['tdee']?.toDouble(),
       
       hasPeriods: map['hasPeriods'],
       lastPeriodDate: _parseDateTime(map['lastPeriodDate'] ?? map['last_period_date']),
@@ -172,6 +192,14 @@ class UserProfile {
       availableEquipment: List<String>.from(map['availableEquipment'] ?? []),
       fitnessLevel: map['fitnessLevel'] ?? 'Beginner',
       hasTrainer: map['hasTrainer'] ?? false,
+
+      createdAt: map['created_at'] != null 
+        ? DateTime.tryParse(map['created_at']) 
+        : null,
+      updatedAt: map['updated_at'] != null 
+        ? DateTime.tryParse(map['updated_at']) 
+        : null,
+
       formData: formDataMap,
     );
   }
@@ -257,6 +285,10 @@ class UserProfile {
       'startingWeightDate': startingWeightDate?.toIso8601String(),
       'activityLevel': activityLevel,
       
+      'bmi': bmi,
+      'bmr': bmr,
+      'tdee': tdee,
+
       'hasPeriods': hasPeriods,
       'lastPeriodDate': lastPeriodDate?.toIso8601String(),
       'cycleLength': cycleLength,
@@ -287,9 +319,9 @@ class UserProfile {
       'availableEquipment': availableEquipment,
       'fitnessLevel': fitnessLevel,
       'hasTrainer': hasTrainer,
-      'bmi': formData.containsKey('bmi') ? (formData['bmi'] is num ? formData['bmi'] : double.tryParse(formData['bmi'].toString()) ?? 0.0) : 0.0,
-      'bmr': formData.containsKey('bmr') ? (formData['bmr'] is num ? formData['bmr'] : double.tryParse(formData['bmr'].toString()) ?? 0.0) : 0.0,
-      'tdee': formData.containsKey('tdee') ? (formData['tdee'] is num ? formData['tdee'] : double.tryParse(formData['tdee'].toString()) ?? 0.0) : 0.0,
+      
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
     
     return map;
@@ -383,6 +415,10 @@ class UserProfile {
     double? startingWeight,
     DateTime? startingWeightDate,
     String? activityLevel,
+
+    double? bmi,
+    double? bmr,
+    double? tdee,
     
     bool? hasPeriods,
     DateTime? lastPeriodDate,
@@ -414,6 +450,10 @@ class UserProfile {
     List<String>? availableEquipment,
     String? fitnessLevel,
     bool? hasTrainer,
+
+    DateTime? createdAt,
+    DateTime? updatedAt,
+
     Map<String, dynamic>? formData,
   }) {
     return UserProfile(
@@ -428,6 +468,10 @@ class UserProfile {
       startingWeight: startingWeight ?? this.startingWeight,
       startingWeightDate: startingWeightDate ?? this.startingWeightDate,
       activityLevel: activityLevel ?? this.activityLevel,
+
+      bmi: bmi ?? this.bmi,
+      bmr: bmr ?? this.bmr,
+      tdee: tdee ?? this.tdee,
       
       hasPeriods: hasPeriods ?? this.hasPeriods,
       lastPeriodDate: lastPeriodDate ?? this.lastPeriodDate,
@@ -459,6 +503,10 @@ class UserProfile {
       availableEquipment: availableEquipment ?? this.availableEquipment,
       fitnessLevel: fitnessLevel ?? this.fitnessLevel,
       hasTrainer: hasTrainer ?? this.hasTrainer,
+
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      
       formData: formData ?? this.formData,
     );
   }
