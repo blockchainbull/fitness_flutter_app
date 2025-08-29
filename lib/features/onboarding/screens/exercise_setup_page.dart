@@ -22,6 +22,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
   bool _hasTrainer = false;
   int _dailyStepGoal = 10000;
   final TextEditingController _stepGoalController = TextEditingController();
+  bool _showValidationErrors = false;
 
   final List<Map<String, dynamic>> _locationOptions = [
     {
@@ -98,6 +99,25 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
     super.dispose();
   }
 
+  bool _isFieldValid(String fieldName) {
+    if (!_showValidationErrors) return true;
+    
+    switch (fieldName) {
+      case 'location':
+        return _workoutLocation.isNotEmpty;
+      case 'equipment':
+        return _availableEquipment.isNotEmpty;
+      case 'fitness':
+        return _fitnessLevel.isNotEmpty;
+      case 'trainer':
+        return true; // Has default value
+      case 'stepGoal':
+        return _dailyStepGoal >= 1000 && _dailyStepGoal <= 50000;
+      default:
+        return true;
+    }
+  }
+
   String _getStepGoalDescription(int steps) {
     if (steps < 5000) return 'Light activity';
     if (steps < 7500) return 'Somewhat active';
@@ -122,7 +142,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Your current Exercise & Activity Setup',
+            'Your Exercise & Activity Setup',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -152,7 +172,9 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
               ),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _getStepGoalColor(_dailyStepGoal).withOpacity(0.3),
+                color: !_isFieldValid('stepGoal') && _showValidationErrors
+                    ? Colors.red
+                    : _getStepGoalColor(_dailyStepGoal).withOpacity(0.3),
                 width: 1,
               ),
             ),
@@ -174,9 +196,33 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const Text(
+                      ' *',
+                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
+                
+                if (!_isFieldValid('stepGoal') && _showValidationErrors)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.warning, size: 16, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text(
+                          'Please set a step goal between 1,000 and 50,000',
+                          style: TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
                 
                 // Display current goal
                 Center(
@@ -236,6 +282,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                         setState(() {
                           _dailyStepGoal = goal;
                           _stepGoalController.text = goal.toString();
+                          _showValidationErrors = false;
                         });
                         widget.onDataChanged('dailyStepGoal', goal);
                       },
@@ -280,6 +327,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                           if (goal != null && goal > 0) {
                             setState(() {
                               _dailyStepGoal = goal;
+                              _showValidationErrors = false;
                             });
                             widget.onDataChanged('dailyStepGoal', goal);
                           }
@@ -320,14 +368,44 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
           const SizedBox(height: 24),
           
           // Workout location
-          const Text(
-            'Where do you usually workout?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: const [
+              Text(
+                'Where do you usually workout?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          
+          if (!_isFieldValid('location') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select where you workout',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -346,6 +424,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                 onTap: () {
                   setState(() {
                     _workoutLocation = location['title'];
+                    _showValidationErrors = false;
                   });
                   widget.onDataChanged('workoutLocation', location['title']);
                 },
@@ -354,9 +433,14 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                   decoration: BoxDecoration(
                     color: isSelected ? Colors.blue.withOpacity(0.2) : Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
-                    border: isSelected
-                        ? Border.all(color: Colors.blue, width: 2)
-                        : null,
+                    border: Border.all(
+                      color: isSelected 
+                          ? Colors.blue
+                          : (!_isFieldValid('location') && _showValidationErrors
+                              ? Colors.red[300]!
+                              : Colors.grey[300]!),
+                      width: isSelected ? 2 : 1,
+                    ),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -372,6 +456,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: isSelected ? Colors.blue : Colors.black,
+                          fontSize: 13,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -394,12 +479,20 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
           const SizedBox(height: 24),
           
           // Available equipment
-          const Text(
-            'What equipment do you have access to?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: const [
+              Text(
+                'What equipment do you have access to?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           const Text(
@@ -410,6 +503,28 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
             ),
           ),
           const SizedBox(height: 12),
+          
+          if (!_isFieldValid('equipment') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select your available equipment or "None"',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -430,47 +545,111 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                     } else {
                       _availableEquipment.remove(equipment);
                     }
+                    _showValidationErrors = false;
                   });
                   widget.onDataChanged('availableEquipment', _availableEquipment);
                 },
                 selectedColor: Colors.blue.withOpacity(0.2),
                 checkmarkColor: Colors.blue,
+                backgroundColor: Colors.grey[100],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: !_isFieldValid('equipment') && _showValidationErrors
+                        ? Colors.red[300]!
+                        : Colors.transparent,
+                  ),
+                ),
               );
             }).toList(),
           ),
           const SizedBox(height: 24),
           
           // Fitness level
-          const Text(
-            'What\'s your current fitness level?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: const [
+              Text(
+                'What\'s your current fitness level?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          if (!_isFieldValid('fitness') && _showValidationErrors)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.warning, size: 16, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Please select your fitness level',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          
+          Row(
             children: _fitnessLevels.map((level) {
               final isSelected = _fitnessLevel == level;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _fitnessLevel = level;
-                  });
-                  widget.onDataChanged('fitnessLevel', level);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.blue : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Text(
-                    level,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _fitnessLevel = level;
+                        _showValidationErrors = false;
+                      });
+                      widget.onDataChanged('fitnessLevel', level);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.blue : Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: !_isFieldValid('fitness') && _showValidationErrors
+                              ? Colors.red[300]!
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            level == 'Beginner' ? Icons.star_border :
+                            level == 'Intermediate' ? Icons.star_half :
+                            Icons.star,
+                            color: isSelected ? Colors.white : Colors.grey[700],
+                            size: 28,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            level,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -479,27 +658,205 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
           ),
           const SizedBox(height: 24),
           
-          // Personal trainer
-          SwitchListTile(
-            title: const Text(
-              'Do you work with a personal trainer?',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+          // Trainer option
+          Row(
+            children: const [
+              Text(
+                'Do you work with a personal trainer?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              Text(
+                ' *',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _hasTrainer = true;
+                    });
+                    widget.onDataChanged('hasTrainer', true);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _hasTrainer ? Colors.green : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: _hasTrainer ? Colors.white : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Yes',
+                          style: TextStyle(
+                            color: _hasTrainer ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _hasTrainer = false;
+                    });
+                    widget.onDataChanged('hasTrainer', false);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: !_hasTrainer ? Colors.red : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.cancel,
+                          color: !_hasTrainer ? Colors.white : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'No',
+                          style: TextStyle(
+                            color: !_hasTrainer ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          // Summary Section
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue[50]!, Colors.green[50]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue[200]!),
             ),
-            value: _hasTrainer,
-            onChanged: (value) {
-              setState(() {
-                _hasTrainer = value;
-              });
-              widget.onDataChanged('hasTrainer', value);
-            },
-            activeColor: Colors.blue,
-            contentPadding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.summarize, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Your Setup Summary',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (_dailyStepGoal > 0)
+                  _buildSummaryRow(
+                    Icons.directions_walk,
+                    'Daily Goal',
+                    '$_dailyStepGoal steps',
+                    _getStepGoalColor(_dailyStepGoal),
+                  ),
+                if (_workoutLocation.isNotEmpty)
+                  _buildSummaryRow(
+                    Icons.location_on,
+                    'Location',
+                    _workoutLocation,
+                    Colors.purple,
+                  ),
+                if (_availableEquipment.isNotEmpty)
+                  _buildSummaryRow(
+                    Icons.fitness_center,
+                    'Equipment',
+                    _availableEquipment.length == 1 
+                        ? _availableEquipment.first
+                        : '${_availableEquipment.length} items',
+                    Colors.orange,
+                  ),
+                if (_fitnessLevel.isNotEmpty)
+                  _buildSummaryRow(
+                    Icons.trending_up,
+                    'Level',
+                    _fitnessLevel,
+                    Colors.green,
+                  ),
+                _buildSummaryRow(
+                  Icons.person,
+                  'Trainer',
+                  _hasTrainer ? 'Yes' : 'No',
+                  _hasTrainer ? Colors.green : Colors.grey,
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildSummaryRow(IconData icon, String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[600],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void validateFields() {
+    setState(() {
+      _showValidationErrors = true;
+    });
   }
 }

@@ -76,51 +76,89 @@ class ApiService {
   }
 
   // Update user profile
-  Future<void> updateUserProfile(UserProfile userProfile) async {
+  Future<UserProfile> updateUserProfile(UserProfile userProfile) async {
     try {
-      print('[ApiService] Updating profile for user: ${userProfile.id}');
+      print('[ApiService] Updating profile directly in database for user: ${userProfile.id}');
       
-      // Use the correct endpoint - your backend appears to have this at /api/health/users/{id}
+      final requestBody = {
+        // Basic metrics
+        'height': userProfile.height,
+        'weight': userProfile.weight,
+        'activity_level': userProfile.activityLevel,
+        'bmi': userProfile.bmi,
+        'bmr': userProfile.bmr,
+        'tdee': userProfile.tdee,
+        
+        // Goals
+        'primary_goal': userProfile.primaryGoal,
+        'weight_goal': userProfile.weightGoal,
+        'target_weight': userProfile.targetWeight,
+        'goal_timeline': userProfile.goalTimeline,
+        
+        // Phase 1
+        'daily_step_goal': userProfile.dailyStepGoal,
+        'sleep_hours': userProfile.sleepHours,
+        'water_intake': userProfile.waterIntake,
+        'water_intake_glasses': userProfile.waterIntakeGlasses,
+        'workout_frequency': userProfile.workoutFrequency,
+        'workout_duration': userProfile.workoutDuration,
+        'fitness_level': userProfile.fitnessLevel,
+        
+        // Phase 2
+        'bedtime': userProfile.bedtime,
+        'wakeup_time': userProfile.wakeupTime,
+        'sleep_issues': userProfile.sleepIssues ?? [],
+        'dietary_preferences': userProfile.dietaryPreferences ?? [],
+        'preferred_workouts': userProfile.preferredWorkouts ?? [],
+        'workout_location': userProfile.workoutLocation,
+        
+        // Phase 3
+        'medical_conditions': userProfile.medicalConditions ?? [],
+        'other_medical_condition': userProfile.otherMedicalCondition,
+        'available_equipment': userProfile.availableEquipment ?? [],
+        'has_trainer': userProfile.hasTrainer,
+        
+        // Women's Health (only if female)
+        if (userProfile.gender?.toLowerCase() == 'female') ...{
+          'has_periods': userProfile.hasPeriods,
+          'pregnancy_status': userProfile.pregnancyStatus,
+          'period_tracking_preference': userProfile.periodTrackingPreference,
+          'cycle_length': userProfile.cycleLength,
+          'cycle_length_regular': userProfile.cycleLengthRegular,
+        },
+      };
+      
+      // Remove null values
+      requestBody.removeWhere((key, value) => value == null);
+      
+      print('[ApiService] Sending update with ${requestBody.keys.length} fields');
+      
       final response = await http.put(
-        Uri.parse('$baseUrl/users/update-user/${userProfile.id}'),  
+        Uri.parse('$baseUrl/users/update-user/${userProfile.id}'),
         headers: headers,
-        body: jsonEncode({
-          'height': userProfile.height,
-          'weight': userProfile.weight,
-          'activity_level': userProfile.activityLevel,
-          'primary_goal': userProfile.primaryGoal,
-          'weight_goal': userProfile.weightGoal,
-          'target_weight': userProfile.targetWeight,
-          'goal_timeline': userProfile.goalTimeline,
-          'sleep_hours': userProfile.sleepHours,
-          'bedtime': userProfile.bedtime,
-          'wakeup_time': userProfile.wakeupTime,
-          'sleep_issues': userProfile.sleepIssues,
-          'dietary_preferences': userProfile.dietaryPreferences,
-          'water_intake': userProfile.waterIntake,
-          'water_intake_glasses': userProfile.waterIntakeGlasses,
-          'medical_conditions': userProfile.medicalConditions,
-          'other_medical_condition': userProfile.otherMedicalCondition,
-          'preferred_workouts': userProfile.preferredWorkouts,
-          'workout_frequency': userProfile.workoutFrequency,
-          'workout_duration': userProfile.workoutDuration,
-          'workout_location': userProfile.workoutLocation,
-          'available_equipment': userProfile.availableEquipment,
-          'fitness_level': userProfile.fitnessLevel,
-          'has_trainer': userProfile.hasTrainer,
-          // Add the step goal
-          'daily_step_goal': userProfile.formData['dailyStepGoal'] as int? ?? 10000,
-        }),
+        body: jsonEncode(requestBody),
       );
 
       print('[ApiService] Update response status: ${response.statusCode}');
       
-      if (response.statusCode != 200) {
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        if (responseData['success'] == true && responseData['userProfile'] != null) {
+          print('[ApiService] ✅ Profile updated successfully in database');
+          print('[ApiService] Updated fields: ${responseData['updatedFields']}');
+          
+          // Return the updated profile from database
+          return UserProfile.fromMap(responseData['userProfile']);
+        } else {
+          throw Exception('Invalid response format');
+        }
+      } else {
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['detail'] ?? 'Failed to update profile');
       }
     } catch (e) {
-      print('[ApiService] API error updating profile: $e');
+      debugPrint('❌ API error updating profile: $e');
       rethrow;
     }
   }
@@ -556,12 +594,24 @@ class ApiService {
 
   Future<UserProfile?> fetchUserProfile(String userId) async {
     try {
-      return await getUserProfileById(userId);
+      print('[ApiService] Fetching profile from database for user: $userId');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/$userId'),
+        headers: headers,
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return UserProfile.fromMap(data);
+      } else {
+        throw Exception('Failed to fetch profile');
+      }
     } catch (e) {
-      debugPrint('Error fetching profile: $e');
-      return null; // Return null instead of throwing
+      debugPrint('❌ API error fetching profile: $e');
+      rethrow;
     }
-  }
+}
 
   Future<UserProfile> getUserProfileById(String userId) async {
     try {

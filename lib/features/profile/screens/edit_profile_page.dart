@@ -366,27 +366,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       );
 
-      await _apiService.updateUserProfile(updatedProfile);
+      final savedProfile = await _apiService.updateUserProfile(updatedProfile);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Profile updated successfully!'),
+            content: Text('✅ Profile saved to database!'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, updatedProfile);
+        
+        // Return the updated profile from database
+        Navigator.pop(context, savedProfile);
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to update profile: ${e.toString()}';
+        _errorMessage = 'Failed to save to database: ${e.toString()}';
       });
     } finally {
       setState(() {
         _isSaving = false;
       });
     }
-  }
+}
 
   @override
   Widget build(BuildContext context) {
