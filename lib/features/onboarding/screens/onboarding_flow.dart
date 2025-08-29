@@ -597,7 +597,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
 
     try {
-      // FIX 1: For maintain weight, set target weight to current weight
+      // For maintain weight, set target weight to current weight
       if (_formData['weightGoal'] == 'maintain_weight' || 
           _formData['weightGoal'] == 'Maintain Weight') {
         _formData['targetWeight'] = _formData['weight'];
@@ -843,8 +843,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ),
             ),
 
-            _buildValidationIndicator(),
-
             // Page content
             Expanded(
               child: PageView.builder(
@@ -861,6 +859,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 },
               ),
             ),
+
+
             // Navigation buttons
             Padding(
               padding: const EdgeInsets.all(24),
@@ -877,7 +877,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                     onPressed: _nextPage,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
-                      disabledBackgroundColor: Colors.grey[300],
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                     ),
                     child: Text(_currentPage < _totalPages - 1 ? 'Next' : 'Finish'),
                   ),
