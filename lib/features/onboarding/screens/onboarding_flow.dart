@@ -646,55 +646,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         },
       };
 
-      // Complete onboarding using the new unified format
+      // Complete onboarding
       final userId = await _dataManager.completeOnboarding(onboardingData);
       
       if (userId == null) {
         throw Exception('Failed to complete onboarding');
       }
 
-      // Set user as logged in immediately after onboarding
-      UserProfile? authenticatedUserProfile;
-      try {
-        final fetchedProfile = await _dataManager.getUserProfileById(userId);
-        if (fetchedProfile != null) {
-          await UserManager.setCurrentUser(fetchedProfile);
-          authenticatedUserProfile = fetchedProfile;
-          print('User set as logged in after onboarding');
-        }
-      } catch (e) {
-        print('Could not set user as logged in: $e');
+      // Load the complete user profile (this will fetch from backend or local)
+      final userProfile = await _dataManager.loadUserProfile();
+      
+      if (userProfile == null) {
+        throw Exception('Failed to load user profile after onboarding');
       }
-
-      // Create UserProfile object for navigation (fallback if fetch failed)
-      final userProfile = authenticatedUserProfile ?? 
-          UserProfile.fromMap(_formData..['id'] = userId);
       
       // Close loading indicator
       Navigator.pop(context);
-      
-      // Show connectivity warning if offline
-      if (!_isConnected) {
-        await showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Offline Mode'),
-              content: const Text(
-                'You are currently offline. Your data has been saved locally and will be synchronized with the server when you reconnect to the internet.'
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
-      }
       
       // Show success dialog and navigate
       showDialog(
@@ -726,16 +693,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 const SizedBox(height: 12),
                 const Text(
                   'Thank you for providing your information. Your personalized health journey is ready!',
-                  style: TextStyle(
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context); // Close dialog
-                    // Navigate to home screen
+                    // Navigate to home screen and clear navigation stack
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(

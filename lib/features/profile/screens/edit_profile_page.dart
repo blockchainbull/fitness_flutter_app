@@ -1,5 +1,6 @@
 // lib/features/profile/screens/edit_profile_page.dart
 import 'package:flutter/material.dart';
+import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:intl/intl.dart';
@@ -320,6 +321,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
 
     try {
+      // Build the updated profile with all your fields
       final updatedProfile = widget.userProfile.copyWith(
         height: double.tryParse(_heightController.text) ?? widget.userProfile.height,
         weight: double.tryParse(_weightController.text) ?? widget.userProfile.weight,
@@ -363,32 +365,45 @@ class _EditProfilePageState extends State<EditProfilePage> {
         cycleLength: widget.userProfile.gender?.toLowerCase() == 'female' ? _cycleLength : null,
         cycleLengthRegular: widget.userProfile.gender?.toLowerCase() == 'female' 
             ? _cycleLengthRegular : null,
-
       );
 
-      final savedProfile = await _apiService.updateUserProfile(updatedProfile);
+      // Use DataManager instead of ApiService directly
+      // This ensures both local storage and UserManager are updated
+      final dataManager = DataManager();
+      final savedProfile = await dataManager.updateUserProfile(updatedProfile);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Profile saved to database!'),
+            content: Text('✅ Profile saved successfully!'),
             backgroundColor: Colors.green,
           ),
         );
         
-        // Return the updated profile from database
+        // Return the updated profile to refresh the previous screen
         Navigator.pop(context, savedProfile);
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to save to database: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to save profile: ${e.toString()}';
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving profile: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isSaving = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
-}
+  }
 
   @override
   Widget build(BuildContext context) {

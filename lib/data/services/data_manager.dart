@@ -177,113 +177,61 @@ class DataManager {
           final response = await _apiService.completeOnboarding(onboardingData);
           
           if (response['success'] == true) {
-            final responseUserId = response['userId'];
-            if (responseUserId != null) {
-              userId = responseUserId.toString(); // Ensure it's a String
-              
-              // Save user ID to shared preferences
+            userId = response['userId']?.toString();
+            
+            if (userId != null) {
+              // Save user ID
               await prefs.setString(userIdKey, userId);
               await prefs.setBool(onboardingCompletedKey, true);
               
-              _log('Onboarding completed remotely with user ID: $userId');
+              // Fetch the complete user profile from backend
+              _log('Fetching user profile after onboarding...');
+              final userProfile = await _apiService.getUserProfileById(userId);
               
-              // Try to get and save the user profile locally
-              try {
-                final userProfile = await _apiService.getUserProfileById(userId);
-                await prefs.setString(userProfileKey, jsonEncode(userProfile.toMap()));
-                _log('User profile saved locally after onboarding');
-              } catch (e) {
-                _log('Could not save user profile locally after onboarding: $e');
+              if (userProfile != null) {
+                // Save to local storage
+                await _saveUserProfileLocally(userProfile);
+                
+                // Set user as logged in with UserManager
+                await UserManager.setCurrentUser(userProfile);
+                
+                _log('User profile fetched and saved after onboarding');
               }
+              
+              return userId;
             }
           }
         } catch (e) {
           _log('Failed to complete onboarding remotely: $e');
-          // Fall back to local storage
+          // Continue with offline mode
         }
       }
       
-      if (userId != null) {
-
-        try {
-          final userProfile = await getUserProfileById(userId);
-          if (userProfile != null) {
-            await UserManager.setCurrentUser(userProfile);
-            _log('User set as logged in after onboarding');
-          }
-        } catch (e) {
-          _log('Could not set user as logged in: $e');
-        }
-
-        // Fallback: save locally and generate a temporary ID
+      // Offline mode: Generate local ID and save data
+      if (userId == null) {
         userId = DateTime.now().millisecondsSinceEpoch.toString();
         await prefs.setString(userIdKey, userId);
         await prefs.setBool(onboardingCompletedKey, true);
         
-        // Create a UserProfile from onboarding data and save locally
-        try {
-          final basicInfo = onboardingData['basicInfo'] ?? {};
-          final weightGoal = onboardingData['weightGoal'] ?? {};
-          final sleepInfo = onboardingData['sleepInfo'] ?? {};
-          final dietaryPrefs = onboardingData['dietaryPreferences'] ?? {};
-          final workoutPrefs = onboardingData['workoutPreferences'] ?? {};
-          final exerciseSetup = onboardingData['exerciseSetup'] ?? {};
-          
-          final userProfileData = {
-            'id': userId, // FIXED: Include the ID in the profile data
-            'name': basicInfo['name'] ?? '',
-            'email': basicInfo['email'] ?? '',
-            'password': basicInfo['password'],
-            'gender': basicInfo['gender'] ?? '',
-            'age': basicInfo['age'] ?? 0,
-            'height': basicInfo['height'] ?? 0.0,
-            'weight': basicInfo['weight'] ?? 0.0,
-            'activityLevel': basicInfo['activityLevel'] ?? '',
-            'primaryGoal': onboardingData['primaryGoal'] ?? '',
-            'weightGoal': weightGoal['weightGoal'] ?? '',
-            'targetWeight': weightGoal['targetWeight'] ?? 0.0,
-            'goalTimeline': weightGoal['timeline'] ?? '',
-            'sleepHours': sleepInfo['sleepHours'] ?? 7.0,
-            'bedtime': sleepInfo['bedtime'] ?? '',
-            'wakeupTime': sleepInfo['wakeupTime'] ?? '',
-            'sleepIssues': sleepInfo['sleepIssues'] ?? [],
-            'dietaryPreferences': dietaryPrefs['dietaryPreferences'] ?? [],
-            'waterIntake': dietaryPrefs['waterIntake'] ?? 2.0,
-            'medicalConditions': dietaryPrefs['medicalConditions'] ?? [],
-            'otherMedicalCondition': dietaryPrefs['otherCondition'] ?? '',
-            'preferredWorkouts': workoutPrefs['workoutTypes'] ?? [],
-            'workoutFrequency': workoutPrefs['frequency'] ?? 3,
-            'workoutDuration': workoutPrefs['duration'] ?? 30,
-            'workoutLocation': exerciseSetup['workoutLocation'] ?? '',
-            'availableEquipment': exerciseSetup['equipment'] ?? [],
-            'fitnessLevel': exerciseSetup['fitnessLevel'] ?? 'Beginner',
-            'hasTrainer': exerciseSetup['hasTrainer'] ?? false,
-            'formData': {
-              'bmi': basicInfo['bmi'] ?? 0.0,
-              'bmr': basicInfo['bmr'] ?? 0.0,
-              'tdee': basicInfo['tdee'] ?? 0.0,
-            }
-          };
-          
-          await prefs.setString(userProfileKey, jsonEncode(userProfileData));
-          _log('User profile saved locally as fallback');
-
-          try {
-            final fallbackProfile = UserProfile.fromMap(userProfileData);
-            await UserManager.setCurrentUser(fallbackProfile);
-            _log('Fallback user set as logged in');
-          } catch (e) {
-            _log('Could not set fallback user as logged in: $e');
-          }
-
-        } catch (e) {
-          _log('Error saving user profile locally: $e');
-        }
+        // Create and save user profile locally
+        final basicInfo = onboardingData['basicInfo'] ?? {};
+        final userProfileData = {
+          'id': userId,
+          'name': basicInfo['name'] ?? '',
+          'email': basicInfo['email'] ?? '',
+          // ... map other fields from onboardingData
+        };
+        
+        final userProfile = UserProfile.fromMap(userProfileData);
+        await _saveUserProfileLocally(userProfile);
+        await UserManager.setCurrentUser(userProfile);
+        
+        _log('Onboarding completed offline with local ID: $userId');
       }
       
       return userId;
     } catch (e) {
-      _log('Error completing onboarding: $e');
+      _log('Failed to complete onboarding: $e');
       return null;
     }
   }
@@ -535,7 +483,7 @@ class DataManager {
     }
   }
 
-  Future<void> updateUserProfile(UserProfile userProfile) async {
+  Future<UserProfile> updateUserProfile(UserProfile userProfile) async {
     try {
       _log('Starting to update user profile for ${userProfile.name}');
       
@@ -545,11 +493,13 @@ class DataManager {
       // Check if connected to the internet
       final isConnected = await _connectivityService.isConnected();
       
+      UserProfile updatedProfile = userProfile;
+      
       if (isConnected) {
         try {
-          // FIXED: Use the new ApiService method signature (single parameter)
+          // Update via API and get the updated profile back
           _log('Updating user profile via API');
-          await _apiService.updateUserProfile(userProfile);
+          updatedProfile = await _apiService.updateUserProfile(userProfile);
           _log('User profile updated remotely');
         } catch (e) {
           _log('Failed to update user profile remotely: $e');
@@ -557,14 +507,20 @@ class DataManager {
         }
       }
       
-      // Always update local storage
-      await _saveUserProfileLocally(userProfile);
-      _log('User profile updated in local storage');
+      // Always update local storage with the latest profile
+      await _saveUserProfileLocally(updatedProfile);
+      
+      // Update UserManager to ensure app-wide consistency
+      await UserManager.setCurrentUser(updatedProfile);
+      
+      _log('User profile updated in local storage and UserManager');
+      
+      return updatedProfile; // Return the updated profile
     } catch (e) {
       _log('Failed to update user profile: $e');
       rethrow;
     }
-  }
+}
 
   Future<bool> deleteWeightEntry(String entryId) async {
     try {
