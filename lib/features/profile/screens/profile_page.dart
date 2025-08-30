@@ -349,6 +349,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   }
 
   Widget _buildOverviewTab() {
+    final activityInfo = _getActivityLevelInfo(currentProfile.activityLevel);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -390,6 +391,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 '${_calculateTDEE()?.toStringAsFixed(0) ?? 0} cal/day',
                 'Total Daily Energy Expenditure',
               ),
+              _buildMetricRow('Activity Level', activityInfo['name']!, activityInfo['description']!),
               _buildInfoRow('Activity Level', _getActivityLevelDisplay(currentProfile.activityLevel)),
             ],
           ),
@@ -1272,190 +1274,221 @@ Widget _buildWeightStatWithLabel(String label, double weight, bool isHighlighted
       .join(' ');
   }
 
- String _getBMICategory(double bmi) {
-   if (bmi == 0) return 'Not calculated';
-   if (bmi < 18.5) return 'Underweight';
-   if (bmi < 25) return 'Normal weight';
-   if (bmi < 30) return 'Overweight';
-   return 'Obese';
- }
-
- Color _getBMIColor(double bmi) {
-   if (bmi == 0) return Colors.grey;
-   if (bmi < 18.5) return Colors.orange;
-   if (bmi < 25) return Colors.green;
-   if (bmi < 30) return Colors.orange;
-   return Colors.red;
- }
-
- String _formatWeightGoal(String goal) {
-   final Map<String, String> goals = {
-     'lose_weight': 'Lose Weight',
-     'gain_weight': 'Gain Weight',
-     'maintain_weight': 'Maintain Weight',
-   };
-   return goals[goal] ?? goal;
- }
-
- String _formatTimeline(String timeline) {
-   final Map<String, String> timelines = {
-     '4_weeks': '4 Weeks',
-     '8_weeks': '8 Weeks',
-     '12_weeks': '12 Weeks',
-     '16_weeks': '16 Weeks',
-     '6_months': '6 Months',
-     '1_year': '1 Year',
-   };
-   return timelines[timeline] ?? timeline;
- }
-
- String _getGoalDescription(String goal) {
-   final Map<String, String> descriptions = {
-     'Lose Weight': 'Focus on creating a caloric deficit through diet and exercise',
-     'Gain Weight': 'Build muscle mass with strength training and increased nutrition',
-     'Build Muscle': 'Progressive overload training with adequate protein intake',
-     'Improve Fitness': 'Enhance cardiovascular health and overall endurance',
-     'Maintain Health': 'Keep current fitness level with balanced lifestyle',
-     'General Wellness': 'Overall health improvement through balanced approach',
-   };
-   return descriptions[goal] ?? 'Personalized fitness journey';
- }
-
- String _formatPeriodTracking(String preference) {
-   final Map<String, String> preferences = {
-     'track_periods': 'Active Tracking',
-     'general_wellness': 'General Wellness Only',
-     'no_tracking': 'No Tracking',
-   };
-   return preferences[preference] ?? 'Not specified';
- }
-
- String _formatPregnancyStatus(String status) {
-   final Map<String, String> statuses = {
-     'not_pregnant': 'Not Pregnant',
-     'pregnant': 'Currently Pregnant',
-     'breastfeeding': 'Breastfeeding',
-     'trying_to_conceive': 'Trying to Conceive',
-     'prefer_not_to_say': 'Prefer Not to Say',
-   };
-   return statuses[status] ?? status;
- }
-
- IconData _getEquipmentIcon(String equipment) {
-   final Map<String, IconData> icons = {
-     'Dumbbells': Icons.fitness_center,
-     'Barbell': Icons.fitness_center,
-     'Resistance Bands': Icons.sports,
-     'Kettlebells': Icons.sports_handball,
-     'Pull-up Bar': Icons.height,
-     'Treadmill': Icons.directions_run,
-     'Exercise Bike': Icons.directions_bike,
-     'Rowing Machine': Icons.rowing,
-     'Yoga Mat': Icons.self_improvement,
-     'Foam Roller': Icons.sports,
-     'Jump Rope': Icons.sports,
-     'Medicine Ball': Icons.sports_basketball,
-     'TRX Straps': Icons.sports,
-     'Bench': Icons.weekend,
-     'None': Icons.block,
-   };
-   return icons[equipment] ?? Icons.sports;
- }
-
-   IconData _getWeightGoalIcon(String goal) {
-    final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
-    switch (normalizedGoal) {
-      case 'lose_weight':
-        return Icons.trending_down;
-      case 'gain_weight':
-        return Icons.trending_up;
-      case 'maintain_weight':
-        return Icons.horizontal_rule;
-      default:
-        return Icons.trending_flat;
+  Map<String, String> _getActivityLevelInfo(String? level) {
+    if (level == null || level.isEmpty) {
+      return {'name': 'Not set', 'description': 'Activity level not specified'};
     }
+    
+    // Normalize to lowercase with underscores
+    final key = level.toLowerCase().replaceAll(' ', '_');
+    
+    const activities = {
+      'sedentary': {'name': 'Sedentary', 'desc': 'Little or no exercise'},
+      'lightly_active': {'name': 'Lightly Active', 'desc': 'Exercise 1-3 days/week'},
+      'moderately_active': {'name': 'Moderately Active', 'desc': 'Exercise 3-5 days/week'},
+      'very_active': {'name': 'Very Active', 'desc': 'Exercise 6-7 days/week'},
+      'extra_active': {'name': 'Extra Active', 'desc': 'Very intense exercise daily'},
+    };
+    
+    final info = activities[key];
+    if (info != null) {
+      return {'name': info['name']!, 'description': info['desc']!};
+    }
+    
+    // Fallback: just format the original string
+    final formatted = level
+      .replaceAll('_', ' ')
+      .split(' ')
+      .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : '')
+      .join(' ');
+      
+    return {'name': formatted, 'description': 'Activity level: $formatted'};
   }
 
-  // Color based on weight goal
-  Color _getWeightGoalColor(String goal) {
-    final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
-    switch (normalizedGoal) {
-      case 'lose_weight':
-        return Colors.green;
-      case 'gain_weight':
-        return Colors.orange;
-      case 'maintain_weight':
-        return Colors.blue;
-      default:
-        return Colors.grey;
-    }
+  String _getBMICategory(double bmi) {
+    if (bmi == 0) return 'Not calculated';
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25) return 'Normal weight';
+    if (bmi < 30) return 'Overweight';
+    return 'Obese';
   }
 
-  // Description for weight goal
-  String _getWeightGoalDescription(String goal) {
-    final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
-    switch (normalizedGoal) {
-      case 'lose_weight':
-        return 'Creating a caloric deficit for healthy weight loss';
-      case 'gain_weight':
-        return 'Building mass through increased nutrition and training';
-      case 'maintain_weight':
-        return 'Maintaining current weight with balanced lifestyle';
-      default:
-        return 'Personalized weight management plan';
-    }
+  Color _getBMIColor(double bmi) {
+    if (bmi == 0) return Colors.grey;
+    if (bmi < 18.5) return Colors.orange;
+    if (bmi < 25) return Colors.green;
+    if (bmi < 30) return Colors.orange;
+    return Colors.red;
   }
 
+  String _formatWeightGoal(String goal) {
+    final Map<String, String> goals = {
+      'lose_weight': 'Lose Weight',
+      'gain_weight': 'Gain Weight',
+      'maintain_weight': 'Maintain Weight',
+    };
+    return goals[goal] ?? goal;
+  }
 
- int _calculateProfileCompletion() {
-   int filledFields = 0;
-   int totalFields = 30; // Adjusted for actual fields
-   
-   // Basic info (6 fields)
-   if (currentProfile.name.isNotEmpty) filledFields++;
-   if (currentProfile.email.isNotEmpty) filledFields++;
-   if (currentProfile.age != null) filledFields++;
-   if (currentProfile.gender != null) filledFields++;
-   if (currentProfile.height != null) filledFields++;
-   if (currentWeight != null || currentProfile.weight != null) filledFields++;
-   
-   // Goals (5 fields)
-   if (currentProfile.primaryGoal != null) filledFields++;
-   if (currentProfile.weightGoal != null) filledFields++;
-   if (currentProfile.targetWeight != null) filledFields++;
-   if (currentProfile.goalTimeline != null) filledFields++;
-   if (currentProfile.activityLevel != null) filledFields++;
-   
-   // Daily targets (6 fields)
-   if (currentProfile.dailyStepGoal != null) filledFields++;
-   if (currentProfile.sleepHours != null) filledFields++;
-   if (currentProfile.waterIntake != null) filledFields++;
-   if (currentProfile.workoutFrequency != null) filledFields++;
-   if (currentProfile.workoutDuration != null) filledFields++;
-   if (currentProfile.fitnessLevel != null) filledFields++;
-   
-   // Lifestyle (4 fields)
-   if (currentProfile.bedtime != null) filledFields++;
-   if (currentProfile.wakeupTime != null) filledFields++;
-   if (currentProfile.workoutLocation != null) filledFields++;
-   if (currentProfile.hasTrainer != null) filledFields++;
-   
-   // Lists (5 fields)
-   if (currentProfile.sleepIssues?.isNotEmpty ?? false) filledFields++;
-   if (currentProfile.dietaryPreferences?.isNotEmpty ?? false) filledFields++;
-   if (currentProfile.preferredWorkouts?.isNotEmpty ?? false) filledFields++;
-   if (currentProfile.medicalConditions?.isNotEmpty ?? false) filledFields++;
-   if (currentProfile.availableEquipment?.isNotEmpty ?? false) filledFields++;
-   
-   // Women's health (if applicable)
-   if (currentProfile.gender?.toLowerCase() == 'female') {
-     totalFields += 4;
-     if (currentProfile.hasPeriods != null) filledFields++;
-     if (currentProfile.pregnancyStatus != null) filledFields++;
-     if (currentProfile.periodTrackingPreference != null) filledFields++;
-     if (currentProfile.cycleLength != null) filledFields++;
-   }
-   
-   return ((filledFields / totalFields) * 100).round();
- }
+  String _formatTimeline(String timeline) {
+    final Map<String, String> timelines = {
+      '4_weeks': '4 Weeks',
+      '8_weeks': '8 Weeks',
+      '12_weeks': '12 Weeks',
+      '16_weeks': '16 Weeks',
+      '6_months': '6 Months',
+      '1_year': '1 Year',
+    };
+    return timelines[timeline] ?? timeline;
+  }
+
+  String _getGoalDescription(String goal) {
+    final Map<String, String> descriptions = {
+      'Lose Weight': 'Focus on creating a caloric deficit through diet and exercise',
+      'Gain Weight': 'Build muscle mass with strength training and increased nutrition',
+      'Build Muscle': 'Progressive overload training with adequate protein intake',
+      'Improve Fitness': 'Enhance cardiovascular health and overall endurance',
+      'Maintain Health': 'Keep current fitness level with balanced lifestyle',
+      'General Wellness': 'Overall health improvement through balanced approach',
+    };
+    return descriptions[goal] ?? 'Personalized fitness journey';
+  }
+
+  String _formatPeriodTracking(String preference) {
+    final Map<String, String> preferences = {
+      'track_periods': 'Active Tracking',
+      'general_wellness': 'General Wellness Only',
+      'no_tracking': 'No Tracking',
+    };
+    return preferences[preference] ?? 'Not specified';
+  }
+
+  String _formatPregnancyStatus(String status) {
+    final Map<String, String> statuses = {
+      'not_pregnant': 'Not Pregnant',
+      'pregnant': 'Currently Pregnant',
+      'breastfeeding': 'Breastfeeding',
+      'trying_to_conceive': 'Trying to Conceive',
+      'prefer_not_to_say': 'Prefer Not to Say',
+    };
+    return statuses[status] ?? status;
+  }
+
+  IconData _getEquipmentIcon(String equipment) {
+    final Map<String, IconData> icons = {
+      'Dumbbells': Icons.fitness_center,
+      'Barbell': Icons.fitness_center,
+      'Resistance Bands': Icons.sports,
+      'Kettlebells': Icons.sports_handball,
+      'Pull-up Bar': Icons.height,
+      'Treadmill': Icons.directions_run,
+      'Exercise Bike': Icons.directions_bike,
+      'Rowing Machine': Icons.rowing,
+      'Yoga Mat': Icons.self_improvement,
+      'Foam Roller': Icons.sports,
+      'Jump Rope': Icons.sports,
+      'Medicine Ball': Icons.sports_basketball,
+      'TRX Straps': Icons.sports,
+      'Bench': Icons.weekend,
+      'None': Icons.block,
+    };
+    return icons[equipment] ?? Icons.sports;
+  }
+
+    IconData _getWeightGoalIcon(String goal) {
+      final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+      switch (normalizedGoal) {
+        case 'lose_weight':
+          return Icons.trending_down;
+        case 'gain_weight':
+          return Icons.trending_up;
+        case 'maintain_weight':
+          return Icons.horizontal_rule;
+        default:
+          return Icons.trending_flat;
+      }
+    }
+
+    // Color based on weight goal
+    Color _getWeightGoalColor(String goal) {
+      final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+      switch (normalizedGoal) {
+        case 'lose_weight':
+          return Colors.green;
+        case 'gain_weight':
+          return Colors.orange;
+        case 'maintain_weight':
+          return Colors.blue;
+        default:
+          return Colors.grey;
+      }
+    }
+
+    // Description for weight goal
+    String _getWeightGoalDescription(String goal) {
+      final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+      switch (normalizedGoal) {
+        case 'lose_weight':
+          return 'Creating a caloric deficit for healthy weight loss';
+        case 'gain_weight':
+          return 'Building mass through increased nutrition and training';
+        case 'maintain_weight':
+          return 'Maintaining current weight with balanced lifestyle';
+        default:
+          return 'Personalized weight management plan';
+      }
+    }
+
+
+  int _calculateProfileCompletion() {
+    int filledFields = 0;
+    int totalFields = 30; // Adjusted for actual fields
+    
+    // Basic info (6 fields)
+    if (currentProfile.name.isNotEmpty) filledFields++;
+    if (currentProfile.email.isNotEmpty) filledFields++;
+    if (currentProfile.age != null) filledFields++;
+    if (currentProfile.gender != null) filledFields++;
+    if (currentProfile.height != null) filledFields++;
+    if (currentWeight != null || currentProfile.weight != null) filledFields++;
+    
+    // Goals (5 fields)
+    if (currentProfile.primaryGoal != null) filledFields++;
+    if (currentProfile.weightGoal != null) filledFields++;
+    if (currentProfile.targetWeight != null) filledFields++;
+    if (currentProfile.goalTimeline != null) filledFields++;
+    if (currentProfile.activityLevel != null) filledFields++;
+    
+    // Daily targets (6 fields)
+    if (currentProfile.dailyStepGoal != null) filledFields++;
+    if (currentProfile.sleepHours != null) filledFields++;
+    if (currentProfile.waterIntake != null) filledFields++;
+    if (currentProfile.workoutFrequency != null) filledFields++;
+    if (currentProfile.workoutDuration != null) filledFields++;
+    if (currentProfile.fitnessLevel != null) filledFields++;
+    
+    // Lifestyle (4 fields)
+    if (currentProfile.bedtime != null) filledFields++;
+    if (currentProfile.wakeupTime != null) filledFields++;
+    if (currentProfile.workoutLocation != null) filledFields++;
+    if (currentProfile.hasTrainer != null) filledFields++;
+    
+    // Lists (5 fields)
+    if (currentProfile.sleepIssues?.isNotEmpty ?? false) filledFields++;
+    if (currentProfile.dietaryPreferences?.isNotEmpty ?? false) filledFields++;
+    if (currentProfile.preferredWorkouts?.isNotEmpty ?? false) filledFields++;
+    if (currentProfile.medicalConditions?.isNotEmpty ?? false) filledFields++;
+    if (currentProfile.availableEquipment?.isNotEmpty ?? false) filledFields++;
+    
+    // Women's health (if applicable)
+    if (currentProfile.gender?.toLowerCase() == 'female') {
+      totalFields += 4;
+      if (currentProfile.hasPeriods != null) filledFields++;
+      if (currentProfile.pregnancyStatus != null) filledFields++;
+      if (currentProfile.periodTrackingPreference != null) filledFields++;
+      if (currentProfile.cycleLength != null) filledFields++;
+    }
+    
+    return ((filledFields / totalFields) * 100).round();
+  }
 }
