@@ -197,7 +197,7 @@ class UserProfile {
       
       workoutFrequency: map['workoutFrequency'] ?? 3,
       workoutDuration: map['workoutDuration'] ?? 30,
-      
+
       workoutLocation: map['workout_location'] ?? map['workoutLocation'] ?? '',
 
       availableEquipment: List<String>.from(
@@ -231,62 +231,65 @@ class UserProfile {
       id: data['id']?.toString() ?? '',
       name: data['name'] ?? '',
       email: data['email'] ?? '',
-      password: data['password'],
       gender: data['gender'] ?? '',
       age: data['age'] ?? 0,
       height: (data['height'] ?? 0.0).toDouble(),
       weight: (data['weight'] ?? 0.0).toDouble(),
-
-      startingWeight: data['starting_weight']?.toDouble() ?? 
-                     data['startingWeight']?.toDouble(),
-      startingWeightDate: data['starting_weight_date'] != null 
-          ? DateTime.parse(data['starting_weight_date']) 
-          : (data['startingWeightDate'] != null 
-              ? DateTime.parse(data['startingWeightDate']) 
-              : null),
-
-      activityLevel: data['activity_level'] ?? data['activityLevel'] ?? '',
       
-      hasPeriods: data['hasPeriods'] ?? data['has_periods'],
-      lastPeriodDate: data['lastPeriodDate'] ?? data['last_period_date'],
-      cycleLength: data['cycleLength'] ?? data['cycle_length'],
-      periodLength: data['periodLength'] ?? data['periodLength'],
-      cycleLengthRegular: data['cycleLengthRegular'] ?? data['cycle_length_regular'],
-      pregnancyStatus: data['pregnancyStatus'] ?? data['pregnancy_status'],
-      periodTrackingPreference: data['periodTrackingPreference'] ?? data['period_tracking_preference'],
+      // Map snake_case fields from API
+      activityLevel: data['activity_level'] ?? '',
       
-      primaryGoal: data['primaryGoal'] ?? '',
-      weightGoal: data['weightGoal'] ?? '',
-      targetWeight: (data['targetWeight'] ?? 0.0).toDouble(),
-      goalTimeline: data['goalTimeline'],
-      sleepHours: (data['sleepHours'] ?? 7.0).toDouble(),
-      bedtime: data['bedtime'] ?? '22:00',
-      wakeupTime: data['wakeupTime'] ?? '06:00',
-      sleepIssues: List<String>.from(data['sleepIssues'] ?? []),
-      dietaryPreferences: List<String>.from(data['dietaryPreferences'] ?? []),
-      waterIntake: (data['waterIntake'] ?? 2.0).toDouble(),
-      waterIntakeGlasses: (data['waterIntakeGlasses'] ?? 8).toInt(),
-      dailyStepGoal: (data['dailyStepGoal'] ?? 10000).toInt(),
-      dailyMealsCount: (data['dailyMealsCount'] ?? 3).toInt(),
-      medicalConditions: List<String>.from(data['medicalConditions'] ?? []),
-      otherMedicalCondition: data['otherMedicalCondition'] ?? '',
-
-      preferredWorkouts: List<String>.from(data['preferred_workouts'] ?? data['preferredWorkouts'] ?? []),
+      // Goals
+      primaryGoal: data['primary_goal'] ?? '',
+      weightGoal: data['weight_goal'] ?? '',
+      targetWeight: (data['target_weight'] ?? 0.0).toDouble(),
+      goalTimeline: data['goal_timeline'] ?? '',
       
-      workoutFrequency: data['workoutFrequency'] ?? 3,
-      workoutDuration: data['workoutDuration'] ?? 30,
+      // Sleep
+      sleepHours: (data['sleep_hours'] ?? 7.0).toDouble(),
+      bedtime: data['bedtime'] ?? '',
+      wakeupTime: data['wakeup_time'] ?? '',
+      sleepIssues: List<String>.from(data['sleep_issues'] ?? []),
       
-      workoutLocation: data['workout_location'] ?? data['workoutLocation'] ?? '',
+      // Nutrition
+      dietaryPreferences: List<String>.from(data['dietary_preferences'] ?? []),
+      waterIntake: (data['water_intake'] ?? 2.0).toDouble(),
+      waterIntakeGlasses: data['water_intake_glasses'] ?? 8,
+      dailyMealsCount: data['daily_meals_count'] ?? 3,
+      medicalConditions: List<String>.from(data['medical_conditions'] ?? []),
+      otherMedicalCondition: data['other_medical_condition'] ?? '',
       
-      availableEquipment: List<String>.from(data['available_equipment'] ?? data['availableEquipment'] ?? []),
+      // Exercise - THESE ARE THE KEY FIELDS
+      preferredWorkouts: List<String>.from(data['preferred_workouts'] ?? []),
+      workoutFrequency: data['workout_frequency'] ?? 3,
+      workoutDuration: data['workout_duration'] ?? 30,
+      workoutLocation: data['workout_location'] ?? '',
+      availableEquipment: List<String>.from(data['available_equipment'] ?? []),
+      fitnessLevel: data['fitness_level'] ?? 'Beginner',
+      hasTrainer: data['has_trainer'] ?? false,
       
-      fitnessLevel: data['fitnessLevel'] ?? 'Beginner',
-      hasTrainer: data['hasTrainer'] ?? false,
-      formData: {
-        'bmi': data['bmi'] ?? 0.0,
-        'bmr': data['bmr'] ?? 0.0,
-        'tdee': data['tdee'] ?? 0.0,
-      },
+      // Step goal
+      dailyStepGoal: data['daily_step_goal'] ?? 10000,
+      
+      // BMI/BMR/TDEE
+      bmi: (data['bmi'] ?? 0.0).toDouble(),
+      bmr: (data['bmr'] ?? 0.0).toDouble(),
+      tdee: (data['tdee'] ?? 0.0).toDouble(),
+      
+      // Women's health
+      hasPeriods: data['has_periods'],
+      pregnancyStatus: data['pregnancy_status'],
+      periodTrackingPreference: data['period_tracking_preference'],
+      cycleLength: data['cycle_length'],
+      cycleLengthRegular: data['cycle_length_regular'],
+      
+      // Timestamps
+      createdAt: data['created_at'] != null 
+        ? DateTime.tryParse(data['created_at']) 
+        : null,
+      updatedAt: data['updated_at'] != null 
+        ? DateTime.tryParse(data['updated_at']) 
+        : null,
     );
   }
 

@@ -611,7 +611,7 @@ class ApiService {
       debugPrint('❌ API error fetching profile: $e');
       rethrow;
     }
-}
+  }
 
   Future<UserProfile> getUserProfileById(String userId) async {
     try {
@@ -620,13 +620,28 @@ class ApiService {
         headers: headers,
       );
 
+      print('[ApiService] User data from API: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        // Debug print to see what's coming from API
-        print('[ApiService] User data from API: ${data.toString()}');
-        
-        return UserProfile.fromApiResponse(data);
+        // The API returns data wrapped in a response object
+        if (data['success'] == true && data['userProfile'] != null) {
+          // Extract the actual user profile data
+          final userProfileData = data['userProfile'];
+          
+          // Debug print to verify
+          print('[ApiService] Extracted profile data:');
+          print('  activity_level: ${userProfileData['activity_level']}');
+          print('  workout_location: ${userProfileData['workout_location']}');
+          print('  preferred_workouts: ${userProfileData['preferred_workouts']}');
+          print('  available_equipment: ${userProfileData['available_equipment']}');
+          
+          // Use fromApiResponse with the actual user data
+          return UserProfile.fromApiResponse(userProfileData);
+        } else {
+          throw Exception('Invalid response format');
+        }
       } else {
         throw Exception('Failed to get user profile');
       }
@@ -634,7 +649,7 @@ class ApiService {
       print('[ApiService] Error getting user profile: $e');
       rethrow;
     }
-  }
+}
 
   // Check if email exists (you'll need to add this endpoint to your backend)
   Future<bool> emailExists(String email) async {
