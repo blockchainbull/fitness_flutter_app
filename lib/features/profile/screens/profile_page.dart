@@ -291,32 +291,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildQuickStat(String value, String label, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white.withOpacity(0.9), size: 20),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.white.withOpacity(0.8),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildOverviewTab() {
-    final activityInfo = _getActivityLevelInfo(currentProfile.activityLevel);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -340,27 +315,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           
           const SizedBox(height: 16),
           
-          // Body Metrics Card
-          _buildCard(
-            title: 'Body Metrics',
-            icon: Icons.analytics,
-            children: [
-              _buildMetricRow('BMI', 
-                _calculateBMI()?.toStringAsFixed(1) ?? 'Not calculated',
-                _getBMICategory(_calculateBMI() ?? 0),
-                _getBMIColor(_calculateBMI() ?? 0),
-              ),
-              _buildMetricRow('BMR', 
-                '${_calculateBMR()?.toStringAsFixed(0) ?? 0} cal/day',
-                'Basal Metabolic Rate',
-              ),
-              _buildMetricRow('TDEE', 
-                '${_calculateTDEE()?.toStringAsFixed(0) ?? 0} cal/day',
-                'Total Daily Energy Expenditure',
-              ),
-              _buildMetricRow('Activity Level', activityInfo['name']!, activityInfo['description']!),
-            ],
-          ),
+          // Body Metrics Card - Mobile Responsive
+          _buildBodyMetricsCard(),
           
           const SizedBox(height: 16),
           
@@ -377,7 +333,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         ],
       ),
     );
-  }
+}
 
   Widget _buildGoalsTab() {
     // Use weight from weight_entries for calculations
@@ -745,50 +701,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     );
   }
 
-  // Helper methods remain the same...
-  Widget _buildCard({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.blue, size: 24),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ...children,
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -814,40 +726,48 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildMetricRow(String label, String value, String subtitle, [Color? color]) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: color ?? Colors.black,
-            ),
+  Widget _buildCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Colors.blue, size: isSmallScreen ? 20 : 24),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 16 : 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            ...children,
+          ],
+        ),
       ),
     );
   }
@@ -886,207 +806,207 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
  }
 
  // Weight progress for specific goals
-Widget _buildWeightProgressForGoal(
-  double current, 
-  double target, 
-  double start, 
-  String goal
-) {
-  final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
-  
-  if (normalizedGoal == 'lose_weight') {
-    // For weight loss: progress from start to target (going down)
-    final totalToLose = start - target;
-    final alreadyLost = start - current;
-    final progress = totalToLose > 0 ? (alreadyLost / totalToLose).clamp(0.0, 1.0) : 0.0;
+  Widget _buildWeightProgressForGoal(
+    double current, 
+    double target, 
+    double start, 
+    String goal
+  ) {
+    final normalizedGoal = goal.toLowerCase().replaceAll(' ', '_');
+    
+    if (normalizedGoal == 'lose_weight') {
+      // For weight loss: progress from start to target (going down)
+      final totalToLose = start - target;
+      final alreadyLost = start - current;
+      final progress = totalToLose > 0 ? (alreadyLost / totalToLose).clamp(0.0, 1.0) : 0.0;
+      
+      return Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildWeightStatWithLabel('Start', start, false),
+              Icon(Icons.arrow_forward, color: Colors.grey),
+              _buildWeightStatWithLabel('Current', current, true),
+              Icon(Icons.arrow_forward, color: Colors.grey),
+              _buildWeightStatWithLabel('Target', target, false),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Progress', style: TextStyle(color: Colors.grey[600])),
+                  Text('${(progress * 100).toStringAsFixed(0)}%'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: progress,
+                backgroundColor: Colors.green.withOpacity(0.2),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                minHeight: 8,
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'Lost ${alreadyLost.toStringAsFixed(1)} kg of ${totalToLose.toStringAsFixed(1)} kg',
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    } else if (normalizedGoal == 'gain_weight') {
+      // For weight gain: progress from start to target (going up)
+      final totalToGain = target - start;
+      final alreadyGained = current - start;
+      final progress = totalToGain > 0 ? (alreadyGained / totalToGain).clamp(0.0, 1.0) : 0.0;
+      
+      return Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildWeightStatWithLabel('Start', start, false),
+              Icon(Icons.arrow_forward, color: Colors.grey),
+              _buildWeightStatWithLabel('Current', current, true),
+              Icon(Icons.arrow_forward, color: Colors.grey),
+              _buildWeightStatWithLabel('Target', target, false),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Progress', style: TextStyle(color: Colors.grey[600])),
+                  Text('${(progress * 100).toStringAsFixed(0)}%'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: progress,
+                backgroundColor: Colors.orange.withOpacity(0.2),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+                minHeight: 8,
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'Gained ${alreadyGained.toStringAsFixed(1)} kg of ${totalToGain.toStringAsFixed(1)} kg',
+                  style: const TextStyle(
+                    color: Colors.orange,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+    
+    // Default fallback
+    return _buildWeightProgress(current, target, start);
+  }
+
+  // Maintenance progress (no target)
+  Widget _buildMaintenanceProgress(double current, double initial) {
+    final difference = current - initial;
+    final isDifferent = difference.abs() > 0.1;
     
     return Column(
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildWeightStatWithLabel('Start', start, false),
-            Icon(Icons.arrow_forward, color: Colors.grey),
+            _buildWeightStatWithLabel('Starting', initial, false),
+            Icon(
+              Icons.swap_horiz,
+              color: Colors.blue,
+              size: 30,
+            ),
             _buildWeightStatWithLabel('Current', current, true),
-            Icon(Icons.arrow_forward, color: Colors.grey),
-            _buildWeightStatWithLabel('Target', target, false),
           ],
         ),
         const SizedBox(height: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Progress', style: TextStyle(color: Colors.grey[600])),
-                Text('${(progress * 100).toStringAsFixed(0)}%'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.green.withOpacity(0.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
-              minHeight: 8,
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                'Lost ${alreadyLost.toStringAsFixed(1)} kg of ${totalToLose.toStringAsFixed(1)} kg',
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isDifferent 
+                  ? (difference > 0 ? Icons.arrow_upward : Icons.arrow_downward)
+                  : Icons.check_circle,
+                color: Colors.blue,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isDifferent
+                  ? 'Weight ${difference > 0 ? "increased" : "decreased"} by ${difference.abs().toStringAsFixed(1)} kg'
+                  : 'Weight maintained successfully',
                 style: const TextStyle(
-                  color: Colors.green,
+                  color: Colors.blue,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  } else if (normalizedGoal == 'gain_weight') {
-    // For weight gain: progress from start to target (going up)
-    final totalToGain = target - start;
-    final alreadyGained = current - start;
-    final progress = totalToGain > 0 ? (alreadyGained / totalToGain).clamp(0.0, 1.0) : 0.0;
-    
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildWeightStatWithLabel('Start', start, false),
-            Icon(Icons.arrow_forward, color: Colors.grey),
-            _buildWeightStatWithLabel('Current', current, true),
-            Icon(Icons.arrow_forward, color: Colors.grey),
-            _buildWeightStatWithLabel('Target', target, false),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Progress', style: TextStyle(color: Colors.grey[600])),
-                Text('${(progress * 100).toStringAsFixed(0)}%'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.orange.withOpacity(0.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
-              minHeight: 8,
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                'Gained ${alreadyGained.toStringAsFixed(1)} kg of ${totalToGain.toStringAsFixed(1)} kg',
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
   }
-  
-  // Default fallback
-  return _buildWeightProgress(current, target, start);
-}
 
-// Maintenance progress (no target)
-Widget _buildMaintenanceProgress(double current, double initial) {
-  final difference = current - initial;
-  final isDifferent = difference.abs() > 0.1;
-  
-  return Column(
-    children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildWeightStatWithLabel('Starting', initial, false),
-          Icon(
-            Icons.swap_horiz,
-            color: Colors.blue,
-            size: 30,
-          ),
-          _buildWeightStatWithLabel('Current', current, true),
-        ],
-      ),
-      const SizedBox(height: 16),
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isDifferent 
-                ? (difference > 0 ? Icons.arrow_upward : Icons.arrow_downward)
-                : Icons.check_circle,
-              color: Colors.blue,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              isDifferent
-                ? 'Weight ${difference > 0 ? "increased" : "decreased"} by ${difference.abs().toStringAsFixed(1)} kg'
-                : 'Weight maintained successfully',
-              style: const TextStyle(
-                color: Colors.blue,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
-}
-
-// Enhanced weight stat with highlighting
-Widget _buildWeightStatWithLabel(String label, double weight, bool isHighlighted) {
-  return Column(
-    children: [
-      Text(
-        label,
-        style: TextStyle(
-          color: isHighlighted ? Colors.blue : Colors.grey[600],
-          fontSize: 12,
-          fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      const SizedBox(height: 4),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isHighlighted ? Colors.blue.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          border: isHighlighted 
-            ? Border.all(color: Colors.blue.withOpacity(0.3))
-            : null,
-        ),
-        child: Text(
-          '${weight.toStringAsFixed(1)} kg',
+  // Enhanced weight stat with highlighting
+  Widget _buildWeightStatWithLabel(String label, double weight, bool isHighlighted) {
+    return Column(
+      children: [
+        Text(
+          label,
           style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-            color: isHighlighted ? Colors.blue : Colors.black,
+            color: isHighlighted ? Colors.blue : Colors.grey[600],
+            fontSize: 12,
+            fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
           ),
         ),
-      ),
-    ],
-  );
-}
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isHighlighted ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: isHighlighted 
+              ? Border.all(color: Colors.blue.withOpacity(0.3))
+              : null,
+          ),
+          child: Text(
+            '${weight.toStringAsFixed(1)} kg',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: isHighlighted ? Colors.blue : Colors.black,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   // Weight trend specific to goal
   Widget _buildWeightTrendForGoal(String goal) {
@@ -1138,6 +1058,329 @@ Widget _buildWeightStatWithLabel(String label, double weight, bool isHighlighted
         ],
       ),
     );
+  }
+
+  Widget _buildBodyMetricsCard() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
+    
+    return _buildCard(
+      title: 'Body Metrics',
+      icon: Icons.analytics,
+      children: [
+        // BMI Row
+        _buildMetricRowResponsive(
+          'BMI', 
+          _calculateBMI()?.toStringAsFixed(1) ?? 'Not calculated',
+          _getBMICategory(_calculateBMI() ?? 0),
+          _getBMIColor(_calculateBMI() ?? 0),
+          isSmallScreen,
+        ),
+        
+        // BMR Row
+        _buildMetricRowResponsive(
+          'BMR', 
+          '${_calculateBMR()?.toStringAsFixed(0) ?? 0} cal/day',
+          'Basal Metabolic Rate',
+          null,
+          isSmallScreen,
+        ),
+        
+        // TDEE Row
+        _buildMetricRowResponsive(
+          'TDEE', 
+          '${_calculateTDEE()?.toStringAsFixed(0) ?? 0} cal/day',
+          'Total Daily Energy Expenditure',
+          null,
+          isSmallScreen,
+        ),
+        
+        // Activity Level - Special handling
+        _buildActivityLevelDisplay(isSmallScreen),
+      ],
+    );
+  }
+
+  // Add this new responsive metric row method
+  Widget _buildMetricRowResponsive(
+    String label, 
+    String value, 
+    String subtitle, 
+    Color? color,
+    bool isSmallScreen,
+  ) {
+    if (isSmallScreen && subtitle.length > 20) {
+      // Mobile layout for long subtitles
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: color ?? Colors.black,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: color ?? Colors.grey[400],
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Desktop or short subtitle layout
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: color ?? Colors.grey[400],
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: color ?? Colors.black,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  // Add this new method specifically for activity level
+  Widget _buildActivityLevelDisplay(bool isSmallScreen) {
+    final activityLevel = currentProfile.activityLevel ?? '';
+    final formattedLevel = _formatActivityLevel(activityLevel);
+    final description = _getShortActivityDescription(activityLevel);
+    final icon = _getActivityIcon(activityLevel);
+    final color = _getActivityColor(activityLevel);
+    
+    if (isSmallScreen) {
+      // Mobile layout - compact with icon
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Activity Level',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      formattedLevel,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      // Desktop layout - standard row
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Activity Level',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  formattedLevel,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  // Update these helper methods to ensure they work properly:
+  String _formatActivityLevel(String? level) {
+    if (level == null || level.isEmpty) return 'Not set';
+    
+    final Map<String, String> levels = {
+      'sedentary': 'Sedentary',
+      'lightly_active': 'Lightly Active',
+      'moderately_active': 'Moderately Active',
+      'very_active': 'Very Active',
+      'extra_active': 'Extra Active',
+    };
+    
+    // Try exact match first
+    if (levels.containsKey(level)) {
+      return levels[level]!;
+    }
+    
+    // Try lowercase with underscores
+    final normalizedLevel = level.toLowerCase().replaceAll(' ', '_');
+    if (levels.containsKey(normalizedLevel)) {
+      return levels[normalizedLevel]!;
+    }
+    
+    // Return the original if no match
+    return level;
+  }
+
+  String _getShortActivityDescription(String? level) {
+    if (level == null || level.isEmpty) return 'Not specified';
+    
+    final normalizedLevel = level.toLowerCase().replaceAll(' ', '_');
+    
+    final Map<String, String> descriptions = {
+      'sedentary': 'Little or no exercise',
+      'lightly_active': '1-3 days/week',
+      'moderately_active': '3-5 days/week',
+      'very_active': '6-7 days/week',
+      'extra_active': 'Very intense daily',
+    };
+    
+    return descriptions[normalizedLevel] ?? 'Activity level set';
+  }
+
+  String _getActivityDescription(String? level) {
+    if (level == null || level.isEmpty) return 'Activity level not specified';
+    
+    final normalizedLevel = level.toLowerCase().replaceAll(' ', '_');
+    
+    final Map<String, String> descriptions = {
+      'sedentary': 'Little or no exercise',
+      'lightly_active': 'Exercise 1-3 days/week',
+      'moderately_active': 'Exercise 3-5 days/week',
+      'very_active': 'Exercise 6-7 days/week',
+      'extra_active': 'Very intense exercise daily',
+    };
+    
+    return descriptions[normalizedLevel] ?? 'Activity level: $level';
+  }
+
+  IconData _getActivityIcon(String? level) {
+    if (level == null || level.isEmpty) return Icons.help_outline;
+    
+    final normalizedLevel = level.toLowerCase().replaceAll(' ', '_');
+    
+    final Map<String, IconData> icons = {
+      'sedentary': Icons.weekend,
+      'lightly_active': Icons.directions_walk,
+      'moderately_active': Icons.directions_run,
+      'very_active': Icons.fitness_center,
+      'extra_active': Icons.sports_martial_arts,
+    };
+    
+    return icons[normalizedLevel] ?? Icons.fitness_center;
+  }
+
+  Color _getActivityColor(String? level) {
+    if (level == null || level.isEmpty) return Colors.grey;
+    
+    final normalizedLevel = level.toLowerCase().replaceAll(' ', '_');
+    
+    final Map<String, Color> colors = {
+      'sedentary': Colors.grey,
+      'lightly_active': Colors.lightBlue,
+      'moderately_active': Colors.blue,
+      'very_active': Colors.orange,
+      'extra_active': Colors.red,
+    };
+    
+    return colors[normalizedLevel] ?? Colors.blue;
   }
 
  // Calculation Methods
@@ -1201,51 +1444,6 @@ Widget _buildWeightStatWithLabel(String label, double weight, bool isHighlighted
         ? '✓ Weight stable (${change > 0 ? "+" : ""}${change.toStringAsFixed(1)} kg)'
         : '⚠ Weight changed by ${change > 0 ? "+" : ""}${change.toStringAsFixed(1)} kg';
     }
-}
-
-  // Utility Methods
-  String _getActivityLevelDisplay(String? level) {
-    if (level == null || level.isEmpty) return 'Not set';
-    
-    // Just format the string nicely - replace underscores and capitalize
-    return level
-      .replaceAll('_', ' ')
-      .split(' ')
-      .map((word) => word.isNotEmpty 
-        ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' 
-        : '')
-      .join(' ');
-  }
-
-  Map<String, String> _getActivityLevelInfo(String? level) {
-    if (level == null || level.isEmpty) {
-      return {'name': 'Not set', 'description': 'Activity level not specified'};
-    }
-    
-    // Normalize to lowercase with underscores
-    final key = level.toLowerCase().replaceAll(' ', '_');
-    
-    const activities = {
-      'sedentary': {'name': 'Sedentary', 'desc': 'Little or no exercise'},
-      'lightly_active': {'name': 'Lightly Active', 'desc': 'Exercise 1-3 days/week'},
-      'moderately_active': {'name': 'Moderately Active', 'desc': 'Exercise 3-5 days/week'},
-      'very_active': {'name': 'Very Active', 'desc': 'Exercise 6-7 days/week'},
-      'extra_active': {'name': 'Extra Active', 'desc': 'Very intense exercise daily'},
-    };
-    
-    final info = activities[key];
-    if (info != null) {
-      return {'name': info['name']!, 'description': info['desc']!};
-    }
-    
-    // Fallback: just format the original string
-    final formatted = level
-      .replaceAll('_', ' ')
-      .split(' ')
-      .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : '')
-      .join(' ');
-      
-    return {'name': formatted, 'description': 'Activity level: $formatted'};
   }
 
   String _getBMICategory(double bmi) {
@@ -1315,27 +1513,6 @@ Widget _buildWeightStatWithLabel(String label, double weight, bool isHighlighted
       'prefer_not_to_say': 'Prefer Not to Say',
     };
     return statuses[status] ?? status;
-  }
-
-  IconData _getEquipmentIcon(String equipment) {
-    final Map<String, IconData> icons = {
-      'Dumbbells': Icons.fitness_center,
-      'Barbell': Icons.fitness_center,
-      'Resistance Bands': Icons.sports,
-      'Kettlebells': Icons.sports_handball,
-      'Pull-up Bar': Icons.height,
-      'Treadmill': Icons.directions_run,
-      'Exercise Bike': Icons.directions_bike,
-      'Rowing Machine': Icons.rowing,
-      'Yoga Mat': Icons.self_improvement,
-      'Foam Roller': Icons.sports,
-      'Jump Rope': Icons.sports,
-      'Medicine Ball': Icons.sports_basketball,
-      'TRX Straps': Icons.sports,
-      'Bench': Icons.weekend,
-      'None': Icons.block,
-    };
-    return icons[equipment] ?? Icons.sports;
   }
 
     IconData _getWeightGoalIcon(String goal) {
