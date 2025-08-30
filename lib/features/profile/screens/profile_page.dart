@@ -321,12 +321,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _navigateToEditProfile,
-        backgroundColor: Colors.blue,
-        icon: const Icon(Icons.edit),
-        label: const Text('Edit Profile'),
-      ),
     );
   }
 
@@ -632,6 +626,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
             children: [
               _buildInfoRow('Water Goal', '${currentProfile.waterIntake ?? 2} L (${currentProfile.waterIntakeGlasses ?? 8} glasses)'),
               const Divider(),
+              _buildInfoRow('Daily Meals Target', '${currentProfile.dailyMealsCount ?? 3} meals'),
+              const Divider(),
               const Text('Dietary Preferences:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               if (currentProfile.dietaryPreferences?.isEmpty ?? true)
@@ -644,15 +640,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                     _buildChip(pref, Colors.green.withOpacity(0.1), Colors.green)
                   ).toList(),
                 ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          _buildCard(
-            title: 'Nutrition',
-            icon: Icons.restaurant,
-            children: [
-              _buildInfoRow('Daily Meals Target', '${currentProfile.dailyMealsCount ?? 3} meals'),
+              const Divider(),
               _buildInfoRow('Water Intake Goal', '${currentProfile.waterIntakeGlasses ?? 8} glasses'),
               if (currentProfile.dietaryPreferences?.isNotEmpty ?? false) ...[
                 const Text('Dietary Preferences:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -670,6 +658,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               ],
             ],
           ),
+          const SizedBox(height: 16),
           
           // Women's Health Card (conditional)
           if (currentProfile.gender?.toLowerCase() == 'female') ...[
