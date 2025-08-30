@@ -39,7 +39,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   void initState() {
     super.initState();
     currentProfile = widget.userProfile;
-    _tabController = TabController(length: 4, vsync: this); // Reduced from 5 to 4
+
+    // Debug prints to see what data we have
+    print('Activity Level: ${currentProfile.activityLevel}');
+    print('Workout Location: ${currentProfile.workoutLocation}');
+    print('Preferred Workouts: ${currentProfile.preferredWorkouts}');
+    print('Available Equipment: ${currentProfile.availableEquipment}');
+
+
+    _tabController = TabController(length: 4, vsync: this);
     _refreshProfile();
     _loadWeightData();
   }

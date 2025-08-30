@@ -156,7 +156,8 @@ class UserProfile {
           : (map['startingWeightDate'] != null 
               ? DateTime.parse(map['startingWeightDate']) 
               : null),
-      activityLevel: map['activityLevel'] ?? '',
+
+      activityLevel: map['activity_level'] ?? map['activityLevel'] ?? '',
 
       bmi: map['bmi']?.toDouble(),
       bmr: map['bmr']?.toDouble(),
@@ -180,16 +181,29 @@ class UserProfile {
       dailyStepGoal: map['dailyStepGoal'] ?? map['daily_step_goal'] ?? 10000,
       dailyMealsCount: map['dailyMealsCount'] ?? map['daily_meals_count'] ?? 3,
       sleepIssues: _parseStringList(map['sleepIssues'] ?? map['sleep_issues']),
-      dietaryPreferences: List<String>.from(map['dietaryPreferences'] ?? []),
+
+      dietaryPreferences: List<String>.from(
+        map['dietary_preferences'] ?? map['dietaryPreferences'] ?? []
+      ),
+      
       waterIntake: map['waterIntake']?.toDouble() ?? 2.0,
       waterIntakeGlasses: map['water_intake_glasses'] ?? 8,
       medicalConditions: List<String>.from(map['medicalConditions'] ?? []),
       otherMedicalCondition: map['otherMedicalCondition'] ?? '',
-      preferredWorkouts: List<String>.from(map['preferredWorkouts'] ?? []),
+      
+      preferredWorkouts: List<String>.from(
+        map['preferred_workouts'] ?? map['preferredWorkouts'] ?? []
+      ),
+      
       workoutFrequency: map['workoutFrequency'] ?? 3,
       workoutDuration: map['workoutDuration'] ?? 30,
-      workoutLocation: map['workoutLocation'] ?? '',
-      availableEquipment: List<String>.from(map['availableEquipment'] ?? []),
+      
+      workoutLocation: map['workout_location'] ?? map['workoutLocation'] ?? '',
+
+      availableEquipment: List<String>.from(
+        map['available_equipment'] ?? map['availableEquipment'] ?? []
+      ),
+      
       fitnessLevel: map['fitnessLevel'] ?? 'Beginner',
       hasTrainer: map['hasTrainer'] ?? false,
 
@@ -231,7 +245,7 @@ class UserProfile {
               ? DateTime.parse(data['startingWeightDate']) 
               : null),
 
-      activityLevel: data['activityLevel'] ?? '',
+      activityLevel: data['activity_level'] ?? data['activityLevel'] ?? '',
       
       hasPeriods: data['hasPeriods'] ?? data['has_periods'],
       lastPeriodDate: data['lastPeriodDate'] ?? data['last_period_date'],
@@ -256,11 +270,16 @@ class UserProfile {
       dailyMealsCount: (data['dailyMealsCount'] ?? 3).toInt(),
       medicalConditions: List<String>.from(data['medicalConditions'] ?? []),
       otherMedicalCondition: data['otherMedicalCondition'] ?? '',
-      preferredWorkouts: List<String>.from(data['preferredWorkouts'] ?? []),
+
+      preferredWorkouts: List<String>.from(data['preferred_workouts'] ?? data['preferredWorkouts'] ?? []),
+      
       workoutFrequency: data['workoutFrequency'] ?? 3,
       workoutDuration: data['workoutDuration'] ?? 30,
-      workoutLocation: data['workoutLocation'] ?? '',
-      availableEquipment: List<String>.from(data['availableEquipment'] ?? []),
+      
+      workoutLocation: data['workout_location'] ?? data['workoutLocation'] ?? '',
+      
+      availableEquipment: List<String>.from(data['available_equipment'] ?? data['availableEquipment'] ?? []),
+      
       fitnessLevel: data['fitnessLevel'] ?? 'Beginner',
       hasTrainer: data['hasTrainer'] ?? false,
       formData: {

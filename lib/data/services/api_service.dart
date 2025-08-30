@@ -615,44 +615,23 @@ class ApiService {
 
   Future<UserProfile> getUserProfileById(String userId) async {
     try {
-      print('[ApiService] Getting user profile for ID: $userId');
-      
       final response = await http.get(
         Uri.parse('$baseUrl/users/$userId'),
         headers: headers,
       );
 
-      print('[ApiService] User profile response status: ${response.statusCode}');
-      print('[ApiService] User profile response body: ${response.body}');
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        // Debug the sleep-related fields specifically
-        print('[ApiService] 🛏️ Sleep data from API:');
-        print('  bedtime: "${data['userProfile']?['bedtime']}"');
-        print('  wakeup_time: "${data['userProfile']?['wakeup_time']}"');
-        print('  sleep_hours: ${data['userProfile']?['sleep_hours']}');
+        // Debug print to see what's coming from API
+        print('[ApiService] User data from API: ${data.toString()}');
         
-        if (data['success'] == true && data['userProfile'] != null) {
-          final userProfile = UserProfile.fromMap(data['userProfile']);
-          
-          // Debug the parsed profile
-          print('[ApiService] 🛏️ Parsed UserProfile sleep data:');
-          print('  bedtime: "${userProfile.bedtime}"');
-          print('  wakeupTime: "${userProfile.wakeupTime}"');
-          print('  sleepHours: ${userProfile.sleepHours}');
-          
-          return userProfile;
-        } else {
-          // Try to create UserProfile from direct user data
-          return UserProfile.fromApiResponse(data);
-        }
+        return UserProfile.fromApiResponse(data);
       } else {
-        throw Exception('Failed to get user profile: ${response.body}');
+        throw Exception('Failed to get user profile');
       }
     } catch (e) {
-      debugPrint('API error when getting user profile: $e');
+      print('[ApiService] Error getting user profile: $e');
       rethrow;
     }
   }
