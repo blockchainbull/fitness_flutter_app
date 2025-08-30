@@ -625,7 +625,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
             icon: Icons.restaurant,
             children: [
               _buildInfoRow('Water Goal', '${currentProfile.waterIntake ?? 2} L (${currentProfile.waterIntakeGlasses ?? 8} glasses)'),
-              const Divider(),
               _buildInfoRow('Daily Meals Target', '${currentProfile.dailyMealsCount ?? 3} meals'),
               const Divider(),
               const Text('Dietary Preferences:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -640,22 +639,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                     _buildChip(pref, Colors.green.withOpacity(0.1), Colors.green)
                   ).toList(),
                 ),
-              const Divider(),
-              _buildInfoRow('Water Intake Goal', '${currentProfile.waterIntakeGlasses ?? 8} glasses'),
-              if (currentProfile.dietaryPreferences?.isNotEmpty ?? false) ...[
-                const Text('Dietary Preferences:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: currentProfile.dietaryPreferences!.map((pref) => 
-                    Chip(
-                      label: Text(pref),
-                      backgroundColor: Colors.orange.withOpacity(0.1),
-                    )
-                  ).toList(),
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 16),
