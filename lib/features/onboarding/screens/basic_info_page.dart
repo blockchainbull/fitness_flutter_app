@@ -389,6 +389,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                 : null,
             ),
             onChanged: (value) {
+              widget.onDataChanged('confirmPassword', value);
               if (_showValidationErrors) setState(() {});
             },
           ),

@@ -205,6 +205,17 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _showValidationError('Password must be at least 6 characters');
       return false;
     }
+
+    if (_formData['confirmPassword'] == null || 
+        (_formData['confirmPassword'] as String).isEmpty) {
+          _showValidationError('Please confirm your password');
+      return false;
+    }
+
+    if (_formData['password'] != _formData['confirmPassword']) {
+          _showValidationError('Passwords do not match');
+      return false;
+    }
     
     if (_formData['gender'] == null || (_formData['gender'] as String).isEmpty) {
       _showValidationError('Please select your gender');
