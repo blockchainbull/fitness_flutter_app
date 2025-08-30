@@ -99,8 +99,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
       case 'password':
         return _passwordController.text.length >= 6;
       case 'confirmPassword':
-        return _confirmPasswordController.text == _passwordController.text && 
-               _passwordController.text.length >= 6;
+        return _confirmPasswordController.text.isNotEmpty && _doPasswordsMatch();
       case 'gender':
         return _selectedGender.isNotEmpty;
       case 'age':
@@ -119,19 +118,23 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
     }
   }
 
+  bool _areAllFieldsValid() {
+    return _isFieldValid('name') &&
+          _isFieldValid('email') &&
+          _isFieldValid('password') &&
+          _isFieldValid('confirmPassword') &&
+          _isFieldValid('gender') &&
+          _isFieldValid('age') &&
+          _isFieldValid('height') &&
+          _isFieldValid('weight') &&
+          _isFieldValid('activityLevel');
+}
+
   Widget _buildRequiredIndicator() {
     return const Text(
       ' *',
       style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
     );
-  }
-
-  // Validate password
-  String? _validatePassword(String password) {
-    if (password.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
   }
 
   // Check if passwords match
@@ -380,8 +383,10 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               errorText: !_isFieldValid('confirmPassword') 
-                  ? 'Passwords do not match' 
-                  : null,
+                ? _confirmPasswordController.text.isEmpty 
+                    ? 'Please confirm your password'
+                    : 'Passwords do not match' 
+                : null,
             ),
             onChanged: (value) {
               if (_showValidationErrors) setState(() {});
@@ -772,9 +777,10 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
     );
   }
   
-  void validateFields() {
+  bool validateFields() {
     setState(() {
       _showValidationErrors = true;
     });
+    return _areAllFieldsValid();
   }
 }

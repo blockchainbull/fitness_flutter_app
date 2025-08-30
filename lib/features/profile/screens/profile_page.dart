@@ -159,10 +159,11 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           slivers: [
             // Custom App Bar with Profile Header
             SliverAppBar(
-              expandedHeight: 280,
+              expandedHeight: 320, // Increased from 280
               floating: false,
               pinned: true,
               backgroundColor: Colors.blue,
+              elevation: 0,
               actions: [
                 IconButton(
                   icon: const Icon(Icons.settings, color: Colors.white),
@@ -181,6 +182,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 ),
               ],
               flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.parallax, // Better collapse animation
                 background: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -190,43 +192,44 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                     ),
                   ),
                   child: SafeArea(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 40),
-                        // Profile Picture
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              currentProfile.name.isNotEmpty 
-                                  ? currentProfile.name[0].toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                fontSize: 40,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 56), // Space for app bar icons
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Profile Picture
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                currentProfile.name.isNotEmpty 
+                                    ? currentProfile.name[0].toUpperCase() 
+                                    : '?',
+                                style: TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue.shade600,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-
-                        Container(
-                          margin: const EdgeInsets.only(top: 16),
-                          child: ElevatedButton.icon(
+                          const SizedBox(height: 12),
+                          
+                          // Edit Profile Button
+                          ElevatedButton.icon(
                             onPressed: _navigateToEditProfile,
                             icon: const Icon(Icons.edit, size: 16),
                             label: const Text('Edit Profile'),
@@ -239,55 +242,11 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                               ),
                             ),
                           ),
-                        ),
-
-                        const SizedBox(height: 16),
-                        // Name
-                        Text(
-                          currentProfile.name,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        // Email
-                        Text(
-                          currentProfile.email,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        // Quick Stats Row - Using actual weight from weight_entries
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildQuickStat(
-                              '${currentProfile.age ?? 0}',
-                              'Age',
-                              Icons.cake,
-                            ),
-                            _buildQuickStat(
-                              currentProfile.gender ?? 'N/A',
-                              'Gender',
-                              Icons.person,
-                            ),
-                            _buildQuickStat(
-                              '${currentProfile.height?.toStringAsFixed(0) ?? 0} cm',
-                              'Height',
-                              Icons.height,
-                            ),
-                            _buildQuickStat(
-                              '${currentWeight?.toStringAsFixed(1) ?? currentProfile.weight?.toStringAsFixed(1) ?? 0} kg',
-                              'Weight',
-                              Icons.monitor_weight,
-                            ),
-                          ],
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          const SizedBox(height: 20),
+                          
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -298,7 +257,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   color: Colors.white,
                   child: TabBar(
                     controller: _tabController,
-                    isScrollable: false, // Changed to false for 4 tabs
+                    isScrollable: false,
                     labelColor: Colors.blue,
                     unselectedLabelColor: Colors.grey,
                     indicatorColor: Colors.blue,
@@ -400,7 +359,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 'Total Daily Energy Expenditure',
               ),
               _buildMetricRow('Activity Level', activityInfo['name']!, activityInfo['description']!),
-              _buildInfoRow('Activity Level', _getActivityLevelDisplay(currentProfile.activityLevel)),
             ],
           ),
           
@@ -727,43 +685,20 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               if (currentProfile.availableEquipment?.isEmpty ?? true)
                 const Text('No equipment specified')
               else
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 3,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: currentProfile.availableEquipment!.length,
-                  itemBuilder: (context, index) {
-                    return Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: currentProfile.availableEquipment!.map((equipment) => 
+                    Chip(
+                      label: Text(
+                        equipment,
+                        style: const TextStyle(fontSize: 12),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _getEquipmentIcon(currentProfile.availableEquipment![index]),
-                            size: 16,
-                            color: Colors.blue,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              currentProfile.availableEquipment![index],
-                              style: const TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                      backgroundColor: Colors.green.withOpacity(0.1),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    )
+                  ).toList(),
                 ),
             ],
           ),
