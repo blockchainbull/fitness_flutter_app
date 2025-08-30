@@ -407,7 +407,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Colors.indigo,
+                      color: Colors.deepOrange,
                     ),
                   ),
                   Slider(
