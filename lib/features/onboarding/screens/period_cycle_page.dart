@@ -75,34 +75,6 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
     }
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _lastPeriodDate ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 90)),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.pink,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    
-    if (picked != null && picked != _lastPeriodDate) {
-      setState(() {
-        _lastPeriodDate = picked;
-      });
-      widget.onDataChanged('lastPeriodDate', picked.toIso8601String());
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -413,58 +385,58 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
             const SizedBox(height: 24),
 
             // Period Length (NEW SECTION)
-              const Text(
-                'Average period length (days)',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+            const Text(
+              'Average period length (days)',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 12),
               
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      '$_periodLength days',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red,
-                      ),
-                    ),
-                    Slider(
-                      value: _periodLength.toDouble(),
-                      min: 2,
-                      max: 10,
-                      divisions: 8,
-                      activeColor: Colors.red,
-                      inactiveColor: Colors.red[100],
-                      onChanged: (value) {
-                        setState(() {
-                          _periodLength = value.round();
-                        });
-                        widget.onDataChanged('periodLength', _periodLength);
-                      },
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('2', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                        Text('5 (average)', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                        Text('10', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                      ],
-                    ),
-                  ],
-                ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Column(
+                children: [
+                  Text(
+                    '$_periodLength days',
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.indigo,
+                    ),
+                  ),
+                  Slider(
+                    value: _periodLength.toDouble(),
+                    min: 2,
+                    max: 10,
+                    divisions: 8,
+                    activeColor: Colors.orange,
+                    inactiveColor: Colors.red[100],
+                    onChanged: (value) {
+                      setState(() {
+                        _periodLength = value.round();
+                      });
+                      widget.onDataChanged('periodLength', _periodLength);
+                    },
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('2', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      Text('5 (average)', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      Text('10', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
               
-              const SizedBox(height: 24),
+            const SizedBox(height: 24),
             
             // Is cycle regular?
             Row(
