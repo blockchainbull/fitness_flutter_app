@@ -39,11 +39,11 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
   bool _showValidationErrors = false;
 
   final List<String> _activityLevels = [
-    'Sedentary',
-    'Lightly active',
-    'Moderately active',
-    'Very active',
-    'Extra active'
+    'Sedentary (Little or no exercise)',
+    'Lightly active (Light exercise 1-3 days/week)',
+    'Moderately active (Moderate exercise 3-5 days/week)',
+    'Very active (Hard exercise 6-7 days/week)',
+    'Extra active (Very hard exercise daily)'
   ];
 
   @override

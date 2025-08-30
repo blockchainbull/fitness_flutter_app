@@ -215,6 +215,24 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                             ),
                           ),
                         ),
+
+                        Container(
+                          margin: const EdgeInsets.only(top: 16),
+                          child: ElevatedButton.icon(
+                            onPressed: _navigateToEditProfile,
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: const Text('Edit Profile'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.blue,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          ),
+                        ),
+
                         const SizedBox(height: 16),
                         // Name
                         Text(
@@ -378,10 +396,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 '${_calculateTDEE()?.toStringAsFixed(0) ?? 0} cal/day',
                 'Total Daily Energy Expenditure',
               ),
-              _buildMetricRow('Activity Level', 
-                _formatActivityLevel(currentProfile.activityLevel ?? ''),
-                _getActivityDescription(currentProfile.activityLevel ?? ''),
-              ),
+              _buildInfoRow('Activity Level', _getActivityLevelDisplay(currentProfile.activityLevel)),
             ],
           ),
           
@@ -559,37 +574,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Daily Targets Card
-          _buildCard(
-            title: 'Daily Health Targets',
-            icon: Icons.flag,
-            children: [
-              _buildProgressRow(
-                'Steps Goal',
-                0, // Placeholder for actual steps
-                currentProfile.dailyStepGoal ?? 10000,
-                'steps',
-                Colors.green,
-              ),
-              _buildProgressRow(
-                'Water Intake',
-                0, // Placeholder for actual intake
-                currentProfile.waterIntakeGlasses ?? 8,
-                'glasses',
-                Colors.blue,
-              ),
-              _buildProgressRow(
-                'Sleep Target',
-                0, // Placeholder for actual sleep
-                currentProfile.sleepHours?.toInt() ?? 8,
-                'hours',
-                Colors.purple,
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
+           
           // Medical Conditions Card
           _buildCard(
             title: 'Medical Conditions',
@@ -661,6 +646,30 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 ),
             ],
           ),
+          const SizedBox(height: 16),
+
+          _buildCard(
+            title: 'Nutrition',
+            icon: Icons.restaurant,
+            children: [
+              _buildInfoRow('Daily Meals Target', '${currentProfile.dailyMealsCount ?? 3} meals'),
+              _buildInfoRow('Water Intake Goal', '${currentProfile.waterIntakeGlasses ?? 8} glasses'),
+              if (currentProfile.dietaryPreferences?.isNotEmpty ?? false) ...[
+                const Text('Dietary Preferences:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: currentProfile.dietaryPreferences!.map((pref) => 
+                    Chip(
+                      label: Text(pref),
+                      backgroundColor: Colors.orange.withOpacity(0.1),
+                    )
+                  ).toList(),
+                ),
+              ],
+            ],
+          ),
           
           // Women's Health Card (conditional)
           if (currentProfile.gender?.toLowerCase() == 'female') ...[
@@ -701,7 +710,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               _buildInfoRow('Fitness Level', currentProfile.fitnessLevel ?? 'Beginner'),
               _buildInfoRow('Frequency', '${currentProfile.workoutFrequency ?? 0} days/week'),
               _buildInfoRow('Duration', '${currentProfile.workoutDuration ?? 0} minutes/session'),
-              _buildInfoRow('Location', currentProfile.workoutLocation ?? 'Not specified'),
+              _buildInfoRow('Workout Location', currentProfile.workoutLocation ?? 'Not specified'),
               _buildInfoRow('Personal Trainer', currentProfile.hasTrainer == true ? 'Yes' : 'No'),
             ],
           ),
@@ -775,42 +784,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   },
                 ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Weight trend widget
-  Widget _buildWeightTrend() {
-    if (weightHistory.length < 2) return const SizedBox();
-    
-    // Calculate trend
-    final recentWeight = weightHistory.first.weight;
-    final previousWeight = weightHistory[1].weight;
-    final change = recentWeight - previousWeight;
-    final isLoss = change < 0;
-    
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isLoss ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            isLoss ? Icons.trending_down : Icons.trending_up,
-            color: isLoss ? Colors.green : Colors.orange,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '${isLoss ? 'Lost' : 'Gained'} ${change.abs().toStringAsFixed(1)} kg since last entry',
-            style: TextStyle(
-              color: isLoss ? Colors.green : Colors.orange,
-              fontWeight: FontWeight.bold,
-            ),
           ),
         ],
       ),
@@ -956,32 +929,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               fontSize: 16,
               color: color ?? Colors.black,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressRow(String label, int current, int target, String unit, Color color) {
-    final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 14)),
-              Text('$current / $target $unit', style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: color.withOpacity(0.2),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 6,
           ),
         ],
       ),
@@ -1340,54 +1287,17 @@ Widget _buildWeightStatWithLabel(String label, double weight, bool isHighlighted
 }
 
   // Utility Methods
-  String _formatActivityLevel(String? level) {
+  String _getActivityLevelDisplay(String? level) {
     if (level == null || level.isEmpty) return 'Not set';
     
-    // Handle both snake_case and formatted versions
-    final Map<String, String> levels = {
-      'sedentary': 'Sedentary',
-      'lightly_active': 'Lightly Active',
-      'moderately_active': 'Moderately Active',
-      'very_active': 'Very Active',
-      'extra_active': 'Extra Active',
-      // Also handle if it's already formatted
-      'Sedentary': 'Sedentary',
-      'Lightly Active': 'Lightly Active',
-      'Moderately Active': 'Moderately Active',
-      'Very Active': 'Very Active',
-      'Extra Active': 'Extra Active',
-    };
-    
-    // Try exact match first
-    if (levels.containsKey(level)) {
-      return levels[level]!;
-    }
-    
-    // Try case-insensitive match
-    final lowerLevel = level.toLowerCase().replaceAll(' ', '_');
-    if (levels.containsKey(lowerLevel)) {
-      return levels[lowerLevel]!;
-    }
-    
-    // Return original if no match found
-    return level;
-  }
-
-   String _getActivityDescription(String? level) {
-    if (level == null || level.isEmpty) return 'Activity level not specified';
-    
-    // Normalize the level string
-    final normalizedLevel = level.toLowerCase().replaceAll(' ', '_');
-    
-    final Map<String, String> descriptions = {
-      'sedentary': 'Little or no exercise',
-      'lightly_active': 'Exercise 1-3 days/week',
-      'moderately_active': 'Exercise 3-5 days/week',
-      'very_active': 'Exercise 6-7 days/week',
-      'extra_active': 'Very intense exercise daily',
-    };
-    
-    return descriptions[normalizedLevel] ?? 'Activity level: $level';
+    // Just format the string nicely - replace underscores and capitalize
+    return level
+      .replaceAll('_', ' ')
+      .split(' ')
+      .map((word) => word.isNotEmpty 
+        ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' 
+        : '')
+      .join(' ');
   }
 
  String _getBMICategory(double bmi) {

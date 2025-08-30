@@ -22,19 +22,15 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
   bool _showValidationErrors = false;
 
   final List<Map<String, dynamic>> _workoutTypes = [
-    {'name': 'Running', 'icon': Icons.directions_run, 'color': Colors.orange},
-    {'name': 'Walking', 'icon': Icons.directions_walk, 'color': Colors.green},
+    {'name': 'Walking/Running', 'icon': Icons.directions_run, 'color': Colors.orange},
     {'name': 'Cycling', 'icon': Icons.directions_bike, 'color': Colors.blue},
     {'name': 'Swimming', 'icon': Icons.pool, 'color': Colors.cyan},
-    {'name': 'Gym/Weights', 'icon': Icons.fitness_center, 'color': Colors.red},
-    {'name': 'Yoga', 'icon': Icons.self_improvement, 'color': Colors.purple},
-    {'name': 'Pilates', 'icon': Icons.accessibility_new, 'color': Colors.pink},
+    {'name': 'Strength Training', 'icon': Icons.fitness_center, 'color': Colors.red},
+    {'name': 'Yoga/Pilates', 'icon': Icons.self_improvement, 'color': Colors.purple},
     {'name': 'Dancing', 'icon': Icons.music_note, 'color': Colors.deepPurple},
-    {'name': 'Martial Arts', 'icon': Icons.sports_martial_arts, 'color': Colors.brown},
-    {'name': 'Team Sports', 'icon': Icons.sports_basketball, 'color': Colors.indigo},
+    {'name': 'Sports', 'icon': Icons.sports_basketball, 'color': Colors.indigo},
     {'name': 'HIIT', 'icon': Icons.timer, 'color': Colors.deepOrange},
     {'name': 'CrossFit', 'icon': Icons.sports, 'color': Colors.teal},
-    {'name': 'Home Workouts', 'icon': Icons.home, 'color': Colors.amber},
     {'name': 'Other', 'icon': Icons.more_horiz, 'color': Colors.grey},
   ];
 
@@ -486,100 +482,6 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
                 ),
               );
             }).toList(),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Summary Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue[50]!, Colors.purple[50]!],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue[200]!),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.auto_awesome, color: Colors.blue[700], size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Your Workout Plan Summary',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (_selectedWorkouts.isNotEmpty)
-                  _buildSummaryRow(
-                    Icons.fitness_center,
-                    'Activities',
-                    _selectedWorkouts.length <= 3 
-                        ? _selectedWorkouts.join(', ')
-                        : '${_selectedWorkouts.take(2).join(', ')} + ${_selectedWorkouts.length - 2} more',
-                    Colors.purple,
-                  ),
-                if (_workoutFrequency > 0)
-                  _buildSummaryRow(
-                    Icons.calendar_today,
-                    'Frequency',
-                    '$_workoutFrequency days per week',
-                    Colors.green,
-                  ),
-                if (_workoutDuration > 0)
-                  _buildSummaryRow(
-                    Icons.timer,
-                    'Duration',
-                    '$_workoutDuration minutes per session',
-                    Colors.orange,
-                  ),
-                if (_workoutFrequency > 0 && _workoutDuration > 0)
-                  _buildSummaryRow(
-                    Icons.schedule,
-                    'Weekly Total',
-                    '${(_workoutFrequency * _workoutDuration)} minutes',
-                    Colors.blue,
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildSummaryRow(IconData icon, String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Text(
-            '$label: ',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
         ],
       ),
