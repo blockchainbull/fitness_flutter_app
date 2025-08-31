@@ -153,7 +153,7 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
                 },
               );
               
-              if (response['success']) {
+              if (response != null && (response['success'] == true || response.containsKey('meal'))) {
                 Navigator.pop(context, true);
               }
             },
@@ -567,10 +567,8 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
         ],
       ),
       
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: ListView(
+           children: [
             // Daily Total Calories Card (NEW - Always visible)
             _buildDailyCaloriesCard(),
             
@@ -761,8 +759,7 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
               _buildTodaysMealsSection(),
           ],
         ),
-      ),
-    );
+      );
   }
  
   Widget _buildDailyCaloriesCard() {
@@ -1050,7 +1047,7 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
 
  Widget _buildQuickAddSection() {
    final quickItems = [
-     {'name': 'Water', 'icon': Icons.water_drop, 'quantity': '1 glass'},
+     {'name': 'Protien Shake', 'icon': Icons.blender, 'quantity': '1 scoop'},
      {'name': 'Apple', 'icon': Icons.apple, 'quantity': '1 medium'},
      {'name': 'Coffee', 'icon': Icons.coffee, 'quantity': '1 cup'},
      {'name': 'Banana', 'icon': Icons.breakfast_dining, 'quantity': '1 medium'},
@@ -1138,7 +1135,7 @@ class _MealLoggingPageState extends State<MealLoggingPage> {
            ),
          ),
          const SizedBox(height: 12),
-         ..._todayMeals.map((meal) => _buildMealCard(meal)),
+         ..._todayMeals.map((meal) => _buildMealCard(meal)).toList(),
        ],
      ),
    );
