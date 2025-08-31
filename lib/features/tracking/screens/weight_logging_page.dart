@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
-import 'package:user_onboarding/data/services/api_service.dart';
-import 'package:user_onboarding/features/profile/screens/edit_profile_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:user_onboarding/providers/user_provider.dart';
+import 'dart:async';
+import 'package:user_onboarding/utils/profile_update_notifier.dart';
 
 class WeightLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -21,12 +22,15 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   final DataManager _dataManager = DataManager();
-  final ApiService _apiService = ApiService();
+
   
   UserProfile? _currentUserProfile;
   List<WeightEntry> _weightHistory = [];
   bool _isLoading = true;
   bool _isSaving = false;
+
+  late StreamSubscription<UserProfile> _profileSubscription;
+  late StreamSubscription<void> _refreshSubscription;
 
   @override
   void initState() {
@@ -34,13 +38,32 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
     _currentUserProfile = widget.userProfile;
     _loadWeightHistory();
     WidgetsBinding.instance.addObserver(this);
+
+    _profileSubscription = ProfileUpdateNotifier().profileUpdates.listen((profile) {
+      if (mounted) {
+        setState(() {
+          _currentUserProfile = profile;
+        });
+      }
+    });
+
+    _refreshSubscription = ProfileUpdateNotifier().refreshRequests.listen((_) {
+      if (mounted) {
+        _refreshUserProfile();
+      }
+    });
+
     _loadInitialData();
+
   }
 
   @override
   void dispose() {
     _weightController.dispose();
     _notesController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _profileSubscription.cancel();
+    _refreshSubscription.cancel();
     super.dispose();
   }
 
@@ -56,17 +79,24 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
   }
 
   Future<void> _loadInitialData() async {
-    print('🔄 Loading initial data for weight tracking data...');
+    print('🔄 Loading initial data for weight tracking...');
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Refresh both profile and weight history in parallel
-      await Future.wait([
-        _refreshUserProfile(),
-        _loadWeightHistory(),
-      ]);
+      // Use Provider to get the latest profile
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.refreshProfile();
+      
+      if (userProvider.userProfile != null) {
+        setState(() {
+          _currentUserProfile = userProvider.userProfile;
+        });
+      }
+      
+      // Load weight history
+      await _loadWeightHistory();
     } catch (e) {
       print('❌ Error loading initial data: $e');
     } finally {
@@ -78,45 +108,41 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
     }
   }
 
-  Future<void> _loadWeightHistory() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+  Future<void> _refreshUserProfile() async {
     try {
-      final history = await _dataManager.getWeightHistory(
-        widget.userProfile.id ?? '',
-        limit: 100,
-      );
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.refreshProfile();
       
-      setState(() {
-        _weightHistory = history;
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error loading weight history: $e');
-      setState(() {
-        _isLoading = false;
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load weight history: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (userProvider.userProfile != null && mounted) {
+        setState(() {
+          _currentUserProfile = userProvider.userProfile;
+        });
       }
+    } catch (e) {
+      print('Error refreshing profile: $e');
     }
   }
 
-  Future<void> _saveWeightEntry(double weight, String notes, DateTime dateTime) async {
-    if (widget.userProfile.id == null) {
+  Future<void> _loadWeightHistory() async {
+    try {
+      final history = await _dataManager.getWeightHistory(
+        _currentUserProfile?.id ?? widget.userProfile.id ?? '',
+      );
+      
+      if (mounted) {
+        setState(() {
+          _weightHistory = history;
+        });
+      }
+    } catch (e) {
+      print('Error loading weight history: $e');
+    }
+  }
+
+  Future<void> _saveWeight() async {
+    if (_weightController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('User ID not found. Please restart the app.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please enter a weight')),
       );
       return;
     }
@@ -126,62 +152,61 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
     });
 
     try {
-      final weightEntry = WeightEntry(
-        userId: widget.userProfile.id!,
-        date: dateTime,
+      final weight = double.parse(_weightController.text);
+      final entry = WeightEntry(
+        userId: _currentUserProfile?.id ?? widget.userProfile.id ?? '',
         weight: weight,
-        notes: notes.trim().isNotEmpty ? notes.trim() : null,
+        date: DateTime.now(),
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 
-      await _dataManager.saveWeightEntry(weightEntry);
+      await _dataManager.saveWeightEntry(entry);
       
-      // Save to SharedPreferences for backward compatibility
-      final prefs = await SharedPreferences.getInstance();
-      final dateStr = DateFormat('yyyy-MM-dd').format(dateTime);
-      await prefs.setBool('weight_logged_$dateStr', true);
-      await prefs.setDouble('weight_$dateStr', weight);
-      await prefs.setString('weight_time_$dateStr', dateTime.toIso8601String());
-      if (notes.trim().isNotEmpty) {
-        await prefs.setString('weight_notes_$dateStr', notes.trim());
+      // Update the user's current weight in profile
+      if (_currentUserProfile != null) {
+        final updatedProfile = _currentUserProfile!.copyWith(weight: weight);
+        
+        // Use Provider to update
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.updateProfile(updatedProfile);
       }
-      print('✅ Weight saved to SharedPreferences: $dateStr = ${weight}kg');
-      
-      // Update user's current weight in profile only if this is the most recent entry
-      final now = DateTime.now();
-      if (dateTime.isAfter(now.subtract(const Duration(hours: 24)))) {
-        await _dataManager.updateUserWeight(widget.userProfile.id!, weight);
-      }
-      
-      // Reload history to show new entry
+
+      // Clear fields and reload history
+      _weightController.clear();
+      _notesController.clear();
       await _loadWeightHistory();
-      
-      setState(() {
-        _isSaving = false;
-      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Weight entry saved successfully!'),
+            content: Text('Weight saved successfully!'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      print('Error saving weight entry: $e');
-      setState(() {
-        _isSaving = false;
-      });
-      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save weight entry: $e'),
+            content: Text('Error saving weight: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
+  }
+
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      _refreshUserProfile(),
+      _loadWeightHistory(),
+    ]);
   }
 
   UserProfile get currentUserProfile => _currentUserProfile ?? widget.userProfile;
@@ -1398,45 +1423,57 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
     );
   }
 
-  Future<void> _refreshUserProfile() async {
+  Future<void> _saveWeightEntry(double weight, String notes, DateTime dateTime) async {
+    setState(() {
+      _isSaving = true;
+    });
+
     try {
-      print('🔄 Force refreshing user profile...');
+      final entry = WeightEntry(
+        userId: _currentUserProfile?.id ?? widget.userProfile.id ?? '',
+        weight: weight,
+        date: dateTime,
+        notes: notes.isEmpty ? null : notes,
+      );
+
+      await _dataManager.saveWeightEntry(entry);
       
-      // Get the current user ID
-      final userId = currentUserProfile.id;
-      if (userId == null) {
-        print('❌ No user ID found');
-        return;
+      // Update the user's current weight in profile if this is today's entry
+      final isToday = _isToday(dateTime);
+      if (_currentUserProfile != null && isToday) {
+        final updatedProfile = _currentUserProfile!.copyWith(weight: weight);
+        
+        // Use Provider to update
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.updateProfile(updatedProfile);
       }
-      
-      // Force reload from API (bypass cache)
-      final updatedProfile = await _apiService.getUserProfileById(userId);
-      if (updatedProfile != null) {
-        setState(() {
-          _currentUserProfile = updatedProfile;
-        });
-        print('✅ User profile refreshed: ${updatedProfile.weight} kg');
-      } else {
-        print('❌ No updated profile returned from API');
+
+      // Reload history to show the new entry
+      await _loadWeightHistory();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Weight entry saved successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
-      print('❌ Error refreshing user profile: $e');
-    }
-  }
-
-  void _navigateToProfile() async {
-    // Navigate to profile page
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditProfilePage(userProfile: currentUserProfile),
-      ),
-    );
-    
-    // If profile was updated, refresh the data
-    if (result != null) {
-      await _refreshUserProfile();
-      await _loadWeightHistory();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving weight: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 

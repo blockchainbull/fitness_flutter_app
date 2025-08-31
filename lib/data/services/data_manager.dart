@@ -11,6 +11,8 @@ import 'package:user_onboarding/data/services/exercise_data_service.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/repositories/weight_repository.dart';
 import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:user_onboarding/utils/profile_update_notifier.dart';
+
 
 class DataManager {
   static final DataManager _instance = DataManager._internal();
@@ -509,18 +511,19 @@ class DataManager {
       
       // Always update local storage with the latest profile
       await _saveUserProfileLocally(updatedProfile);
-      
-      // Update UserManager to ensure app-wide consistency
+
       await UserManager.setCurrentUser(updatedProfile);
-      
+
+      ProfileUpdateNotifier().notifyProfileUpdate(updatedProfile);
+
       _log('User profile updated in local storage and UserManager');
-      
+
       return updatedProfile; // Return the updated profile
     } catch (e) {
       _log('Failed to update user profile: $e');
       rethrow;
     }
-}
+  }
 
   Future<bool> deleteWeightEntry(String entryId) async {
     try {

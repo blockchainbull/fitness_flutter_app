@@ -13,7 +13,8 @@ import 'package:user_onboarding/features/onboarding/screens/exercise_setup_page.
 import 'package:user_onboarding/features/onboarding/screens/dietary_preferences_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/workout_preferences_page.dart';
 import 'package:user_onboarding/data/managers/user_manager.dart';
-
+import 'package:provider/provider.dart';
+import 'package:user_onboarding/providers/user_provider.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({Key? key}) : super(key: key);
@@ -647,18 +648,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       };
 
       // Complete onboarding
-      final userId = await _dataManager.completeOnboarding(onboardingData);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userId = await userProvider.completeOnboarding(onboardingData);
       
-      if (userId == null) {
+      if (userId == null || userProvider.userProfile == null) {
         throw Exception('Failed to complete onboarding');
       }
 
-      // Load the complete user profile (this will fetch from backend or local)
-      final userProfile = await _dataManager.loadUserProfile();
-      
-      if (userProfile == null) {
-        throw Exception('Failed to load user profile after onboarding');
-      }
+      final userProfile = userProvider.userProfile!;
       
       // Close loading indicator
       Navigator.pop(context);
@@ -734,17 +731,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       // Close loading indicator
       Navigator.pop(context);
       
+      // Get error message from provider if available
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final errorMessage = userProvider.error ?? error.toString();
+      
       // Show error dialog
       showDialog(
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Error'),
-            content: Text('Failed to create profile: $error'),
+            content: Text('Failed to create profile: $errorMessage'),
             actions: [
               TextButton(
                 onPressed: () {
                   Navigator.pop(context);
+                  userProvider.clearError();
                 },
                 child: const Text('Try Again'),
               ),

@@ -4,7 +4,6 @@ import 'package:user_onboarding/config/home_routes.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
-import 'package:user_onboarding/features/onboarding/screens/onboarding_flow.dart';
 
 class HealthAIApp extends StatelessWidget {
   final bool hasValidLogin;

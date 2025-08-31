@@ -4,6 +4,8 @@ import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:user_onboarding/providers/user_provider.dart';
 
 class EditProfilePage extends StatefulWidget {
   final UserProfile userProfile;
@@ -367,10 +369,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ? _cycleLengthRegular : null,
       );
 
-      // Use DataManager instead of ApiService directly
-      // This ensures both local storage and UserManager are updated
-      final dataManager = DataManager();
-      final savedProfile = await dataManager.updateUserProfile(updatedProfile);
+      // Use Provider to update the profile
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final savedProfile = await userProvider.updateProfile(updatedProfile);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

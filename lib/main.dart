@@ -1,42 +1,33 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:user_onboarding/app.dart';
-import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
-import 'package:user_onboarding/data/services/database_service.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:provider/provider.dart';
+import 'package:user_onboarding/providers/user_provider.dart';
+import 'package:user_onboarding/features/splash/screens/splash_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => UserProvider()..initUser(),
+      child: const MyApp(),
+    ),
+  );
+}
 
-  // Initialize database service
-  try {
-    print('🚀 Initializing database service...');
-    await DatabaseService.initialize();
-    print('✅ Database service initialized');
-  } catch (e) {
-    print('❌ Database initialization failed: $e');
-    print('⚠️ App will continue with local storage only');
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Health AI',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: const SplashScreen(),
+      debugShowCheckedModeBanner: false,
+    );
   }
-
-  try {
-    await DataManager().initialize();
-  } catch (e) {
-    print('❌ Data manager initialization failed: $e');
-  }
-
-  final bool hasValidLogin = await UserManager.isLoggedIn();
-  UserProfile? userProfile;
-
-  if (hasValidLogin) {
-    userProfile = await UserManager.getCurrentUser();
-    if (userProfile != null) {
-      print('Successfully loaded profile for: ${userProfile.name}');
-    }
-  }
-
-  runApp(HealthAIApp(
-    hasValidLogin: hasValidLogin,
-    userProfile: userProfile,
-  ));
 }

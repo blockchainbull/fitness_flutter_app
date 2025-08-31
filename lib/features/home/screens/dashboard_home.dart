@@ -10,6 +10,10 @@ import 'package:user_onboarding/features/home/widgets/daily_calendar.dart';
 import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
 import 'package:user_onboarding/features/reports/screens/today_report_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:user_onboarding/providers/user_provider.dart';
+import 'dart:async';
+import 'package:user_onboarding/utils/profile_update_notifier.dart';
 
 
 class DashboardHome extends StatefulWidget {
@@ -24,17 +28,61 @@ class DashboardHome extends StatefulWidget {
   State<DashboardHome> createState() => _DashboardHomeState();
 }
 
-class _DashboardHomeState extends State<DashboardHome> {
+class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   DateTime selectedDate = DateTime.now();
   late DailyMetrics todayMetrics;
   List<WorkoutSession> recentWorkouts = [];
+  late UserProfile _currentUserProfile;
+  late StreamSubscription<UserProfile> _profileSubscription;
 
   @override
   void initState() {
     super.initState();
+    _currentUserProfile = widget.userProfile;
+    
+    // Add lifecycle observer
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Listen to profile updates
+    _profileSubscription = ProfileUpdateNotifier().profileUpdates.listen((profile) {
+      if (mounted) {
+        setState(() {
+          _currentUserProfile = profile;
+        });
+        _loadTodayData(); // Reload data when profile updates
+      }
+    });
     _loadTodayData();
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _profileSubscription.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      print('🔄 Dashboard resumed, refreshing data...');
+      _refreshProfile();
+    }
+  }
+
+  Future<void> _refreshProfile() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    await userProvider.refreshProfile();
+    
+    if (userProvider.userProfile != null && mounted) {
+      setState(() {
+        _currentUserProfile = userProvider.userProfile!;
+      });
+      _loadTodayData(); // Reload dashboard data
+    }
+  }
+
 
   void _loadTodayData() {
     // Mock data - replace with actual API calls
@@ -82,76 +130,82 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   String _getGreeting() {
-  final hour = DateTime.now().hour;
-  final name = widget.userProfile.name.split(' ').first;
-  
-  String greeting;
-  
-  if (hour >= 7 && hour < 12) {
-    // 7AM to 12PM
-    greeting = 'Good morning';
-  } else if (hour >= 12 && hour < 15) {
-    // 12PM to 3PM
-    greeting = 'Good afternoon';
-  } else if (hour >= 18 && hour < 20) {
-    // 6PM to 8PM
-    greeting = 'Good evening';
-  } else if (hour >= 23 || hour < 5) {
-    // 11PM to 5AM
-    greeting = 'Good night';
-  } else {
-    // Handle the gaps: 3PM-6PM (15-17), 8PM-11PM (20-22), 5AM-7AM (5-6)
-    if (hour >= 15 && hour < 18) {
-      // 3PM to 6PM - Late afternoon
-      greeting = 'Good afternoon';
-    } else if (hour >= 20 && hour < 23) {
-      // 8PM to 11PM - Late evening
-      greeting = 'Good evening';
-    } else {
-      // 5AM to 7AM - Early morning
+    final hour = DateTime.now().hour;
+    final name = _currentUserProfile.name?.split(' ').first ?? 'User';
+    
+    String greeting;
+    
+    if (hour >= 7 && hour < 12) {
       greeting = 'Good morning';
+    } else if (hour >= 12 && hour < 15) {
+      greeting = 'Good afternoon';
+    } else if (hour >= 18 && hour < 20) {
+      greeting = 'Good evening';
+    } else if (hour >= 23 || hour < 5) {
+      greeting = 'Good night';
+    } else {
+      if (hour >= 15 && hour < 18) {
+        greeting = 'Good afternoon';
+      } else if (hour >= 20 && hour < 23) {
+        greeting = 'Good evening';
+      } else {
+        greeting = 'Good morning';
+      }
     }
+    
+    return '$greeting, $name';
   }
-  
-  return '$greeting, $name';
-}
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.grey[50],
-      drawer: ActivityDrawer(userProfile: widget.userProfile),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 24),
-                _buildCalendar(),
-                const SizedBox(height: 24),
-                _buildQuickActions(),
-                const SizedBox(height: 24),
-                _buildSmartRecommendations(),
-                const SizedBox(height: 24),
-                _buildTodayActivity(),
-                const SizedBox(height: 24),
-                _buildGoals(),
-                const SizedBox(height: 24),
-                _buildRecentWorkouts(),
-                const SizedBox(height: 16),
-                _buildMotivationCard(),
-                const SizedBox(height: 24),
-                _buildComingUp(),
-                const SizedBox(height: 20),
-              ],
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, _) {
+        // Update current profile if provider has newer data
+        if (userProvider.userProfile != null && 
+            userProvider.userProfile!.id == _currentUserProfile.id) {
+          _currentUserProfile = userProvider.userProfile!;
+        }
+        
+        return Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: Colors.grey[50],
+          drawer: ActivityDrawer(userProfile: _currentUserProfile),
+          body: RefreshIndicator(
+            onRefresh: _refreshProfile,
+            child: SafeArea(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 24),
+                      _buildCalendar(),
+                      const SizedBox(height: 24),
+                      _buildQuickActions(),
+                      const SizedBox(height: 24),
+                      _buildSmartRecommendations(),
+                      const SizedBox(height: 24),
+                      _buildTodayActivity(),
+                      const SizedBox(height: 24),
+                      _buildGoals(),
+                      const SizedBox(height: 24),
+                      _buildRecentWorkouts(),
+                      const SizedBox(height: 16),
+                      _buildMotivationCard(),
+                      const SizedBox(height: 24),
+                      _buildComingUp(),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -447,23 +501,23 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   Future<Map<String, dynamic>> _getSmartRecommendations() async {
-    final weightGoal = widget.userProfile.weightGoal;
+    final profile = _currentUserProfile; // Use current profile
+    final weightGoal = profile.weightGoal;
     final currentHour = DateTime.now().hour;
-    final userWeight = widget.userProfile.weight;
-    final targetWeight = widget.userProfile.targetWeight;
+    final userWeight = profile.weight ?? 70;
+    final targetWeight = profile.targetWeight ?? 70;
     
-    // Get BMR and TDEE from formData
-    final bmr = widget.userProfile.formData['bmr']?.toDouble() ?? 0.0;
-    final tdee = widget.userProfile.formData['tdee']?.toDouble() ?? 0.0;
+    // Get BMR and TDEE from profile
+    final bmr = profile.bmr ?? 0.0;
+    final tdee = profile.tdee ?? 0.0;
     
     // Calculate approximate TDEE if not available
-    double estimatedTDEE = tdee > 0 ? tdee : 1800; // Use stored TDEE or fallback
+    double estimatedTDEE = tdee > 0 ? tdee : 1800;
     
     if (bmr > 0 && tdee <= 0) {
-      // Use BMR to calculate TDEE if BMR exists but TDEE doesn't
-      double activityMultiplier = 1.4; // Sedentary default
+      double activityMultiplier = 1.4;
       
-      switch (widget.userProfile.activityLevel) {
+      switch (profile.activityLevel) {
         case 'Lightly active':
           activityMultiplier = 1.6;
           break;
@@ -481,7 +535,7 @@ class _DashboardHomeState extends State<DashboardHome> {
       estimatedTDEE = bmr * activityMultiplier;
     }
     
-    // Framework-driven recommendations that don't expose the framework
+    // Return recommendations based on weight goal
     switch (weightGoal) {
       case 'lose_weight':
         return {
@@ -494,12 +548,12 @@ class _DashboardHomeState extends State<DashboardHome> {
             {
               'icon': Icons.directions_walk,
               'color': Colors.blue,
-              'text': 'Aim for ${(10000 + (userWeight - targetWeight) * 1000).round()} steps today'
+              'text': 'Aim for ${(10000 + ((userWeight - targetWeight).abs() * 1000)).round()} steps today'
             },
             {
               'icon': Icons.water_drop,
               'color': Colors.cyan,
-              'text': 'Drink 10 glasses of water (helps with satiety)'
+              'text': 'Drink ${profile.waterIntakeGlasses ?? 10} glasses of water (helps with satiety)'
             },
           ],
           'quick_action': {
@@ -565,7 +619,7 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   Color _getGoalColor() {
-    switch (widget.userProfile.weightGoal) {
+    switch (_currentUserProfile.weightGoal) {
       case 'lose_weight':
         return Colors.red[500]!;
       case 'gain_weight':
