@@ -306,8 +306,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               _buildInfoRow('Email', currentProfile.email),
               _buildInfoRow('Age', '${currentProfile.age ?? 0} years'),
               _buildInfoRow('Gender', currentProfile.gender ?? 'Not specified'),
-              _buildInfoRow('Height', '${currentProfile.height?.toStringAsFixed(0) ?? 0} cm'),
-              _buildInfoRow('Current Weight', '${currentWeight?.toStringAsFixed(1) ?? currentProfile.weight?.toStringAsFixed(1) ?? 0} kg'),
+              _buildInfoRow('Height', '${currentProfile.height?.toStringAsFixed(1) ?? 0} cm'),
+              _buildInfoRow('Current Weight', '${currentWeight?.toStringAsFixed(2) ?? currentProfile.weight?.toStringAsFixed(2) ?? 0} kg'),
               if (lastWeightUpdate != null)
                 _buildInfoRow('Last Weight Update', DateFormat('MMM d, yyyy').format(lastWeightUpdate!)),
             ],
@@ -441,13 +441,13 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               ),
               
               // Weight stats based on goal
-              _buildInfoRow('Starting Weight', '${initialWeight.toStringAsFixed(1)} kg'),
-              _buildInfoRow('Current Weight', '${latestWeight.toStringAsFixed(1)} kg'),
+              _buildInfoRow('Starting Weight', '${initialWeight.toStringAsFixed(2)} kg'),
+              _buildInfoRow('Current Weight', '${latestWeight.toStringAsFixed(2)} kg'),
               
               // Only show target weight if not maintaining
               if (currentProfile.weightGoal != 'maintain_weight' && 
                   currentProfile.weightGoal != 'Maintain Weight') ...[
-                _buildInfoRow('Target Weight', '${targetWeight.toStringAsFixed(1)} kg'),
+                _buildInfoRow('Target Weight', '${targetWeight.toStringAsFixed(2)} kg'),
                 _buildInfoRow('Timeline', _formatTimeline(currentProfile.goalTimeline ?? '')),
                 const Divider(),
                 _buildWeightProgressForGoal(
@@ -795,7 +795,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
        ),
        const SizedBox(height: 4),
        Text(
-         '${weight.toStringAsFixed(1)} kg',
+         '${weight.toStringAsFixed(2)} kg',
          style: const TextStyle(
            fontWeight: FontWeight.bold,
            fontSize: 14,
@@ -853,7 +853,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  'Lost ${alreadyLost.toStringAsFixed(1)} kg of ${totalToLose.toStringAsFixed(1)} kg',
+                  'Lost ${alreadyLost.toStringAsFixed(2)} kg of ${totalToLose.toStringAsFixed(2)} kg',
                   style: const TextStyle(
                     color: Colors.green,
                     fontWeight: FontWeight.bold,
@@ -903,7 +903,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  'Gained ${alreadyGained.toStringAsFixed(1)} kg of ${totalToGain.toStringAsFixed(1)} kg',
+                  'Gained ${alreadyGained.toStringAsFixed(2)} kg of ${totalToGain.toStringAsFixed(2)} kg',
                   style: const TextStyle(
                     color: Colors.orange,
                     fontWeight: FontWeight.bold,
@@ -959,7 +959,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               const SizedBox(width: 8),
               Text(
                 isDifferent
-                  ? 'Weight ${difference > 0 ? "increased" : "decreased"} by ${difference.abs().toStringAsFixed(1)} kg'
+                  ? 'Weight ${difference > 0 ? "increased" : "decreased"} by ${difference.abs().toStringAsFixed(2)} kg'
                   : 'Weight maintained successfully',
                 style: const TextStyle(
                   color: Colors.blue,
@@ -996,7 +996,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               : null,
           ),
           child: Text(
-            '${weight.toStringAsFixed(1)} kg',
+            '${weight.toStringAsFixed(2)} kg',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14,
@@ -1429,7 +1429,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
 
   // Get trend message based on goal
   String _getTrendMessage(String goal, double change) {
-    final absChange = change.abs().toStringAsFixed(1);
+    final absChange = change.abs().toStringAsFixed(2);
     
     if (goal == 'lose_weight') {
       return change < 0 
@@ -1441,8 +1441,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         : '⚠ Lost $absChange kg since last entry';
     } else { // maintain_weight
       return change.abs() < 0.5
-        ? '✓ Weight stable (${change > 0 ? "+" : ""}${change.toStringAsFixed(1)} kg)'
-        : '⚠ Weight changed by ${change > 0 ? "+" : ""}${change.toStringAsFixed(1)} kg';
+        ? '✓ Weight stable (${change > 0 ? "+" : ""}${change.toStringAsFixed(2)} kg)'
+        : '⚠ Weight changed by ${change > 0 ? "+" : ""}${change.toStringAsFixed(2)} kg';
     }
   }
 

@@ -112805,11 +112805,11 @@ r=a.d
 r=a.dm("Age",""+r.f+" years")
 q=a.d
 q=a.dm("Gender",q.e)
-p=B.c.P(a.d.r,0)
+p=B.c.P(a.d.r,1)
 p=a.dm("Height",A.f(p)+" cm")
 o=a.y
-o=o==null?a0:B.c.P(o,1)
-if(o==null)o=B.c.P(a.d.w,1)
+o=o==null?a0:B.c.P(o,2)
+if(o==null)o=B.c.P(a.d.w,2)
 a7=A.a([a7,s,r,q,p,a.dm(a1,A.f(o)+" kg")],a2)
 if(a.Q!=null){s=A.bw("MMM d, yyyy")
 r=a.Q
@@ -112888,9 +112888,9 @@ e=a.d.dy
 d=A.R(["lose_weight","Lose Weight","gain_weight","Gain Weight","maintain_weight","Maintain Weight"],g,g).h(0,e)
 e=A.j(d==null?e:d,a0,a0,a0,a0,B.bs,a0,a0,a0)
 d=a.d
-p=A.a([A.a3(a0,A.S(A.a([f,B.aL,A.af(A.M(A.a([e,B.ak,A.j(a.an7(d.dy),a0,a0,a0,a0,A.Y(a0,a0,B.x,a0,a0,a0,a0,a0,a0,a0,a0,12,a0,a0,a0,a0,a0,!0,a0,a0,a0,a0,a0,a0,a0,a0),a0,a0,a0)],a2),B.t,B.e,B.d,0,B.j),1)],a2),B.h,B.e,B.d,0,a0),B.m,a0,a0,new A.aa(p,a0,h,o,a0,a0,B.n),a0,a0,a0,B.dl,B.aG,a0,a0,a0),a.dm("Starting Weight",B.c.P(i,1)+" kg"),a.dm(a1,B.c.P(k,1)+" kg")],a2)
+p=A.a([A.a3(a0,A.S(A.a([f,B.aL,A.af(A.M(A.a([e,B.ak,A.j(a.an7(d.dy),a0,a0,a0,a0,A.Y(a0,a0,B.x,a0,a0,a0,a0,a0,a0,a0,a0,12,a0,a0,a0,a0,a0,!0,a0,a0,a0,a0,a0,a0,a0,a0),a0,a0,a0)],a2),B.t,B.e,B.d,0,B.j),1)],a2),B.h,B.e,B.d,0,a0),B.m,a0,a0,new A.aa(p,a0,h,o,a0,a0,B.n),a0,a0,a0,B.dl,B.aG,a0,a0,a0),a.dm("Starting Weight",B.c.P(i,2)+" kg"),a.dm(a1,B.c.P(k,2)+" kg")],a2)
 o=a.d.dy
-if(o!=="maintain_weight"&&o!=="Maintain Weight"){s=a.dm("Target Weight",B.c.P(j,1)+" kg")
+if(o!=="maintain_weight"&&o!=="Maintain Weight"){s=a.dm("Target Weight",B.c.P(j,2)+" kg")
 o=a.d.fx
 if(o==null)o=""
 g=A.R(["4_weeks","4 Weeks","8_weeks","8 Weeks","12_weeks","12 Weeks","16_weeks","16 Weeks","6_months","6 Months","1_year","1 Year"],g,g).h(0,o)
@@ -112906,7 +112906,7 @@ if(b)f=c>0?B.uc:B.ub
 else f=B.cl
 f=A.az(f,B.q,a0,20)
 if(b){e=c>0?"increased":"decreased"
-o="Weight "+e+" by "+B.c.P(o,1)+" kg"}else o="Weight maintained successfully"
+o="Weight "+e+" by "+B.c.P(o,2)+" kg"}else o="Weight maintained successfully"
 B.b.S(p,A.a([B.ec,A.M(A.a([h,B.B,A.a3(a0,A.S(A.a([f,B.Z,A.j(o,a0,a0,a0,a0,B.a7S,a0,a0,a0)],a2),B.h,B.af,B.d,0,a0),B.m,a0,a0,new A.aa(s,a0,a0,g,a0,a0,B.n),a0,a0,a0,a0,B.aG,a0,a0,a0)],a2),B.h,B.e,B.d,0,B.j)],a2))}if(J.bf(a.x)>1){s=a.d
 B.b.S(p,A.a([B.B,a.ahM(s.dy)],a2))}s=a.jh(p,r,"Weight Management")
 r=a.d
@@ -113006,17 +113006,17 @@ return A.a3(n,new A.ab(new A.am(q,q,q,q),A.M(p,B.t,B.e,B.d,0,B.j),n),B.m,n,n,new
 Ch(a,b,c){var s=null
 return A.Q9(s,b,s,A.j(a,s,s,s,s,A.Y(s,s,c,s,s,s,s,s,s,s,s,12,s,s,s,s,s,!0,s,s,s,s,s,s,s,s),s,s,s),s,s,B.tz,s)},
 JA(a,b){var s=null
-return A.M(A.a([A.j(a,s,s,s,s,A.Y(s,s,B.x,s,s,s,s,s,s,s,s,12,s,s,s,s,s,!0,s,s,s,s,s,s,s,s),s,s,s),B.ak,A.j(B.c.P(b,1)+" kg",s,s,s,s,B.hM,s,s,s)],t.p),B.h,B.e,B.d,0,B.j)},
+return A.M(A.a([A.j(a,s,s,s,s,A.Y(s,s,B.x,s,s,s,s,s,s,s,s,12,s,s,s,s,s,!0,s,s,s,s,s,s,s,s),s,s,s),B.ak,A.j(B.c.P(b,2)+" kg",s,s,s,s,B.hM,s,s,s)],t.p),B.h,B.e,B.d,0,B.j)},
 ahL(a,b,c,d){var s,r,q,p,o,n,m,l,k=this,j=null,i="Start",h="Current",g="Target",f="Progress",e=A.fT(d.toLowerCase()," ","_")
 if(e==="lose_weight"){s=c-b
 r=c-a
 q=s>0?B.c.d6(r/s,0,1):0
 p=t.p
-return A.M(A.a([A.S(A.a([k.o6(i,c,!1),A.az(B.hl,B.R,j,j),k.o6(h,a,!0),A.az(B.hl,B.R,j,j),k.o6(g,b,!1)],p),B.h,B.eh,B.d,0,j),B.B,A.M(A.a([A.S(A.a([A.j(f,j,j,j,j,A.Y(j,j,B.x,j,j,j,j,j,j,j,j,j,j,j,j,j,j,!0,j,j,j,j,j,j,j,j),j,j,j),A.j(B.c.P(q*100,0)+"%",j,j,j,j,j,j,j,j)],p),B.h,B.ai,B.d,0,j),B.I,A.nC(A.I(51,B.w.j()>>>16&255,B.w.j()>>>8&255,B.w.j()&255),j,8,q,B.HB),B.I,A.cq(A.j("Lost "+B.c.P(r,1)+" kg of "+B.c.P(s,1)+" kg",j,j,j,j,B.a72,j,j,j),j,j)],p),B.t,B.e,B.d,0,B.j)],p),B.h,B.e,B.d,0,B.j)}else if(e==="gain_weight"){o=b-c
+return A.M(A.a([A.S(A.a([k.o6(i,c,!1),A.az(B.hl,B.R,j,j),k.o6(h,a,!0),A.az(B.hl,B.R,j,j),k.o6(g,b,!1)],p),B.h,B.eh,B.d,0,j),B.B,A.M(A.a([A.S(A.a([A.j(f,j,j,j,j,A.Y(j,j,B.x,j,j,j,j,j,j,j,j,j,j,j,j,j,j,!0,j,j,j,j,j,j,j,j),j,j,j),A.j(B.c.P(q*100,0)+"%",j,j,j,j,j,j,j,j)],p),B.h,B.ai,B.d,0,j),B.I,A.nC(A.I(51,B.w.j()>>>16&255,B.w.j()>>>8&255,B.w.j()&255),j,8,q,B.HB),B.I,A.cq(A.j("Lost "+B.c.P(r,2)+" kg of "+B.c.P(s,2)+" kg",j,j,j,j,B.a72,j,j,j),j,j)],p),B.t,B.e,B.d,0,B.j)],p),B.h,B.e,B.d,0,B.j)}else if(e==="gain_weight"){o=b-c
 n=a-c
 q=o>0?B.c.d6(n/o,0,1):0
 p=t.p
-return A.M(A.a([A.S(A.a([k.o6(i,c,!1),A.az(B.hl,B.R,j,j),k.o6(h,a,!0),A.az(B.hl,B.R,j,j),k.o6(g,b,!1)],p),B.h,B.eh,B.d,0,j),B.B,A.M(A.a([A.S(A.a([A.j(f,j,j,j,j,A.Y(j,j,B.x,j,j,j,j,j,j,j,j,j,j,j,j,j,j,!0,j,j,j,j,j,j,j,j),j,j,j),A.j(B.c.P(q*100,0)+"%",j,j,j,j,j,j,j,j)],p),B.h,B.ai,B.d,0,j),B.I,A.nC(A.I(51,B.C.j()>>>16&255,B.C.j()>>>8&255,B.C.j()&255),j,8,q,B.HC),B.I,A.cq(A.j("Gained "+B.c.P(n,1)+" kg of "+B.c.P(o,1)+" kg",j,j,j,j,B.a4A,j,j,j),j,j)],p),B.t,B.e,B.d,0,B.j)],p),B.h,B.e,B.d,0,B.j)}m=Math.abs(b-c)
+return A.M(A.a([A.S(A.a([k.o6(i,c,!1),A.az(B.hl,B.R,j,j),k.o6(h,a,!0),A.az(B.hl,B.R,j,j),k.o6(g,b,!1)],p),B.h,B.eh,B.d,0,j),B.B,A.M(A.a([A.S(A.a([A.j(f,j,j,j,j,A.Y(j,j,B.x,j,j,j,j,j,j,j,j,j,j,j,j,j,j,!0,j,j,j,j,j,j,j,j),j,j,j),A.j(B.c.P(q*100,0)+"%",j,j,j,j,j,j,j,j)],p),B.h,B.ai,B.d,0,j),B.I,A.nC(A.I(51,B.C.j()>>>16&255,B.C.j()>>>8&255,B.C.j()&255),j,8,q,B.HC),B.I,A.cq(A.j("Gained "+B.c.P(n,2)+" kg of "+B.c.P(o,2)+" kg",j,j,j,j,B.a4A,j,j,j),j,j)],p),B.t,B.e,B.d,0,B.j)],p),B.h,B.e,B.d,0,B.j)}m=Math.abs(b-c)
 q=m>0?B.c.d6(Math.abs(a-c)/m,0,1):0
 l=b<c?B.w:B.C
 p=t.p
@@ -113026,7 +113026,7 @@ n=A.j(a,o,o,o,o,A.Y(o,o,n,o,o,o,o,o,o,o,o,12,o,o,c?B.D:B.O,o,o,!0,o,o,o,o,o,o,o,
 s=c?A.I(B.c.O(25.5),B.q.j()>>>16&255,B.q.j()>>>8&255,B.q.j()&255):B.E
 r=A.a5(4)
 q=c?A.cf(A.I(B.c.O(76.5),B.q.j()>>>16&255,B.q.j()>>>8&255,B.q.j()&255),1):o
-p=B.c.P(b,1)
+p=B.c.P(b,2)
 return A.M(A.a([n,B.ak,A.a3(o,A.j(p+" kg",o,o,o,o,A.Y(o,o,c?B.q:B.p,o,o,o,o,o,o,o,o,14,o,o,B.D,o,o,!0,o,o,o,o,o,o,o,o),o,o,o),B.m,o,o,new A.aa(s,o,q,r,o,o,B.n),o,o,o,o,B.eG,o,o,o)],t.p),B.h,B.e,B.d,0,B.j)},
 ahM(a){var s,r,q,p,o,n,m,l,k=this,j=null
 if(J.bf(k.x)<2)return B.hH
@@ -113113,12 +113113,12 @@ r=this.d
 r===$&&A.b()
 r=s.h(0,r.z)
 return q*(r==null?1.55:r)}return null},
-an3(a,b){var s=" kg since last entry",r=Math.abs(b),q=B.c.P(r,1)
+an3(a,b){var s=" kg since last entry",r=Math.abs(b),q=B.c.P(r,2)
 if(a==="lose_weight")return b<0?"\u2713 Lost "+q+s:"\u26a0 Gained "+q+s
 else if(a==="gain_weight")return b>0?"\u2713 Gained "+q+s:"\u26a0 Lost "+q+s
 else{if(r<0.5){r=b>0?"+":""
-r="\u2713 Weight stable ("+r+B.c.P(b,1)+" kg)"}else{r=b>0?"+":""
-r="\u26a0 Weight changed by "+r+B.c.P(b,1)+" kg"}return r}},
+r="\u2713 Weight stable ("+r+B.c.P(b,2)+" kg)"}else{r=b>0?"+":""
+r="\u26a0 Weight changed by "+r+B.c.P(b,2)+" kg"}return r}},
 alP(a){if(a===0)return"Not calculated"
 if(a<18.5)return"Underweight"
 if(a<25)return"Normal weight"
