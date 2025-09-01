@@ -1,12 +1,13 @@
 // lib/features/tracking/screens/weight_logging_page.dart
+import 'dart:async';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
-import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:user_onboarding/providers/user_provider.dart';
-import 'dart:async';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 
 class WeightLoggingPage extends StatefulWidget {
@@ -349,7 +350,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
           ),
           const SizedBox(height: 8),
           Text(
-            '${currentWeight.toStringAsFixed(1)} kg',
+            '${currentWeight.toStringAsFixed(2)} kg',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 36,
@@ -360,9 +361,9 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildWeightStat('Target', '${targetWeight.toStringAsFixed(1)} kg'),
-              _buildWeightStat('Change', '${isLoss ? '' : '+'}${weightChange.toStringAsFixed(1)} kg'),
-              _buildWeightStat('To Go', '${(targetWeight - currentWeight).abs().toStringAsFixed(1)} kg'),
+              _buildWeightStat('Target', '${targetWeight.toStringAsFixed(2)} kg'),
+              _buildWeightStat('Change', '${isLoss ? '' : '+'}${weightChange.toStringAsFixed(2)} kg'),
+              _buildWeightStat('To Go', '${(targetWeight - currentWeight).abs().toStringAsFixed(2)} kg'),
             ],
           ),
         ],
@@ -508,7 +509,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                           ),
                         ),
                         Text(
-                          '${actualStartingWeight.toStringAsFixed(1)} kg', // FIXED: Use actualStartingWeight
+                          '${actualStartingWeight.toStringAsFixed(2)} kg', // FIXED: Use actualStartingWeight
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.blue,
@@ -562,7 +563,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                           size: 20,
                         ),
                         Text(
-                          '${isLoss ? '-' : '+'}${weightChange.abs().toStringAsFixed(1)} kg',
+                          '${isLoss ? '-' : '+'}${weightChange.abs().toStringAsFixed(2)} kg',
                           style: TextStyle(
                             fontSize: 14,
                             color: isLoss ? Colors.green : Colors.orange,
@@ -598,7 +599,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                           ),
                         ),
                         Text(
-                          '${currentWeight.toStringAsFixed(1)} kg',
+                          '${currentWeight.toStringAsFixed(2)} kg',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.indigo,
@@ -647,7 +648,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                     if (targetWeight > 0) ...[
                       _buildJourneyStatColumn(
                         'Progress',
-                        '${(progressPercentage * 100).toStringAsFixed(1)}%',
+                        '${(progressPercentage * 100).toStringAsFixed(2)}%',
                         Icons.track_changes,
                         Colors.purple,
                       ),
@@ -679,8 +680,8 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                       Expanded(
                         child: Text(
                           isLoss 
-                              ? 'Great progress! You\'ve lost ${weightChange.toStringAsFixed(1)} kg since you started.'
-                              : 'You\'ve gained ${weightChange.abs().toStringAsFixed(1)} kg since starting your journey.',
+                              ? 'Great progress! You\'ve lost ${weightChange.toStringAsFixed(2)} kg since you started.'
+                              : 'You\'ve gained ${weightChange.abs().toStringAsFixed(2)} kg since starting your journey.',
                           style: TextStyle(
                             color: isLoss ? Colors.green.shade700 : Colors.orange.shade700,
                             fontSize: 13,
@@ -775,7 +776,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          '${weight.toStringAsFixed(1)}',
+                          '${weight.toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 10),
                         ),
                         const SizedBox(height: 4),
@@ -830,11 +831,11 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
             ),
             const SizedBox(height: 8),
             Text(
-              '${(progressPercentage * 100).toStringAsFixed(1)}% Complete',
+              '${(progressPercentage * 100).toStringAsFixed(2)}% Complete',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             Text(
-              '${currentProgress.toStringAsFixed(1)} kg of ${totalToLose.toStringAsFixed(1)} kg goal',
+              '${currentProgress.toStringAsFixed(2)} kg of ${totalToLose.toStringAsFixed(2)} kg goal',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],
@@ -860,11 +861,11 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatColumn('Weekly Change', '${weeklyChange >= 0 ? '+' : ''}${weeklyChange.toStringAsFixed(1)} kg', 
+                _buildStatColumn('Weekly Change', '${weeklyChange >= 0 ? '+' : ''}${weeklyChange.toStringAsFixed(2)} kg', 
                     weeklyChange < 0 ? Colors.green : Colors.red),
-                _buildStatColumn('Monthly Change', '${monthlyChange >= 0 ? '+' : ''}${monthlyChange.toStringAsFixed(1)} kg',
+                _buildStatColumn('Monthly Change', '${monthlyChange >= 0 ? '+' : ''}${monthlyChange.toStringAsFixed(2)} kg',
                     monthlyChange < 0 ? Colors.green : Colors.red),
-                _buildStatColumn('BMI', _calculateBMI().toStringAsFixed(1), Colors.blue),
+                _buildStatColumn('BMI', _calculateBMI().toStringAsFixed(2), Colors.blue),
               ],
             ),
           ],
@@ -949,7 +950,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Profile Weight: ${widget.userProfile.weight!.toStringAsFixed(1)} kg',
+                                  'Profile Weight: ${widget.userProfile.weight!.toStringAsFixed(2)} kg',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -1041,7 +1042,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${entry.weight.toStringAsFixed(1)} kg',
+                      '${entry.weight.toStringAsFixed(2)} kg',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text(
@@ -1102,11 +1103,15 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
               children: [
                 TextField(
                   controller: _weightController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')), 
+                  ],
                   decoration: const InputDecoration(
                     labelText: 'Weight (kg)',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.monitor_weight),
+                    hintText: 'e.g., 67.25',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1282,11 +1287,15 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
               children: [
                 TextField(
                   controller: _weightController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                  ],
                   decoration: const InputDecoration(
                     labelText: 'Weight (kg)',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.monitor_weight),
+                    hintText: 'e.g., 67.25',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1404,7 +1413,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Entry'),
-        content: Text('Are you sure you want to delete the weight entry of ${entry.weight.toStringAsFixed(1)} kg from ${DateFormat('MMM dd, yyyy').format(entry.date)}?'),
+        content: Text('Are you sure you want to delete the weight entry of ${entry.weight.toStringAsFixed(2)} kg from ${DateFormat('MMM dd, yyyy').format(entry.date)}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1558,7 +1567,7 @@ class WeightHistoryPage extends StatelessWidget {
                      backgroundColor: Colors.indigo.withOpacity(0.1),
                      child: const Icon(Icons.monitor_weight, color: Colors.indigo),
                    ),
-                   title: Text('${entry.weight.toStringAsFixed(1)} kg'),
+                   title: Text('${entry.weight.toStringAsFixed(2)} kg'),
                    subtitle: Column(
                      crossAxisAlignment: CrossAxisAlignment.start,
                      children: [
@@ -1609,7 +1618,7 @@ class WeightHistoryPage extends StatelessWidget {
      builder: (context) => AlertDialog(
        title: const Text('Delete Entry'),
        content: Text(
-         'Are you sure you want to delete the weight entry of ${entry.weight.toStringAsFixed(1)} kg from ${DateFormat('MMM dd, yyyy').format(entry.date)}?'
+         'Are you sure you want to delete the weight entry of ${entry.weight.toStringAsFixed(2)} kg from ${DateFormat('MMM dd, yyyy').format(entry.date)}?'
        ),
        actions: [
          TextButton(

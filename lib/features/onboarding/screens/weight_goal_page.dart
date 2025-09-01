@@ -1,5 +1,6 @@
 // lib/features/onboarding/screens/weight_goal_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class WeightGoalPage extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -120,7 +121,7 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Your current weight: ${_currentWeight.toStringAsFixed(1)} kg',
+                  'Your current weight: ${_currentWeight.toStringAsFixed(2)} kg',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -281,10 +282,13 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
             TextField(
               controller: _targetWeightController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')), // Allow up to 2 decimals
+              ],
               decoration: InputDecoration(
                 hintText: _selectedWeightGoal == 'lose_weight' 
-                    ? 'Enter weight less than ${_currentWeight.toStringAsFixed(1)} kg'
-                    : 'Enter weight more than ${_currentWeight.toStringAsFixed(1)} kg',
+                    ? 'Enter weight less than ${_currentWeight.toStringAsFixed(2)} kg'
+                    : 'Enter weight more than ${_currentWeight.toStringAsFixed(2)} kg',
                 prefixIcon: const Icon(Icons.fitness_center),
                 suffixText: 'kg',
                 border: const OutlineInputBorder(),
@@ -500,7 +504,7 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
     double difference = (target - _currentWeight).abs();
     String action = _selectedWeightGoal == 'lose_weight' ? 'lose' : 'gain';
     
-    return 'You want to $action ${difference.toStringAsFixed(1)} kg. '
+    return 'You want to $action ${difference.toStringAsFixed(2)} kg. '
            'Healthy rate is 0.5-1 kg per week.';
   }
   

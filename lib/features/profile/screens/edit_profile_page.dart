@@ -1,6 +1,6 @@
 // lib/features/profile/screens/edit_profile_page.dart
 import 'package:flutter/material.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:flutter/services.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:intl/intl.dart';
@@ -69,6 +69,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   double _bmi = 0.0;
   double _bmr = 0.0;
   double _tdee = 0.0;
+
+  
 
   // Activity level options
   final List<String> _activityLevelOptions = [
@@ -476,6 +478,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               'Please enter your height',
               min: 100,
               max: 250,
+              maxDecimals: 1,
+              hintText: 'e.g., 170.5'
             ),
             _buildNumberField(
               'Weight (kg)',
@@ -483,6 +487,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               'Please enter your weight',
               min: 30,
               max: 300,
+              maxDecimals: 2,
+              hintText: 'e.g., 67.25'
             ),
             _buildDropdownField(
               'Activity Level',
@@ -540,6 +546,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               'What is your target weight?',
               min: 30,
               max: 300,
+              maxDecimals: 2,
+              hintText: 'e.g., 67.25',
               isRequired: false,
             ),
             _buildDropdownField(
@@ -940,6 +948,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     double? max,
     bool isRequired = true,
     bool isInteger = false,
+    int maxDecimals = 2,
+    String? hintText,
     double step = 1.0,
   }) {
     return Padding(
@@ -949,6 +959,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
         keyboardType: TextInputType.numberWithOptions(
           decimal: !isInteger,
         ),
+        inputFormatters: [
+          if (!isInteger)
+            FilteringTextInputFormatter.allow(
+              RegExp('^\\d+\\.?\\d{0,$maxDecimals}'),
+            ),
+          if (isInteger)
+            FilteringTextInputFormatter.digitsOnly,
+        ],
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(
@@ -1428,7 +1446,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             children: [
               _buildProgressMetric(
                 'Starting',
-                '${startWeight.toStringAsFixed(1)} kg',
+                '${startWeight.toStringAsFixed(2)} kg',
                 Icons.flag,
               ),
               Icon(
@@ -1438,12 +1456,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               _buildProgressMetric(
                 'Current',
-                '${currentWeight.toStringAsFixed(1)} kg',
+                '${currentWeight.toStringAsFixed(2)} kg',
                 Icons.monitor_weight,
               ),
               _buildProgressMetric(
                 isLoss ? 'Lost' : 'Gained',
-                '${weightChange.abs().toStringAsFixed(1)} kg',
+                '${weightChange.abs().toStringAsFixed(2)} kg',
                 isLoss ? Icons.arrow_downward : Icons.arrow_upward,
               ),
             ],

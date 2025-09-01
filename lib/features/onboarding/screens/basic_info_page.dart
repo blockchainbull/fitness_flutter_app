@@ -1,5 +1,6 @@
 // lib/features/onboarding/screens/basic_info_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class BasicInfoPage extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -552,14 +553,17 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                     TextField(
                       controller: _heightController,
                       decoration: InputDecoration(
-                        hintText: 'cm',
+                        hintText: 'e.g., 170.5 cm',
                         prefixIcon: const Icon(Icons.height),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         errorText: !_isFieldValid('height') ? 'Required' : null,
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')), // Allow 1 decimal for height
+                      ],
                       onChanged: (value) {
                         if (value.isNotEmpty) {
                           widget.onDataChanged('height', double.tryParse(value));
@@ -587,14 +591,17 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                     TextField(
                       controller: _weightController,
                       decoration: InputDecoration(
-                        hintText: 'kg',
+                        hintText: 'e.g., 65.75 kg',
                         prefixIcon: const Icon(Icons.monitor_weight),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         errorText: !_isFieldValid('weight') ? 'Required' : null,
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true), 
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')), 
+                      ],
                       onChanged: (value) {
                         if (value.isNotEmpty) {
                           widget.onDataChanged('weight', double.tryParse(value));
