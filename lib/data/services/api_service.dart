@@ -1776,13 +1776,13 @@ class ApiService {
           final Map<String, dynamic> data = responseData;
           
           if (data['entry'] != null && data['entry'] is Map<String, dynamic>) {
-            return StepEntry.fromJson(data['entry'] as Map<String, dynamic>);
+            return StepEntry.fromMap(data['entry'] as Map<String, dynamic>);
           }
         }
         
         // Handle if response is directly a StepEntry object
         if (responseData is Map<String, dynamic>) {
-          return StepEntry.fromJson(responseData);
+          return StepEntry.fromMap(responseData);
         }
         
         return null;
@@ -1816,7 +1816,7 @@ class ApiService {
         if (responseData is List) {
           return responseData
               .where((item) => item is Map<String, dynamic>)
-              .map<StepEntry>((item) => StepEntry.fromJson(item as Map<String, dynamic>))
+              .map<StepEntry>((item) => StepEntry.fromMap(item as Map<String, dynamic>))
               .toList();
         }
         
@@ -1829,7 +1829,7 @@ class ApiService {
             
             return entries
                 .where((item) => item is Map<String, dynamic>)
-                .map<StepEntry>((item) => StepEntry.fromJson(item as Map<String, dynamic>))
+                .map<StepEntry>((item) => StepEntry.fromMap(item as Map<String, dynamic>))
                 .toList();
           }
         }
@@ -1850,7 +1850,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/steps'),
         headers: headers,
-        body: jsonEncode(entry.toJson()),
+        body: jsonEncode(entry.toMap()),
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
@@ -1880,7 +1880,7 @@ class ApiService {
           print('[ApiService] Response is a direct list with ${responseData.length} items');
           return responseData
               .where((item) => item is Map<String, dynamic>)
-              .map<StepEntry>((item) => StepEntry.fromJson(item as Map<String, dynamic>))
+              .map<StepEntry>((item) => StepEntry.fromMap(item as Map<String, dynamic>))
               .toList();
         }
         
@@ -1894,7 +1894,7 @@ class ApiService {
             
             return entries
                 .where((item) => item is Map<String, dynamic>)
-                .map<StepEntry>((item) => StepEntry.fromJson(item as Map<String, dynamic>))
+                .map<StepEntry>((item) => StepEntry.fromMap(item as Map<String, dynamic>))
                 .toList();
           }
         }

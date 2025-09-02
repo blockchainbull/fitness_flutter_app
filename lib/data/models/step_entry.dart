@@ -58,47 +58,54 @@ class StepEntry {
     );
   }
 
-  Map<String, dynamic> toJson() {
-  return {
-    'userId': userId,  // Changed from user_id
-    'date': date.toIso8601String().split('T')[0],
-    'steps': steps,
-    'goal': goal,
-    'caloriesBurned': caloriesBurned,  // Changed from calories_burned
-    'distanceKm': distanceKm,          // Changed from distance_km
-    'activeMinutes': activeMinutes,    // Changed from active_minutes
-    'sourceType': sourceType,          // Changed from source_type
-    'lastSynced': lastSynced?.toIso8601String(),  // Changed from last_synced
-  };
-}
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'user_id': userId,  
+      'date': date.toIso8601String(),  
+      'steps': steps,
+      'goal': goal,
+      'calories_burned': caloriesBurned,  
+      'distance_km': distanceKm,          
+      'active_minutes': activeMinutes,   
+      'source_type': sourceType,          
+      'last_synced': lastSynced?.toIso8601String(),  
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
 
-  factory StepEntry.fromJson(Map<String, dynamic> json) {
+  factory StepEntry.fromMap(Map<String, dynamic> map) {
     try {
       return StepEntry(
-        id: json['id']?.toString(),
-        userId: json['userId']?.toString() ?? json['user_id']?.toString() ?? '',
-        date: DateTime.parse(json['date'] ?? DateTime.now().toIso8601String()),
-        steps: (json['steps'] ?? 0) is int ? json['steps'] : int.tryParse(json['steps'].toString()) ?? 0,
-        goal: (json['goal'] ?? 10000) is int ? json['goal'] : int.tryParse(json['goal'].toString()) ?? 10000,
-        caloriesBurned: (json['caloriesBurned'] ?? json['calories_burned'] ?? 0.0).toDouble(),
-        distanceKm: (json['distanceKm'] ?? json['distance_km'] ?? 0.0).toDouble(),
-        activeMinutes: (json['activeMinutes'] ?? json['active_minutes'] ?? 0) is int 
-            ? json['activeMinutes'] ?? json['active_minutes'] 
-            : int.tryParse((json['activeMinutes'] ?? json['active_minutes'] ?? 0).toString()) ?? 0,
-        sourceType: json['sourceType']?.toString() ?? json['source_type']?.toString() ?? 'manual',
-        lastSynced: json['lastSynced'] != null || json['last_synced'] != null
-            ? DateTime.tryParse(json['lastSynced']?.toString() ?? json['last_synced']?.toString() ?? '')
+        id: map['id']?.toString(),
+        userId: map['user_id']?.toString() ?? map['userId']?.toString() ?? '',
+        date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()).toLocal(), 
+        steps: (map['steps'] ?? 0) is int 
+            ? map['steps'] 
+            : int.tryParse(map['steps'].toString()) ?? 0,
+        goal: (map['goal'] ?? 10000) is int 
+            ? map['goal'] 
+            : int.tryParse(map['goal'].toString()) ?? 10000,
+        caloriesBurned: (map['calories_burned'] ?? map['caloriesBurned'] ?? 0.0).toDouble(),
+        distanceKm: (map['distance_km'] ?? map['distanceKm'] ?? 0.0).toDouble(),
+        activeMinutes: (map['active_minutes'] ?? map['activeMinutes'] ?? 0) is int 
+            ? (map['active_minutes'] ?? map['activeMinutes'])
+            : int.tryParse((map['active_minutes'] ?? map['activeMinutes'] ?? 0).toString()) ?? 0,
+        sourceType: map['source_type']?.toString() ?? map['sourceType']?.toString() ?? 'manual',
+        lastSynced: map['last_synced'] != null || map['lastSynced'] != null
+            ? DateTime.tryParse(map['last_synced']?.toString() ?? map['lastSynced']?.toString() ?? '')?.toLocal() 
             : null,
-        createdAt: json['createdAt'] != null || json['created_at'] != null
-            ? DateTime.tryParse(json['createdAt']?.toString() ?? json['created_at']?.toString() ?? '')
+        createdAt: map['created_at'] != null || map['createdAt'] != null
+            ? DateTime.tryParse(map['created_at']?.toString() ?? map['createdAt']?.toString() ?? '')?.toLocal() 
             : null,
-        updatedAt: json['updatedAt'] != null || json['updated_at'] != null
-            ? DateTime.tryParse(json['updatedAt']?.toString() ?? json['updated_at']?.toString() ?? '')
+        updatedAt: map['updated_at'] != null || map['updatedAt'] != null
+            ? DateTime.tryParse(map['updated_at']?.toString() ?? map['updatedAt']?.toString() ?? '')?.toLocal() 
             : null,
       );
     } catch (e) {
-      print('Error parsing StepEntry from JSON: $e');
-      print('JSON data: $json');
+      print('Error parsing StepEntry from map: $e');
+      print('Map data: $map');
       rethrow;
     }
   }

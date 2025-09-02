@@ -33,7 +33,7 @@ class SleepEntry {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'user_id': userId,
       'date': date.toIso8601String(),
       'bedtime': bedtime?.toIso8601String(),
@@ -41,7 +41,7 @@ class SleepEntry {
       'total_hours': totalHours,
       'quality_score': qualityScore,
       'deep_sleep_hours': deepSleepHours,
-      'sleep_issues': sleepIssues.join(','),
+      'sleep_issues': sleepIssues,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
     };
@@ -54,26 +54,26 @@ class SleepEntry {
       throw ArgumentError('userId is required but was not found in map: $map');
     }
 
-    // Better date parsing
+    // Better date parsing with timezone conversion
     DateTime entryDate;
     if (map['date'] is String) {
-      entryDate = DateTime.parse(map['date']);
+      entryDate = DateTime.parse(map['date']).toLocal();  // ← Added .toLocal()
     } else if (map['date'] is DateTime) {
-      entryDate = map['date'] as DateTime;
+      entryDate = (map['date'] as DateTime).toLocal();  // ← Added .toLocal()
     } else {
       entryDate = DateTime.now();
     }
 
-    // Better bedtime/wake time parsing
+    // Better bedtime/wake time parsing with timezone conversion
     DateTime? bedtime;
     DateTime? wakeTime;
 
     if (map['bedtime'] != null) {
       try {
         if (map['bedtime'] is String) {
-          bedtime = DateTime.parse(map['bedtime']);
+          bedtime = DateTime.parse(map['bedtime']).toLocal();  // ← Added .toLocal()
         } else if (map['bedtime'] is DateTime) {
-          bedtime = map['bedtime'] as DateTime;
+          bedtime = (map['bedtime'] as DateTime).toLocal();  // ← Added .toLocal()
         }
       } catch (e) {
         print('Error parsing bedtime: $e');
@@ -83,9 +83,9 @@ class SleepEntry {
     if (map['wake_time'] != null) {
       try {
         if (map['wake_time'] is String) {
-          wakeTime = DateTime.parse(map['wake_time']);
+          wakeTime = DateTime.parse(map['wake_time']).toLocal();  // ← Added .toLocal()
         } else if (map['wake_time'] is DateTime) {
-          wakeTime = map['wake_time'] as DateTime;
+          wakeTime = (map['wake_time'] as DateTime).toLocal();  // ← Added .toLocal()
         }
       } catch (e) {
         print('Error parsing wake_time: $e');
@@ -111,16 +111,16 @@ class SleepEntry {
       date: entryDate,
       bedtime: bedtime,
       wakeTime: wakeTime,
-      totalHours: (map['total_hours'] ?? 0).toDouble(),
-      qualityScore: (map['quality_score'] ?? 0).toDouble(),
-      deepSleepHours: (map['deep_sleep_hours'] ?? 0).toDouble(),
+      totalHours: (map['total_hours'] ?? map['totalHours'] ?? 0).toDouble(),
+      qualityScore: (map['quality_score'] ?? map['qualityScore'] ?? 0).toDouble(),
+      deepSleepHours: (map['deep_sleep_hours'] ?? map['deepSleepHours'] ?? 0).toDouble(),
       sleepIssues: sleepIssuesList,
       notes: map['notes']?.toString(),
-      createdAt: map['created_at'] != null 
-        ? (map['created_at'] is String 
-            ? DateTime.parse(map['created_at']) 
-            : map['created_at'] as DateTime)
-        : DateTime.now(),
+      createdAt: map['created_at'] != null || map['createdAt'] != null
+          ? (map['created_at'] ?? map['createdAt']) is String 
+              ? DateTime.parse(map['created_at'] ?? map['createdAt']).toLocal()  // ← Added .toLocal()
+              : (map['created_at'] ?? map['createdAt'] as DateTime).toLocal()  // ← Added .toLocal()
+          : DateTime.now(),
     );
   }
 

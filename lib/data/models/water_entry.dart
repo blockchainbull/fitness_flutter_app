@@ -40,13 +40,17 @@ class WaterEntry {
     return WaterEntry(
       id: map['id']?.toString(),
       userId: map['user_id']?.toString() ?? '',
-      date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
+      date: DateTime.parse(map['date']).toLocal(),
       glassesConsumed: map['glasses_consumed']?.toInt() ?? 0,
       totalMl: map['total_ml']?.toDouble() ?? 0.0,
       targetMl: map['target_ml']?.toDouble() ?? 2000.0,
       notes: map['notes']?.toString(),
-      createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
-      updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
+      createdAt: map['created_at'] != null 
+      ? DateTime.parse(map['created_at']).toLocal()
+      : DateTime.now(),
+      updatedAt: map['updated_at'] != null 
+      ? DateTime.parse(map['updated_at']).toLocal()
+      : DateTime.now(),
     );
   }
 

@@ -40,31 +40,31 @@ class MealEntry {
     this.loggedAt,
   });
 
-  factory MealEntry.fromJson(Map<String, dynamic> json) {
+  factory MealEntry.fromMap(Map<String, dynamic> map) {
     return MealEntry(
-      id: json['id'],
-      userId: json['user_id'],
-      foodItem: json['food_item'],
-      quantity: json['quantity'],
-      preparation: json['preparation'],
-      mealType: json['meal_type'],
-      calories: (json['calories'] ?? 0).toDouble(),
-      proteinG: (json['protein_g'] ?? 0).toDouble(),
-      carbsG: (json['carbs_g'] ?? 0).toDouble(),
-      fatG: (json['fat_g'] ?? 0).toDouble(),
-      fiberG: json['fiber_g']?.toDouble(),
-      sugarG: json['sugar_g']?.toDouble(),
-      sodiumMg: json['sodium_mg']?.toDouble(),
-      nutritionData: json['nutrition_data'],
-      dataSource: json['data_source'],
-      mealDate: DateTime.parse(json['meal_date']),
-      loggedAt: json['logged_at'] != null 
-          ? DateTime.parse(json['logged_at']) 
+      id: map['id'],
+      userId: map['user_id'] ?? map['userId'],  
+      foodItem: map['food_item'] ?? map['foodItem'],
+      quantity: map['quantity'],
+      preparation: map['preparation'],
+      mealType: map['meal_type'] ?? map['mealType'],
+      calories: (map['calories'] ?? 0).toDouble(),
+      proteinG: (map['protein_g'] ?? map['proteinG'] ?? 0).toDouble(),
+      carbsG: (map['carbs_g'] ?? map['carbsG'] ?? 0).toDouble(),
+      fatG: (map['fat_g'] ?? map['fatG'] ?? 0).toDouble(),
+      fiberG: (map['fiber_g'] ?? map['fiberG'])?.toDouble(),
+      sugarG: (map['sugar_g'] ?? map['sugarG'])?.toDouble(),
+      sodiumMg: (map['sodium_mg'] ?? map['sodiumMg'])?.toDouble(),
+      nutritionData: map['nutrition_data'] ?? map['nutritionData'],
+      dataSource: map['data_source'] ?? map['dataSource'],
+      mealDate: DateTime.parse(map['meal_date'] ?? map['mealDate']).toLocal(),  
+      loggedAt: map['logged_at'] != null || map['loggedAt'] != null
+          ? DateTime.parse(map['logged_at'] ?? map['loggedAt']).toLocal()  
           : null,
     );
-  }
+}
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
       'user_id': userId,

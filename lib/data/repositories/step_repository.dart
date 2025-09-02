@@ -27,7 +27,7 @@ class StepRepository {
     final stepsJson = prefs.getString('${_stepsKey}_${userId}_$todayKey');
     
     if (stepsJson != null) {
-      return StepEntry.fromJson(jsonDecode(stepsJson));
+      return StepEntry.fromMap(jsonDecode(stepsJson));
     }
     
     return null;
@@ -61,7 +61,7 @@ class StepRepository {
       final entryJson = prefs.getString('${_stepsKey}_${userId}_$dateKey');
       
       if (entryJson != null) {
-        entries.add(StepEntry.fromJson(jsonDecode(entryJson)));
+        entries.add(StepEntry.fromMap(jsonDecode(entryJson)));
       }
     }
     
@@ -85,7 +85,7 @@ class StepRepository {
     final dateKey = '${entry.date.year}-${entry.date.month}-${entry.date.day}';
     final key = '${_stepsKey}_${entry.userId}_$dateKey';
     
-    await prefs.setString(key, jsonEncode(entry.toJson()));
+    await prefs.setString(key, jsonEncode(entry.toMap()));
   }
 
   static Future<List<StepEntry>> getAllStepEntries(String userId) async {

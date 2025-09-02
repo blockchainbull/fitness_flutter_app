@@ -46,7 +46,9 @@ class SupplementPreference {
       preferredTime: map['preferred_time'] ?? '9:00 AM',
       notes: map['notes'],
       isActive: map['is_active'] ?? true,
-      createdAt: DateTime.parse(map['created_at']),
+      createdAt: map['created_at'] != null 
+      ? DateTime.parse(map['created_at']).toLocal()
+      : DateTime.now(),
     );
   }
 }

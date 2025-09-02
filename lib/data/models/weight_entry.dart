@@ -22,7 +22,7 @@ class WeightEntry {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'user_id': userId,
       'date': date.toIso8601String(),
       'weight': weight,
@@ -37,12 +37,14 @@ class WeightEntry {
     return WeightEntry(
       id: map['id'],
       userId: map['user_id'],
-      date: DateTime.parse(map['date']),
+      date: DateTime.parse(map['date']).toLocal(),
       weight: map['weight']?.toDouble() ?? 0.0,
       notes: map['notes'],
       bodyFatPercentage: map['body_fat_percentage']?.toDouble(),
       muscleMassKg: map['muscle_mass_kg']?.toDouble(),
-      createdAt: DateTime.parse(map['created_at']),
+      createdAt: map['created_at'] != null 
+      ? DateTime.parse(map['created_at']).toLocal()
+      : DateTime.now(),
     );
   }
 

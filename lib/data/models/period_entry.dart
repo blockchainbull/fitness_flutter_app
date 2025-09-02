@@ -24,7 +24,7 @@ class PeriodEntry {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'user_id': userId,
       'start_date': startDate.toIso8601String(),
       'end_date': endDate?.toIso8601String(),
@@ -39,14 +39,20 @@ class PeriodEntry {
   factory PeriodEntry.fromMap(Map<String, dynamic> map) {
     return PeriodEntry(
       id: map['id']?.toString(),
-      userId: map['user_id']?.toString() ?? '',
-      startDate: DateTime.parse(map['start_date']),
-      endDate: map['end_date'] != null ? DateTime.parse(map['end_date']) : null,
-      flowIntensity: map['flow_intensity'],
-      symptoms: map['symptoms'] != null ? List<String>.from(map['symptoms']) : null,
+      userId: map['user_id']?.toString() ?? map['userId']?.toString() ?? '',
+      startDate: DateTime.parse(map['start_date'] ?? map['startDate']).toLocal(),  // ← Added .toLocal()
+      endDate: map['end_date'] != null || map['endDate'] != null 
+          ? DateTime.parse(map['end_date'] ?? map['endDate']).toLocal()  // ← Added .toLocal()
+          : null,
+      flowIntensity: map['flow_intensity'] ?? map['flowIntensity'],
+      symptoms: map['symptoms'] != null 
+          ? List<String>.from(map['symptoms']) 
+          : null,
       mood: map['mood'],
       notes: map['notes'],
-      createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
+      createdAt: map['created_at'] != null || map['createdAt'] != null
+          ? DateTime.parse(map['created_at'] ?? map['createdAt']).toLocal()  // ← Added .toLocal()
+          : null,
     );
   }
 

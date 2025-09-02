@@ -34,30 +34,30 @@ class DailyMetrics extends Equatable {
 
   Map<String, dynamic> toMap() {
     return {
-      'userId': userId,
+      'user_id': userId,
       'date': date.toIso8601String(),
       'steps': steps,
-      'caloriesConsumed': caloriesConsumed,
-      'caloriesBurned': caloriesBurned,
-      'activeMinutes': activeMinutes,
-      'waterIntake': waterIntake,
-      'sleepHours': sleepHours,
-      'workoutCompleted': workoutCompleted,
+      'calories_consumed': caloriesConsumed,
+      'calories_burned': caloriesBurned,
+      'active_minutes': activeMinutes,
+      'water_intake': waterIntake,
+      'sleep_hours': sleepHours,
+      'workout_completed': workoutCompleted,
       'weight': weight,
     };
   }
 
   factory DailyMetrics.fromMap(Map<String, dynamic> map) {
     return DailyMetrics(
-      userId: map['userId'] ?? '',
-      date: DateTime.parse(map['date']),
+      userId: map['user_id'] ?? map['userId'] ?? '',
+      date: DateTime.parse(map['date']).toLocal(),
       steps: map['steps']?.toInt() ?? 0,
-      caloriesConsumed: map['caloriesConsumed']?.toDouble() ?? 0.0,
-      caloriesBurned: map['caloriesBurned']?.toDouble() ?? 0.0,
-      activeMinutes: map['activeMinutes']?.toInt() ?? 0,
-      waterIntake: map['waterIntake']?.toDouble() ?? 0.0,
-      sleepHours: map['sleepHours']?.toDouble() ?? 0.0,
-      workoutCompleted: map['workoutCompleted'] ?? false,
+      caloriesConsumed: map['calories_consumed'] ?? map['caloriesConsumed']?.toDouble() ?? 0.0,
+      caloriesBurned: map['calories_burned'] ?? map['caloriesBurned']?.toDouble() ?? 0.0,
+      activeMinutes: map['active_minutes'] ?? map['activeMinutes']?.toInt() ?? 0,
+      waterIntake: map['water_intake'] ?? map['waterIntake']?.toDouble() ?? 0.0,
+      sleepHours: map['sleep_hours'] ?? map['sleepHours']?.toDouble() ?? 0.0,
+      workoutCompleted: map['workout_completed'] ?? map['workoutCompleted'] ?? false,
       weight: map['weight']?.toDouble() ?? 0.0,
     );
   }
