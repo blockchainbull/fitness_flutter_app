@@ -49,8 +49,23 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
   void _listen() async {
     if (!_isListening) {
       bool available = await _speech.initialize(
-        onStatus: (val) => print('onStatus: $val'),
-        onError: (val) => print('onError: $val'),
+        onStatus: (val) {
+          print('onStatus: $val');
+          if (val == 'done') {
+            setState(() => _isListening = false);
+          }
+        },
+        onError: (val) {
+          print('onError: $val');
+          setState(() => _isListening = false);
+          // Show error to user
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Voice recognition error: ${val.errorMsg}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        },
       );
       
       if (available) {
@@ -64,6 +79,18 @@ class _VoiceInputWidgetState extends State<VoiceInputWidget> {
               _isListening = false;
             }
           }),
+          listenFor: const Duration(seconds: 30),
+          pauseFor: const Duration(seconds: 3),
+          partialResults: true,
+          localeId: 'en_US', // or user's preferred language
+        );
+      } else {
+        // Microphone not available
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Speech recognition not available'),
+            backgroundColor: Colors.orange,
+          ),
         );
       }
     } else {

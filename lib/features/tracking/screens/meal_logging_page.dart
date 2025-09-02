@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_history_page.dart';
-import 'package:intl/intl.dart';
+import 'package:user_onboarding/features/tracking/widgets/voice_input_widget.dart';
 
 
 class EnhancedMealLoggingPage extends StatefulWidget {
@@ -31,6 +31,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   Map<String, dynamic>? _nutritionData;
   List<Map<String, dynamic>> _foodItems = [];
   bool _useMultiLineEntry = false;
+  
   
   // Common meal combos for quick selection
   final List<Map<String, dynamic>> _mealCombos = [
@@ -307,73 +308,100 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     if (_useMultiLineEntry) {
       // Text description mode
       return Container(
-        margin: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Describe your meal:',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+      margin: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Describe your meal:',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'You can list multiple items separated by commas, "and", or "with"',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'You can list multiple items separated by commas, "and", or "with"',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _multiLineController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: 'e.g., Grilled chicken breast with brown rice and steamed vegetables',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.green, width: 2),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      // Individual items mode
-      return Container(
-        margin: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Add food items:',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: _multiLineController,
-                    decoration: InputDecoration(
-                      hintText: 'Food item',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _multiLineController,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., grilled chicken with rice and salad',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
                 ),
-                const SizedBox(width: 8),
+              ),
+              const SizedBox(width: 8),
+              // Add the Voice Input Widget here
+              VoiceInputWidget(
+                onTextReceived: (text) {
+                  setState(() {
+                    // Append to existing text or replace
+                    if (_multiLineController.text.isEmpty) {
+                      _multiLineController.text = text;
+                    } else {
+                      _multiLineController.text += ', $text';
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  } else {
+      // Individual items mode
+      return Container(
+      margin: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Add Food Item:',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _multiLineController,
+                  decoration: InputDecoration(
+                    hintText: 'Food item',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+                VoiceInputWidget(
+                onTextReceived: (text) {
+                  setState(() {
+                    _multiLineController.text = text;
+                  });
+                },
+              ),
                 Expanded(
                   flex: 2,
                   child: TextField(
@@ -468,17 +496,18 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
 
   Widget _buildResults() {
     final components = _nutritionData!['components'] as List?;
+    if (_nutritionData == null) return const SizedBox.shrink();
     
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 1,
             offset: const Offset(0, 5),
           ),
         ],
@@ -513,6 +542,18 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             ],
           ),
           
+          if (_nutritionData?['data_source'] != null)
+            Chip(
+              label: Text(
+                'Source: ${_nutritionData!['data_source']}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              backgroundColor: _nutritionData!['data_source'] == 'USDA' 
+                  ? Colors.blue.shade100 
+                  : Colors.purple.shade100,
+            ),
+
+
           if (components != null && components.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Text(
@@ -733,6 +774,9 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         _nutritionData = response['meal'] ?? response;
         _isAnalyzing = false;
       });
+
+      String dataSource = _nutritionData?['data_source'] ?? 'Unknown';
+      print('Data source used: $dataSource');
 
       // Clear the form after successful analysis
       _multiLineController.clear();
