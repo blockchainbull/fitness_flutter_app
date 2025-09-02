@@ -308,100 +308,99 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     if (_useMultiLineEntry) {
       // Text description mode
       return Container(
-      margin: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Describe your meal:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+        margin: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Describe your meal:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'You can list multiple items separated by commas, "and", or "with"',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
+            const SizedBox(height: 8),
+            const Text(
+              'You can list multiple items separated by commas, "and", or "with"',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _multiLineController,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText: 'e.g., grilled chicken with rice and salad',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _multiLineController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: 'e.g., grilled chicken with rice and salad',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              // Add the Voice Input Widget here
-              VoiceInputWidget(
-                onTextReceived: (text) {
-                  setState(() {
-                    // Append to existing text or replace
-                    if (_multiLineController.text.isEmpty) {
-                      _multiLineController.text = text;
-                    } else {
-                      _multiLineController.text += ', $text';
-                    }
-                  });
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  } else {
+                const SizedBox(width: 8),
+                VoiceInputWidget(
+                  onTextReceived: (text) {
+                    setState(() {
+                      if (_multiLineController.text.isEmpty) {
+                        _multiLineController.text = text;
+                      } else {
+                        _multiLineController.text += ', $text';
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    } else {
       // Individual items mode
       return Container(
-      margin: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Add Food Item:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+        margin: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Add food items:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: TextField(
-                  controller: _multiLineController,
-                  decoration: InputDecoration(
-                    hintText: 'Food item',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _multiLineController,
+                    decoration: InputDecoration(
+                      hintText: 'Food item',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
                 VoiceInputWidget(
-                onTextReceived: (text) {
-                  setState(() {
-                    _multiLineController.text = text;
-                  });
-                },
-              ),
+                  onTextReceived: (text) {
+                    setState(() {
+                      _multiLineController.text = text;
+                    });
+                  },
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   flex: 2,
                   child: TextField(
@@ -411,6 +410,8 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
                   ),
                 ),

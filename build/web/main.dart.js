@@ -110265,7 +110265,7 @@ m=A.a8(16)
 m=A.a4(g,A.N(A.a([B.RT,B.G,B.ac6,B.G,A.S(A.a([B.acF,A.a4(g,B.a8O,B.m,g,g,new A.ab(A.K(51,B.k.j()>>>16&255,B.k.j()>>>8&255,B.k.j()&255),g,g,A.a8(12),g,g,B.o),g,g,g,g,B.nc,g,g,g)],n),B.h,B.af,B.d,0,g)],n),B.t,B.e,B.d,0,B.j),B.m,g,g,new A.ab(g,g,g,m,g,B.SF,B.o),g,g,g,g,B.ap,g,g,1/0)
 i=A.a8(12)
 h=A.cc(B.aJ,1)
-return A.dR(g,B.bJ,A.FV(A.lc(!0,A.dS(new A.aa(B.A,A.N(A.a([r,B.a1,q,B.a1,p,B.a1,o,B.a1,l,B.a1,j,B.a1,k,B.D,m,B.a1,A.N(A.a([B.abR,B.R,A.a4(g,A.S(A.a([A.a4(g,g,B.m,g,g,new A.ab(B.B,g,g,A.a8(2),g,g,B.o),g,50,g,g,g,g,g,4),B.aZ,A.ah(A.N(A.a([B.a9I,B.aar,B.G,A.k("Scheduled for tomorrow",g,g,g,g,A.X(g,g,B.x,g,g,g,g,g,g,g,g,12,g,g,g,g,g,!0,g,g,g,g,g,g,g,g),g,g,g)],n),B.t,B.e,B.d,0,B.j),1),A.a4(g,B.ace,B.m,g,g,new A.ab(A.K(B.c.O(25.5),B.q.j()>>>16&255,B.q.j()>>>8&255,B.q.j()&255),g,g,A.a8(8),g,g,B.o),g,g,g,g,B.eB,g,g,g)],n),B.h,B.e,B.d,0,g),B.m,g,g,new A.ab(B.k,g,h,i,g,g,B.o),g,g,g,g,B.A,g,g,g)],n),B.t,B.e,B.d,0,B.j),B.bz],n),B.t,B.e,B.d,0,B.j),g),g,B.v,g,B.dx,g,B.Y),!0,B.aj,!0,!0),f.gajB()),g,new A.Pk(s,g),g,f.d)},
+return A.dR(g,B.bJ,A.FV(A.lc(!0,A.dS(new A.aa(B.A,A.N(A.a([r,B.a1,q,B.a1,p,B.a1,o,B.a1,l,B.a1,j,B.a1,k,B.D,m,B.a1,A.N(A.a([B.abR,B.R,A.a4(g,A.S(A.a([A.a4(g,g,B.m,g,g,new A.ab(B.B,g,g,A.a8(2),g,g,B.o),g,50,g,g,g,g,g,4),B.aZ,A.ah(A.N(A.a([B.a9H,B.aar,B.G,A.k("Scheduled for tomorrow",g,g,g,g,A.X(g,g,B.x,g,g,g,g,g,g,g,g,12,g,g,g,g,g,!0,g,g,g,g,g,g,g,g),g,g,g)],n),B.t,B.e,B.d,0,B.j),1),A.a4(g,B.ace,B.m,g,g,new A.ab(A.K(B.c.O(25.5),B.q.j()>>>16&255,B.q.j()>>>8&255,B.q.j()&255),g,g,A.a8(8),g,g,B.o),g,g,g,g,B.eB,g,g,g)],n),B.h,B.e,B.d,0,g),B.m,g,g,new A.ab(B.k,g,h,i,g,g,B.o),g,g,g,g,B.A,g,g,g)],n),B.t,B.e,B.d,0,B.j),B.bz],n),B.t,B.e,B.d,0,B.j),g),g,B.v,g,B.dx,g,B.Y),!0,B.aj,!0,!0),f.gajB()),g,new A.Pk(s,g),g,f.d)},
 $C:"$3",
 $R:3,
 $S:254}
@@ -110949,7 +110949,7 @@ r=A.a8(8)
 k.push(A.N(A.a([A.S(A.a([s,A.a4(m,A.k(B.c.P(n.e,1)+" L",m,m,m,m,B.b4,B.aD,m,m),B.m,m,m,new A.ab(B.cW,m,m,r,m,m,B.o),m,m,m,m,B.br,m,m,80)],l),B.h,B.e,B.d,0,m),A.k("\u2248 "+n.f+" glasses",m,m,m,m,A.X(m,m,B.x,m,m,m,m,m,m,m,m,12,m,m,m,m,m,!0,m,m,m,m,m,m,m,m),m,m,m)],l),B.h,B.e,B.d,0,B.j))}k.push(B.a1)
 k.push(A.S(B.Ug,B.h,B.e,B.d,0,m))
 k.push(B.G)
-k.push(B.a9M)
+k.push(B.a9L)
 k.push(B.R)
 n.Kf("medical")
 s=n.as
@@ -111909,7 +111909,7 @@ s=A.a4(d,A.N(A.a([s,B.D,A.S(A.a([p,B.aZ,n,B.aZ,A.ah(A.cg(d,A.a4(d,A.N(A.a([h,B.a
 r=e.as
 q=A.a9(r).i("a3<1,fb>")
 r=A.a6(new A.a3(r,new A.aMg(e),q),q.i("an.E"))
-return A.dS(A.N(A.a([B.ac1,B.G,B.aai,B.a1,b,B.ek,a,B.ek,m,B.a1,s,B.a1,B.a9Q,B.G,B.ly,B.R,A.fy(r,8,8)],o),B.t,B.e,B.d,0,B.j),d,B.v,B.cH,d,d,B.Y)}}
+return A.dS(A.N(A.a([B.ac1,B.G,B.aai,B.a1,b,B.ek,a,B.ek,m,B.a1,s,B.a1,B.a9P,B.G,B.ly,B.R,A.fy(r,8,8)],o),B.t,B.e,B.d,0,B.j),d,B.v,B.cH,d,d,B.Y)}}
 A.aM1.prototype={
 $0(){var s=this.a,r=this.b,q=t.Dp
 s.e=q.a(r.h(0,"bedtime"))
@@ -112198,7 +112198,7 @@ if(s<=2)return B.B
 if(s<=4)return B.w
 if(s<=6)return B.q
 return B.a2},
-E(a){var s,r,q,p,o,n,m=this,l=null,k=t.p,j=A.a([B.a9K,B.G,B.aag,B.a1,A.S(B.TK,B.h,B.e,B.d,0,l),B.G,B.ly,B.R],k)
+E(a){var s,r,q,p,o,n,m=this,l=null,k=t.p,j=A.a([B.a9J,B.G,B.aag,B.a1,A.S(B.TK,B.h,B.e,B.d,0,l),B.G,B.ly,B.R],k)
 m.yg("workouts")
 j.push(A.xk(l,B.v,B.a29,new A.aSJ(m),10,l,B.eH,!0))
 s=m.d.length
@@ -112676,7 +112676,7 @@ k=g.Jq("Current",B.c.P(n,2)+" kg",B.cK)
 j=l?"Lost":"Gained"
 i=B.c.P(Math.abs(m),2)
 h=l?B.ua:B.ub
-s.push(A.a4(f,A.N(A.a([B.a9P,B.R,A.S(A.a([q,p,k,g.Jq(j,i+" kg",h)],b),B.h,B.dm,B.d,0,f)],b),B.t,B.e,B.d,0,B.j),B.m,f,f,new A.ab(f,f,f,r,f,new A.eL(B.bS,B.co,B.ba,d,f,f),B.o),f,f,f,f,B.A,f,f,f))}d=g.a.c
+s.push(A.a4(f,A.N(A.a([B.a9O,B.R,A.S(A.a([q,p,k,g.Jq(j,i+" kg",h)],b),B.h,B.dm,B.d,0,f)],b),B.t,B.e,B.d,0,B.j),B.m,f,f,new A.ab(f,f,f,r,f,new A.eL(B.bS,B.co,B.ba,d,f,f),B.o),f,f,f,f,B.A,f,f,f))}d=g.a.c
 if(d.e.toLowerCase()==="female")B.b.S(s,A.a([B.a1,new A.aa(B.bd,A.k("Women's Health",f,f,f,f,B.d4,f,f,f),f),g.ahY()],b))
 s.push(B.ek)
 return A.dR(c,f,A.ag3(f,A.xJ(s,f,B.A,f,!1),g.d),f,f,f,f)},
@@ -113186,7 +113186,7 @@ r=p.d
 l=A.a([l,s,p.dl("Wake Time",r.id),B.eb,B.a9B,B.G],n)
 s=p.d.k3
 r=s.length
-if(r===0)l.push(B.a9O)
+if(r===0)l.push(B.a9N)
 else{r=A.a9(s).i("a3<1,e>")
 s=A.a6(new A.a3(s,new A.aJk(p),r),r.i("an.E"))
 l.push(A.fy(s,8,8))}l=p.ji(l,B.cj,"Sleep Health")
@@ -115460,7 +115460,7 @@ ahn(){var s=null
 return A.a4(s,A.hK(s,new A.aEi(this),4,B.bM,B.ao,!1),B.m,s,s,s,s,120,s,B.bd,s,s,s,s)},
 agA(){var s=this,r=null,q=t.p,p=s.e
 if(s.z)return A.a4(r,A.N(A.a([B.acG,B.G,B.acc,B.R,A.S(A.a([A.ah(A.e5(r,B.aB,!1,r,!0,B.u,r,A.ef(),p,r,r,r,r,r,2,A.dI(r,new A.cR(4,A.a8(12),B.bB),r,r,r,r,r,r,!0,r,r,r,r,r,r,B.k,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r,"e.g., grilled chicken with rice and salad",r,r,r,r,r,r,r,r,r,!0,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r),B.v,!0,r,!0,r,!1,r,B.aA,r,r,r,r,r,r,r,r,4,r,r,!1,"\u2022",r,r,r,r,r,!1,r,r,!1,r,!0,r,B.ap,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.a_,r,B.aV,r,r,r,r),1),B.T,new A.zH(new A.aE4(s),r)],q),B.h,B.e,B.d,0,r)],q),B.t,B.e,B.d,0,B.j),B.m,r,r,r,r,r,r,B.A,r,r,r,r)
-else return A.a4(r,A.N(A.a([B.a9H,B.R,A.S(A.a([A.ah(A.e5(r,B.aB,!1,r,!0,B.u,r,A.ef(),p,r,r,r,r,r,2,A.dI(r,new A.cR(4,A.a8(12),B.bB),r,r,r,r,r,r,!0,r,r,r,r,r,r,B.k,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r,"Food item",r,r,r,r,r,r,r,r,r,!0,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r),B.v,!0,r,!0,r,!1,r,B.aA,r,r,r,r,r,r,r,r,1,r,r,!1,"\u2022",r,r,r,r,r,!1,r,r,!1,r,!0,r,B.ap,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.a_,r,B.aV,r,r,r,r),2),B.T,new A.zH(new A.aE5(s),r),A.ah(A.e5(r,B.aB,!1,r,!0,B.u,r,A.ef(),s.f,r,r,r,r,r,2,A.dI(r,new A.cR(4,A.a8(12),B.bB),r,r,r,r,r,r,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,"Quantity",r,r,r,r,r,r,r,r,r,!0,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r),B.v,!0,r,!0,r,!1,r,B.aA,r,r,r,r,r,r,r,r,1,r,r,!1,"\u2022",r,r,r,r,r,!1,r,r,!1,r,!0,r,B.ap,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.a_,r,B.aV,r,r,r,r),2),B.T,A.cA(B.w,r,r,B.Rz,40,r,s.gafz(),r,r,r,r)],q),B.h,B.e,B.d,0,r)],q),B.t,B.e,B.d,0,B.j),B.m,r,r,r,r,r,r,B.A,r,r,r,r)},
+else return A.a4(r,A.N(A.a([B.a9Q,B.R,A.S(A.a([A.ah(A.e5(r,B.aB,!1,r,!0,B.u,r,A.ef(),p,r,r,r,r,r,2,A.dI(r,new A.cR(4,A.a8(12),B.bB),r,r,r,r,r,r,!0,r,r,r,r,r,r,B.k,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r,"Food item",r,r,r,r,r,r,r,r,r,!0,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r),B.v,!0,r,!0,r,!1,r,B.aA,r,r,r,r,r,r,r,r,1,r,r,!1,"\u2022",r,r,r,r,r,!1,r,r,!1,r,!0,r,B.ap,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.a_,r,B.aV,r,r,r,r),3),B.T,new A.zH(new A.aE5(s),r),B.T,A.ah(A.e5(r,B.aB,!1,r,!0,B.u,r,A.ef(),s.f,r,r,r,r,r,2,A.dI(r,new A.cR(4,A.a8(12),B.bB),r,r,r,r,r,r,!0,r,r,r,r,r,r,B.k,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r,"Quantity",r,r,r,r,r,r,r,r,r,!0,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r),B.v,!0,r,!0,r,!1,r,B.aA,r,r,r,r,r,r,r,r,1,r,r,!1,"\u2022",r,r,r,r,r,!1,r,r,!1,r,!0,r,B.ap,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.a_,r,B.aV,r,r,r,r),2),B.T,A.cA(B.w,r,r,B.Rz,40,r,s.gafz(),r,r,r,r)],q),B.h,B.e,B.d,0,r)],q),B.t,B.e,B.d,0,B.j),B.m,r,r,r,r,r,r,B.A,r,r,r,r)},
 agZ(){var s=null,r=A.a([B.aby,B.G],t.p),q=this.y,p=A.a9(q).i("a3<1,lQ>")
 q=A.a6(new A.a3(q,new A.aEc(this),p),p.i("an.E"))
 B.b.S(r,q)
@@ -116246,7 +116246,7 @@ g=A.e_(h,h,B.a2,h,h,h,h,h,h,B.k,h,h,B.h6,h,h,h,h,h,h,h)
 s.push(A.c0(A.fY(!1,A.k(i.Q!=null?"Update Sleep Entry":"Save Sleep Entry",h,h,h,h,B.bp,h,h,h),h,h,h,h,h,h,i.gawK(),h,g),h,1/0))
 g=A.dS(A.N(s,B.t,B.e,B.d,0,B.j),h,B.v,B.A,h,h,B.Y)}}return A.dR(f,h,g,h,h,h,h)},
 agn(){var s=this,r=null,q=t.p
-return A.cl(new A.aa(B.cH,A.N(A.a([B.uH,B.a1,B.a9s,B.D,A.k("You logged "+B.c.P(s.tD(),1)+" hours of sleep",r,r,r,r,B.jg,r,r,r),A.k("Quality: "+B.c.P(s.x*100,0)+"%",r,r,r,r,A.X(r,r,s.WG(s.x),r,r,r,r,r,r,r,r,16,r,r,r,r,r,!0,r,r,r,r,r,r,r,r),r,r,r),B.a1,B.acI,B.ek,A.S(A.a([A.jd(B.eC,B.pL,new A.aMp(s),A.e_(r,r,B.a2,r,r,r,r,r,r,B.k,r,r,r,r,r,r,r,r,r,r)),B.aZ,A.amP(B.of,B.a9L,new A.aMq(s),r)],q),B.h,B.ac,B.d,0,r),B.D,A.cH(!1,B.acz,r,r,r,r,r,r,new A.aMr(s),r,r)],q),B.h,B.ac,B.d,0,B.j),r),r,r)},
+return A.cl(new A.aa(B.cH,A.N(A.a([B.uH,B.a1,B.a9s,B.D,A.k("You logged "+B.c.P(s.tD(),1)+" hours of sleep",r,r,r,r,B.jg,r,r,r),A.k("Quality: "+B.c.P(s.x*100,0)+"%",r,r,r,r,A.X(r,r,s.WG(s.x),r,r,r,r,r,r,r,r,16,r,r,r,r,r,!0,r,r,r,r,r,r,r,r),r,r,r),B.a1,B.acI,B.ek,A.S(A.a([A.jd(B.eC,B.pL,new A.aMp(s),A.e_(r,r,B.a2,r,r,r,r,r,r,B.k,r,r,r,r,r,r,r,r,r,r)),B.aZ,A.amP(B.of,B.a9K,new A.aMq(s),r)],q),B.h,B.ac,B.d,0,r),B.D,A.cH(!1,B.acz,r,r,r,r,r,r,new A.aMr(s),r,r)],q),B.h,B.ac,B.d,0,B.j),r),r,r)},
 agx(){var s=null
 return A.cv(A.fc(!1,s,s,s,!0,s,!0,s,B.Rp,s,s,s,new A.aMt(this),!1,s,s,s,A.k(A.bB("EEEE, MMM dd, yyyy").b2(this.f),s,s,s,s,s,s,s,s),s,B.abS,s,s,s),s,s,s,s)},
 ahl(){var s=this,r=null,q=s.x
@@ -116547,7 +116547,7 @@ case 1:return A.v(p.at(-1),r)}})
 return A.x($async$xC,r)},
 VT(){var s=this.w.a.a
 this.v(new A.aN9(this,new A.am(Date.now(),0,!1),s.toLowerCase()))},
-E(a){var s,r=this,q=null,p=t.p,o=A.eq(A.a([A.cA(q,q,q,B.iy,q,q,r.gasI(),q,q,q,q)],p),q,q,!0,B.bW,q,1,q,q,q,!1,q,!1,B.k,q,q,q,!0,q,q,q,q,q,B.a9J,q,q,q,1,q,!0),n=r.agN()
+E(a){var s,r=this,q=null,p=t.p,o=A.eq(A.a([A.cA(q,q,q,B.iy,q,q,r.gasI(),q,q,q,q)],p),q,q,!0,B.bW,q,1,q,q,q,!1,q,!1,B.k,q,q,q,!0,q,q,q,q,q,B.a9I,q,q,q,1,q,!0),n=r.agN()
 if(r.f)s=B.bI
 else s=J.dt(r.e)?A.cl(A.N(A.a([A.ay(B.cI,B.cf,q,64),B.D,A.k("No step data found",q,q,q,q,A.X(q,q,B.x,q,q,q,q,q,q,q,q,18,q,q,q,q,q,!0,q,q,q,q,q,q,q,q),q,q,q),B.G,A.k("Start tracking your steps to see history here",q,q,q,q,A.X(q,q,B.bK,q,q,q,q,q,q,q,q,q,q,q,q,q,q,!0,q,q,q,q,q,q,q,q),q,q,q)],p),B.h,B.ac,B.d,0,B.j),q,q):r.ayU()
 return A.dR(o,q,A.N(A.a([n,A.ah(s,1)],p),B.h,B.e,B.d,0,B.j),q,q,q,q)},
@@ -117860,7 +117860,7 @@ $0(){return this.a.x=!1},
 $S:0}
 A.aOx.prototype={
 $1(a){var s,r=null,q=A.a8(20),p=t.p,o=A.S(A.a([A.ay(B.ct,B.b3,r,28),B.aS,B.ab3],p),B.h,B.e,B.d,0,r),n=A.a8(12)
-n=A.N(A.a([B.abQ,B.D,A.a4(r,A.N(A.a([A.S(A.a([A.ay(B.ck,B.b3,r,20),B.T,B.a9N],p),B.h,B.e,B.d,0,r),B.G,B.acg,B.aaq,B.aaO,B.a95],p),B.t,B.e,B.d,0,B.j),B.m,r,r,new A.ab(B.mu,r,r,n,r,r,B.o),r,r,r,r,B.aK,r,r,r)],p),B.t,B.e,B.ak,0,B.j)
+n=A.N(A.a([B.abQ,B.D,A.a4(r,A.N(A.a([A.S(A.a([A.ay(B.ck,B.b3,r,20),B.T,B.a9M],p),B.h,B.e,B.d,0,r),B.G,B.acg,B.aaq,B.aaO,B.a95],p),B.t,B.e,B.d,0,B.j),B.m,r,r,new A.ab(B.mu,r,r,n,r,r,B.o),r,r,r,r,B.aK,r,r,r)],p),B.t,B.e,B.ak,0,B.j)
 s=this.a
 return A.fl(A.a([A.cH(!1,B.act,r,r,r,r,r,r,new A.aOv(s,a),r,r),A.fY(!1,B.a9q,r,r,r,r,r,r,new A.aOw(s,a),r,A.e_(r,r,B.b3,r,r,r,r,r,r,B.k,r,r,r,r,new A.cd(A.a8(12),B.z),r,r,r,r,r))],p),n,new A.cd(q,B.z),o)},
 $S:18}
@@ -126846,17 +126846,17 @@ B.a9C=new A.C("View All",null,null,null,null,null,null,null,null,null,null)
 B.a5i=new A.t(!0,B.k,null,null,null,null,8,B.C,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.a9D=new A.C("RECOMMENDED",null,B.a5i,null,null,null,null,null,null,null,null)
 B.a9F=new A.C("No",null,B.bp,null,null,null,null,null,null,null,null)
-B.a9H=new A.C("Add Food Item:",null,B.bp,null,null,null,null,null,null,null,null)
-B.a9I=new A.C("HIIT Training",null,B.bp,null,null,null,null,null,null,null,null)
-B.a9J=new A.C("Step History",null,null,null,null,null,null,null,null,null,null)
-B.a9K=new A.C("Workout Preferences",null,B.cR,null,null,null,null,null,null,null,null)
-B.a9L=new A.C("Edit Entry",null,null,null,null,null,null,null,null,null,null)
-B.a9M=new A.C("Select any that apply (important for personalized recommendations)",null,B.eO,null,null,null,null,null,null,null,null)
-B.a9N=new A.C("Benefits:",null,B.b4,null,null,null,null,null,null,null,null)
-B.a9O=new A.C("No sleep issues reported",null,null,null,null,null,null,null,null,null,null)
-B.a9P=new A.C("Weight Progress",null,B.bp,null,null,null,null,null,null,null,null)
+B.a9H=new A.C("HIIT Training",null,B.bp,null,null,null,null,null,null,null,null)
+B.a9I=new A.C("Step History",null,null,null,null,null,null,null,null,null,null)
+B.a9J=new A.C("Workout Preferences",null,B.cR,null,null,null,null,null,null,null,null)
+B.a9K=new A.C("Edit Entry",null,null,null,null,null,null,null,null,null,null)
+B.a9L=new A.C("Select any that apply (important for personalized recommendations)",null,B.eO,null,null,null,null,null,null,null,null)
+B.a9M=new A.C("Benefits:",null,B.b4,null,null,null,null,null,null,null,null)
+B.a9N=new A.C("No sleep issues reported",null,null,null,null,null,null,null,null,null,null)
+B.a9O=new A.C("Weight Progress",null,B.bp,null,null,null,null,null,null,null,null)
 B.GA=new A.C("Delete Exercise",null,null,null,null,null,null,null,null,null,null)
-B.a9Q=new A.C("Do you experience any sleep issues?",null,B.a6,null,null,null,null,null,null,null,null)
+B.a9P=new A.C("Do you experience any sleep issues?",null,B.a6,null,null,null,null,null,null,null,null)
+B.a9Q=new A.C("Add food items:",null,B.bp,null,null,null,null,null,null,null,null)
 B.a9R=new A.C("Set Your Daily Step Goal",null,B.c0,null,null,null,null,null,null,null,null)
 B.a6r=new A.t(!0,null,null,null,null,null,16,B.ah,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.a9S=new A.C("Personal Trainer",null,B.a6r,null,null,null,null,null,null,null,null)
