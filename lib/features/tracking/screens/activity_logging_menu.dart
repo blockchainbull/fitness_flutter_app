@@ -81,7 +81,7 @@ class ActivityLoggingMenu extends StatelessWidget {
         'subtitle': 'Track nutrition & calories',
         'icon': Icons.restaurant,
         'color': Colors.green,
-        'page': MealLoggingPage(userProfile: userProfile),
+        'page': EnhancedMealLoggingPage(userProfile: userProfile),
       },
       {
         'title': 'Water',

@@ -1468,7 +1468,7 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
     
     switch (category.toLowerCase()) {
       case 'meals':
-        page = MealLoggingPage(userProfile: widget.userProfile);
+        page = EnhancedMealLoggingPage(userProfile: widget.userProfile);
         break;
       case 'water':
         page = WaterLoggingPage(userProfile: widget.userProfile);

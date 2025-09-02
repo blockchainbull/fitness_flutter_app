@@ -36,7 +36,7 @@ class ActivityDrawer extends StatelessWidget {
                   'Log your food intake and nutrition',
                   Icons.restaurant,
                   Colors.green,
-                  () => _navigateToPage(context, MealLoggingPage(userProfile: userProfile)),
+                  () => _navigateToPage(context, EnhancedMealLoggingPage(userProfile: userProfile)),
                 ),
                 _buildActivityTile(
                   context,

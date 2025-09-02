@@ -1208,28 +1208,79 @@ class ApiService {
   }
 
   //Meal logging Funtions
-  // Analyze and log a meal
   Future<Map<String, dynamic>> analyzeMeal(Map<String, dynamic> mealData) async {
     try {
-      print('[ApiService] Analyzing meal: ${mealData['food_item']}');
-      
       final response = await http.post(
         Uri.parse('$baseUrl/meals/analyze'),
         headers: headers,
-        body: jsonEncode(mealData),
+        body: jsonEncode({
+          'user_id': mealData['user_id'],
+          'food_item': mealData['food_item'],
+          'quantity': mealData['quantity'] ?? '1 serving',
+          'meal_type': mealData['meal_type'],
+          'meal_date': mealData['meal_date'] ?? DateTime.now().toIso8601String(),
+          'preparation': mealData['preparation'],
+        }),
       );
 
-      print('[ApiService] Meal analysis response: ${response.statusCode}');
-
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        
+        // Handle multi-food response
+        if (data['components'] != null) {
+          print('Analyzed ${data['components'].length} food items');
+        }
+        
+        return data;
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to analyze meal');
+        final errorBody = jsonDecode(response.body);
+        throw Exception(errorBody['error'] ?? 'Failed to analyze meal');
       }
     } catch (e) {
-      print('[ApiService] Meal analysis error: $e');
-      rethrow;
+      throw Exception('Error analyzing meal: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> analyzeMealWithParams({
+    required String userId,
+    required String foodItem,
+    required String quantity,
+    required String mealType,
+    String? mealDate,
+    String? preparation,
+  }) async {
+    return analyzeMeal({
+      'user_id': userId,
+      'food_item': foodItem,
+      'quantity': quantity,
+      'meal_type': mealType,
+      'meal_date': mealDate ?? DateTime.now().toIso8601String(),
+      'preparation': preparation,
+    });
+  }
+
+
+  Future<Map<String, dynamic>> analyzeMealBatch({
+    required String userId,
+    required List<Map<String, String>> foodItems,
+    required String mealType,
+    String? mealDate,
+  }) async {
+    try {
+      // Combine items into a single description for the parser
+      final description = foodItems
+          .map((item) => '${item['quantity'] ?? '1 serving'} ${item['food']}')
+          .join(', ');
+
+      return await analyzeMeal({
+        'user_id': userId,
+        'food_item': description,
+        'quantity': '1 serving',
+        'meal_type': mealType,
+        'meal_date': mealDate ?? DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Error in batch analysis: $e');
     }
   }
 
