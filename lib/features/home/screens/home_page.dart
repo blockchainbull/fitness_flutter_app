@@ -98,6 +98,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> pages = [
+      DashboardHome(
+        userProfile: _currentUserProfile,
+        onTabChange: _onTabTapped, // Pass the existing method
+      ),
+      ChatPage(userProfile: _currentUserProfile),
+      ProfilePage(userProfile: _currentUserProfile),
+    ];
     return Consumer<UserProvider>(
       builder: (context, userProvider, _) {
         // Use provider's profile if available, otherwise use current
