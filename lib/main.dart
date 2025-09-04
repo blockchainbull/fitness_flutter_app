@@ -9,15 +9,15 @@ import 'package:user_onboarding/features/splash/screens/splash_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  Environment.debugPrint();
+  // Environment.debugPrint();
 
   try {
-    if (!Environment.isConfigured) {
+  //  if (!Environment.isConfigured) {
       print('❌ Supabase environment variables are not configured!');
       // Show error screen instead of crashing
       runApp(ErrorApp());
-      return;
-    }
+      //return;
+    //}
     
     await Supabase.initialize(
       url: Environment.supabaseUrl,
