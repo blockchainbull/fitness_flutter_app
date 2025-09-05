@@ -37,7 +37,7 @@ class InsightsService {
       if (stepsHistory.isNotEmpty) {
         int avgSteps = 0;
         for (var day in stepsHistory) {
-          avgSteps += (day['step_count'] as int?) ?? 0;
+          avgSteps += (day['steps'] as int?) ?? 0;
         }
         avgSteps = (avgSteps / stepsHistory.length).round();
         
@@ -89,13 +89,13 @@ class InsightsService {
           .from('exercise_logs')
           .select()
           .eq('user_id', userId)
-          .gte('date', weekAgoStr);
+          .gte('exercise_date', weekAgoStr);
       
       if (exerciseHistory.isNotEmpty) {
         // Count workout days this week
         Set<String> workoutDays = {};
         for (var exercise in exerciseHistory) {
-          workoutDays.add(exercise['date']);
+          workoutDays.add(exercise['exercise_date']);
         }
         
         if (workoutDays.length < userProfile.workoutFrequency! && 

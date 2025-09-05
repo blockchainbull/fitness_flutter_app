@@ -30,17 +30,17 @@ class MetricsService {
           .from('exercise_logs')
           .select()
           .eq('user_id', userId)
-          .eq('date', today);
+          .eq('exercise_date', today);
       
       // Fetch meals
       final mealsResponse = await _supabase
           .from('meal_entries')
           .select()
           .eq('user_id', userId)
-          .eq('date', today);
+          .eq('meal_date', today);
       
       // Calculate totals
-      int steps = stepsResponse?['step_count'] ?? 0;
+      int steps = stepsResponse?['steps'] ?? 0;
       int water = waterResponse?['glasses'] ?? 0;
       
       int activeMinutes = 0;
@@ -90,7 +90,7 @@ class MetricsService {
       await _supabase.from('daily_steps').upsert({
         'user_id': userId,
         'date': today,
-        'step_count': steps,
+        'steps': steps,
         'updated_at': DateTime.now().toIso8601String(),
       }, onConflict: 'user_id,date');
     } catch (e) {

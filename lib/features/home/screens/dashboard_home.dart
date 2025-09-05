@@ -7,7 +7,6 @@ import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.
 import 'package:user_onboarding/features/reports/screens/today_report_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
-import 'package:user_onboarding/config/environment.dart';
 import 'dart:async';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 import 'package:user_onboarding/data/services/metrics_service.dart';
@@ -48,7 +47,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   final supabase = Supabase.instance.client;
   
   // Feature flags - turn these on as we implement each section
-  final bool _calendarEnabled = true;
   final bool _quickActionsEnabled = true;
   final bool _todayProgressEnabled = true;
   final bool _smartInsightsEnabled = true;
@@ -173,7 +171,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
           .listen((List<Map<String, dynamic>> data) {
             if (data.isNotEmpty && mounted) {
               setState(() {
-                todayProgress['steps'] = data.first['step_count'] ?? 0;
+                todayProgress['steps'] = data.first['steps'] ?? 0;
               });
             }
           });

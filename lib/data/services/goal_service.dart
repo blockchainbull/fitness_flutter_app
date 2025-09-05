@@ -114,12 +114,12 @@ class GoalService {
         
         final steps = await _supabase
             .from('daily_steps')
-            .select('step_count')
+            .select('steps')
             .eq('user_id', userId)
             .eq('date', date)
             .maybeSingle();
         
-        if (steps != null && steps['step_count'] >= 10000) {
+        if (steps != null && steps['steps'] >= 10000) {
           stepStreak++;
         } else if (i > 0) {
           break;
@@ -163,12 +163,12 @@ class GoalService {
       // Check for milestone achievements
       final allSteps = await _supabase
           .from('daily_steps')
-          .select('step_count')
+          .select('steps')
           .eq('user_id', userId);
       
       int totalSteps = 0;
       for (var day in allSteps) {
-        totalSteps += (day['step_count'] as int?) ?? 0;
+        totalSteps += (day['steps'] as int?) ?? 0;
       }
       
       // Step milestones
