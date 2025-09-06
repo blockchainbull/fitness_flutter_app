@@ -136,12 +136,12 @@ class GoalService {
         
         final water = await _supabase
             .from('daily_water')
-            .select('glasses')
+            .select('glasses_consumed')
             .eq('user_id', userId)
             .eq('date', date)
             .maybeSingle();
         
-        if (water != null && water['glasses'] >= 8) {
+        if (water != null && water['glasses_consumed'] >= 8) {
           waterStreak++;
         } else if (i > 0) {
           break;

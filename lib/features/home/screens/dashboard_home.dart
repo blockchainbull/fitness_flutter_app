@@ -184,7 +184,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
           .listen((List<Map<String, dynamic>> data) {
             if (data.isNotEmpty && mounted) {
               setState(() {
-                todayProgress['water'] = data.first['glasses'] ?? 0;
+                todayProgress['water'] = data.first['glasses_consumed'] ?? 0;
               });
             }
           });

@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 
 class MetricsService {
@@ -106,7 +105,7 @@ class MetricsService {
       await _supabase.from('daily_water').upsert({
         'user_id': userId,
         'date': today,
-        'glasses': glasses,
+        'glasses_consumed': glasses,
         'updated_at': DateTime.now().toIso8601String(),
       }, onConflict: 'user_id,date');
     } catch (e) {
