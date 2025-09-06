@@ -1,30 +1,21 @@
 // lib/main.dart
-import 'config/environment.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:user_onboarding/features/splash/screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  Environment.debugPrint();
-
-  try {
-    if (!Environment.isConfigured) {
-      print('❌ Supabase environment variables are not configured!');
-      // Show error screen instead of crashing
-      runApp(ErrorApp());
-      return;
-    }
-    
-    await Supabase.initialize(
-      url: Environment.supabaseUrl,
-      anonKey: Environment.supabaseAnonKey,
-    );
-    
-    print('✅ Supabase initialized successfully');
+  await dotenv.load(fileName: ".env");
+  
+  // Initialize Supabase with env variables
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  );
   
   runApp(
     ChangeNotifierProvider(
@@ -32,11 +23,8 @@ Future<void> main() async {
       child: const MyApp(),
     ),
   );
-  } catch (e) {
-    print('❌ Error initializing Supabase: $e');
-    runApp(ErrorApp());
-  }
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -51,47 +39,6 @@ class MyApp extends StatelessWidget {
       ),
       home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-class ErrorApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 60, color: Colors.red),
-                SizedBox(height: 20),
-                Text(
-                  'Configuration Error',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Supabase environment variables are not configured.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16),
-                ),
-                SizedBox(height: 20),
-                Text(
-                  'URL: ${Environment.supabaseUrl.isEmpty ? "NOT SET" : "SET"}',
-                  style: TextStyle(fontFamily: 'monospace'),
-                ),
-                Text(
-                  'Key: ${Environment.supabaseAnonKey.isEmpty ? "NOT SET" : "SET"}',
-                  style: TextStyle(fontFamily: 'monospace'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

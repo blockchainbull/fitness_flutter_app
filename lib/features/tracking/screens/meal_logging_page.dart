@@ -543,16 +543,45 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             ],
           ),
           
-          if (_nutritionData?['data_source'] != null)
-            Chip(
-              label: Text(
-                'Source: ${_nutritionData!['data_source']}',
-                style: const TextStyle(fontSize: 12),
+          if (_nutritionData!['data_source'] != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getDataSourceColor(_nutritionData!['data_source']),
+                borderRadius: BorderRadius.circular(12),
               ),
-              backgroundColor: _nutritionData!['data_source'] == 'USDA' 
-                  ? Colors.blue.shade100 
-                  : Colors.purple.shade100,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getDataSourceIcon(_nutritionData!['data_source']),
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Source: ${_nutritionData!['data_source']}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (_nutritionData!['confidence_score'] != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '(${(_nutritionData!['confidence_score'] * 100).toInt()}% confidence)',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
+          ],
 
 
           if (components != null && components.isNotEmpty) ...[
@@ -734,6 +763,33 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       });
     }
   }
+
+  // Helper methods to add to your class:
+  Color _getDataSourceColor(String? source) {
+    switch (source?.toLowerCase()) {
+      case 'usda':
+        return Colors.blue;
+      case 'chatgpt':
+        return Colors.purple;
+      case 'multi-food-parser':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getDataSourceIcon(String? source) {
+    switch (source?.toLowerCase()) {
+      case 'usda':
+        return Icons.verified;
+      case 'chatgpt':
+        return Icons.psychology;
+      case 'multi-food-parser':
+        return Icons.restaurant_menu;
+      default:
+        return Icons.info;
+    }
+}
 
   Future<void> _analyzeMeal() async {
     if (widget.userProfile.id == null || widget.userProfile.id!.isEmpty) {
