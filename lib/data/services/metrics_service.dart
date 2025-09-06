@@ -1,74 +1,54 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+// lib/data/services/metrics_service.dart
+import 'package:user_onboarding/data/repositories/water_repository.dart';
+import 'package:user_onboarding/data/repositories/step_repository.dart';
+import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:user_onboarding/data/models/water_entry.dart';
+import 'package:user_onboarding/data/models/step_entry.dart';
 import 'package:intl/intl.dart';
 
 class MetricsService {
-  final _supabase = Supabase.instance.client;
+  final ApiService _apiService = ApiService();
   
   Future<Map<String, dynamic>> getTodayMetrics(String userId) async {
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     
     try {
-      // Fetch steps
-      final stepsResponse = await _supabase
-          .from('daily_steps')
-          .select()
-          .eq('user_id', userId)
-          .eq('date', today)
-          .maybeSingle();
-      
-      // Fetch water
-      final waterResponse = await _supabase
-          .from('daily_water')
-          .select()
-          .eq('user_id', userId)
-          .eq('date', today)
-          .maybeSingle();
-      
-      // Fetch exercises
-      final exercisesResponse = await _supabase
-          .from('exercise_logs')
-          .select()
-          .eq('user_id', userId)
-          .eq('exercise_date', today);
-      
-      // Fetch meals
-      final mealsResponse = await _supabase
-          .from('meal_entries')
-          .select()
-          .eq('user_id', userId)
-          .eq('meal_date', today);
-      
-      // Calculate totals
-      int steps = stepsResponse?['steps'] ?? 0;
-      int water = waterResponse?['glasses'] ?? 0;
-      
-      int activeMinutes = 0;
-      int caloriesBurned = 0;
-      if (exercisesResponse != null) {
-        for (var exercise in exercisesResponse) {
-          activeMinutes += (exercise['duration'] as int?) ?? 0;
-          caloriesBurned += (exercise['calories_burned'] as int?) ?? 0;
-        }
-      }
-      
-      int caloriesConsumed = 0;
-      if (mealsResponse != null) {
-        for (var meal in mealsResponse) {
-          caloriesConsumed += (meal['calories'] as int?) ?? 0;
-        }
-      }
-      
-      // Add calories from steps (rough estimate: 0.04 calories per step)
-      caloriesBurned += (steps * 0.04).round();
-      
-      return {
-        'steps': steps,
-        'water': water,
-        'activeMinutes': activeMinutes,
-        'caloriesBurned': caloriesBurned,
-        'caloriesConsumed': caloriesConsumed,
-        'netCalories': caloriesConsumed - caloriesBurned,
+      Map<String, dynamic> metrics = {
+        'steps': 0,
+        'water': 0,
+        'activeMinutes': 0,
+        'caloriesBurned': 0,
+        'caloriesConsumed': 0,
       };
+      
+      // Get steps using EXISTING repository method (same as reports page)
+      final stepEntry = await StepRepository.getTodayStepEntry(userId);
+      if (stepEntry != null) {
+        metrics['steps'] = stepEntry.steps;
+        metrics['activeMinutes'] = stepEntry.activeMinutes ?? 0;
+        metrics['caloriesBurned'] = stepEntry.caloriesBurned ?? 0;
+      }
+      
+      // Get water using EXISTING repository method (same as reports page)
+      final waterEntry = await WaterRepository.getTodayWaterEntry(userId);
+      if (waterEntry != null) {
+        metrics['water'] = waterEntry.glassesConsumed;
+      }
+      
+      // Get exercise data using EXISTING API method
+      final exercises = await _apiService.getExerciseHistory(userId, date: today);
+      for (var exercise in exercises) {
+        metrics['activeMinutes'] += (exercise['duration_minutes'] ?? 0) as int;
+        metrics['caloriesBurned'] += (exercise['calories_burned'] ?? 0) as int;
+      }
+      
+      // Get meals using EXISTING API method
+      final mealsData = await _apiService.getDailySummary(userId, date: today);
+      if (mealsData['success'] == true) {
+        metrics['caloriesConsumed'] = (mealsData['totals']['calories'] ?? 0).toInt();
+      }
+      
+      return metrics;
     } catch (e) {
       print('Error fetching metrics: $e');
       return {
@@ -77,59 +57,29 @@ class MetricsService {
         'activeMinutes': 0,
         'caloriesBurned': 0,
         'caloriesConsumed': 0,
-        'netCalories': 0,
       };
     }
   }
-  
-  Future<void> updateSteps(String userId, int steps) async {
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    
-    try {
-      await _supabase.from('daily_steps').upsert({
-        'user_id': userId,
-        'date': today,
-        'steps': steps,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id,date');
-    } catch (e) {
-      print('Error updating steps: $e');
-      rethrow;
-    }
-  }
-  
+
+  // Add update methods using EXISTING repositories
   Future<void> updateWater(String userId, int glasses) async {
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    
-    try {
-      await _supabase.from('daily_water').upsert({
-        'user_id': userId,
-        'date': today,
-        'glasses_consumed': glasses,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id,date');
-    } catch (e) {
-      print('Error updating water: $e');
-      rethrow;
-    }
+    final waterEntry = WaterEntry(
+      userId: userId,
+      date: DateTime.now(),
+      glassesConsumed: glasses,
+      totalMl: glasses * 250.0,
+      targetMl: 2000.0,
+    );
+    await WaterRepository.saveWaterEntry(waterEntry);
   }
-  
-  Future<void> logQuickActivity(String userId, String activityType, int duration, int calories) async {
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    
-    try {
-      await _supabase.from('exercise_logs').insert({
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'user_id': userId,
-        'date': today,
-        'exercise_type': activityType,
-        'duration': duration,
-        'calories_burned': calories,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      print('Error logging activity: $e');
-      rethrow;
-    }
+
+  Future<void> updateSteps(String userId, int steps, {int? goal}) async {
+    final stepEntry = StepEntry(
+      userId: userId,
+      date: DateTime.now(),
+      steps: steps,
+      goal: goal ?? 10000,
+    );
+    await StepRepository.saveStepEntry(stepEntry);
   }
 }

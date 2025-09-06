@@ -1,7 +1,6 @@
 // lib/features/home/screens/dashboard_home.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:user_onboarding/config/environment.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
@@ -13,8 +12,7 @@ import 'package:user_onboarding/utils/profile_update_notifier.dart';
 import 'package:user_onboarding/data/services/metrics_service.dart';
 import 'package:user_onboarding/data/services/insights_service.dart';
 import 'package:user_onboarding/data/services/schedule_service.dart';
-import 'package:user_onboarding/data/services/goal_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:user_onboarding/features/home/widgets/dashboard_weight_goal_card.dart';
 
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -40,12 +38,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   final MetricsService _metricsService = MetricsService();
   final InsightsService _insightsService = InsightsService();
   final ScheduleService _scheduleService = ScheduleService();
-  final GoalService _goalService = GoalService();
-  Map<String, dynamic> goalProgress = {};
-  StreamSubscription? _stepsSubscription;
-  StreamSubscription? _waterSubscription;
   bool _isLoadingMetrics = false;
-  final supabase = Supabase.instance.client;
   
   // Feature flags - turn these on as we implement each section
   final bool _quickActionsEnabled = true;
@@ -80,8 +73,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
 
   @override
   void dispose() {
-    _stepsSubscription?.cancel();
-    _waterSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _profileSubscription.cancel();
     super.dispose();
@@ -102,7 +93,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     await Future.wait([
       if (_todayProgressEnabled) _loadTodayProgress(),
       if (_smartInsightsEnabled) _generateSmartInsights(),
-      if (_goalProgressEnabled) _loadGoalProgress(),
     ]);
     
     if (_upcomingEventsEnabled) {
@@ -137,58 +127,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
       print('Error loading today progress: $e');
       setState(() => _isLoadingMetrics = false);
     }
-  }
-
-  Future<void> _loadGoalProgress() async {
-    if (!_goalProgressEnabled) return;
-    
-    try {
-      final progress = await _goalService.getGoalProgress(_currentUserProfile);
-      setState(() {
-        goalProgress = progress;
-      });
-    } catch (e) {
-      print('Error loading goal progress: $e');
-    }
-  }
-
-  void _setupRealtimeListeners() {
-    final userId = _currentUserProfile.id;
-    if (userId == null) return;
-    
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    
-    // Listen to steps changes
-    void _setupRealtimeListeners() {
-      final userId = _currentUserProfile.id;
-      if (userId == null) return;
-      
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      
-      // Correct Supabase stream syntax
-      _stepsSubscription = Supabase.instance.client
-          .from('daily_steps:user_id=eq.$userId,date=eq.$today')
-          .stream(primaryKey: ['user_id', 'date'])
-          .listen((List<Map<String, dynamic>> data) {
-            if (data.isNotEmpty && mounted) {
-              setState(() {
-                todayProgress['steps'] = data.first['steps'] ?? 0;
-              });
-            }
-          });
-      
-      // Water subscription
-      _waterSubscription = Supabase.instance.client
-          .from('daily_water:user_id=eq.$userId,date=eq.$today')
-          .stream(primaryKey: ['user_id', 'date'])
-          .listen((List<Map<String, dynamic>> data) {
-            if (data.isNotEmpty && mounted) {
-              setState(() {
-                todayProgress['water'] = data.first['glasses_consumed'] ?? 0;
-              });
-            }
-          });
-    }   
   }
 
   Future<void> _generateSmartInsights() async {
@@ -395,13 +333,15 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
               ),
 
               // Goal Progress
-              if (_goalProgressEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildGoalProgress(),
+              if(_goalProgressEnabled)
+                if (_currentUserProfile.weightGoal != null && 
+                  _currentUserProfile.weightGoal.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: _buildGoalProgress(),
+                    ),
                   ),
-                ),
               
               // Quick Actions
               if (_quickActionsEnabled)
@@ -525,6 +465,16 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
         ),
       ],
     );
+  }
+
+  Widget _buildGoalProgress() {
+    if (!_goalProgressEnabled || 
+        _currentUserProfile.weightGoal == null || 
+        _currentUserProfile.weightGoal!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return DashboardWeightGoalCard(userProfile: _currentUserProfile);
   }
 
   Widget _buildQuickActions() {
@@ -814,151 +764,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
       ],
     );
   }
-
-  Widget _buildGoalProgress() {
-    if (goalProgress.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.purple.shade50,
-            Colors.blue.shade50,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Goal: ${goalProgress['type']}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getProgressColor(goalProgress['percentage']),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${goalProgress['percentage'].toStringAsFixed(1)}%',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          // Progress visualization
-          if (goalProgress['type'].contains('Weight'))
-            _buildWeightProgress(),
-          
-          // Streaks
-          if (goalProgress['streaks'] != null && 
-              (goalProgress['streaks'] as Map).isNotEmpty)
-            _buildStreaks(goalProgress['streaks']),
-          
-          // Achievements
-          if (goalProgress['achievements'] != null &&
-              (goalProgress['achievements'] as List).isNotEmpty)
-            _buildAchievements(goalProgress['achievements']),
-          
-          // Message
-          if (goalProgress['message'] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                goalProgress['message'],
-                style: TextStyle(
-                  color: Colors.grey[700],
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeightProgress() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Start',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-                Text(
-                  '${goalProgress['start']?.toStringAsFixed(1)} kg',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            Column(
-              children: [
-                const Icon(Icons.arrow_forward, color: Colors.blue),
-                Text(
-                  'Current',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-                Text(
-                  '${goalProgress['current']?.toStringAsFixed(1)} kg',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Target',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-                Text(
-                  '${goalProgress['target']?.toStringAsFixed(1)} kg',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        LinearProgressIndicator(
-          value: (goalProgress['percentage'] / 100).clamp(0.0, 1.0),
-          backgroundColor: Colors.grey[300],
-          valueColor: AlwaysStoppedAnimation(
-            _getProgressColor(goalProgress['percentage']),
-          ),
-          minHeight: 8,
-        ),
-      ],
-    );
-  }
-
+  
   Widget _buildStreaks(Map<String, dynamic> streaks) {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
