@@ -107159,7 +107159,7 @@ aDu(a){var s=null
 return this.Om(s,s,s,a,s,s,s)},
 lw(){var s=this,r=A.F(t.N,t.z),q=s.a
 if(q!=null)r.q(0,"id",q)
-r.q(0,"user_id",s.b)
+r.q(0,"userId",s.b)
 r.q(0,"date",s.c.cD())
 r.q(0,"steps",s.d)
 r.q(0,"goal",s.e)

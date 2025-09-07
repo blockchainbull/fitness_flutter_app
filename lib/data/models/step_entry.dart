@@ -61,7 +61,7 @@ class StepEntry {
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
-      'user_id': userId,  
+      'userId': userId,  
       'date': date.toIso8601String(),  
       'steps': steps,
       'goal': goal,
