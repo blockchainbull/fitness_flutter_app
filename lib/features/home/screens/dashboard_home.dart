@@ -6,6 +6,7 @@ import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
 import 'package:user_onboarding/features/reports/screens/today_report_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:user_onboarding/features/tracking/screens/meal_logging_page.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'dart:async';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
@@ -13,6 +14,7 @@ import 'package:user_onboarding/data/services/metrics_service.dart';
 import 'package:user_onboarding/data/services/insights_service.dart';
 import 'package:user_onboarding/data/services/schedule_service.dart';
 import 'package:user_onboarding/features/home/widgets/dashboard_weight_goal_card.dart';
+import 'package:user_onboarding/features/home/widgets/daily_meal_card.dart';
 
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -351,16 +353,29 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                     child: _buildQuickActions(),
                   ),
                 ),
-              
-              // Today's Progress
+
               if (_todayProgressEnabled)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _buildTodayProgress(),
+                    padding: const EdgeInsets.all(16.0),
+                    child: DailyGoalsCard(
+                      userProfile: widget.userProfile,
+                      onTap: () {
+                        // Navigate to meal logging page
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EnhancedMealLoggingPage(
+                              userProfile: widget.userProfile,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
-              
+
+
               // Smart Insights
               if (_smartInsightsEnabled)
                 SliverToBoxAdapter(
@@ -554,83 +569,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   widget.onTabChange?.call(1);
                 },
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTodayProgress() {
-    if (_isLoadingMetrics) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Today's Progress",
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
-          children: [
-            _ProgressCard(
-              title: 'Steps',
-              value: todayProgress['steps'].toString(),
-              goal: todayProgress['stepsGoal'].toString(),
-              icon: Icons.directions_walk,
-              color: Colors.blue,
-              progress: todayProgress['steps'] / todayProgress['stepsGoal'],
-              onTap: _showStepsUpdateDialog,
-            ),
-            _ProgressCard(
-              title: 'Water',
-              value: '${todayProgress['water']}',
-              goal: '${todayProgress['waterGoal']} glasses',
-              icon: Icons.water_drop,
-              color: Colors.cyan,
-              progress: todayProgress['water'] / todayProgress['waterGoal'],
-              onTap: _showWaterUpdateDialog,
-            ),
-            _ProgressCard(
-              title: 'Active Time',
-              value: '${todayProgress['activeMinutes']}',
-              goal: '${todayProgress['activeGoal']} min',
-              icon: Icons.timer,
-              color: Colors.orange,
-              progress: todayProgress['activeMinutes'] / todayProgress['activeGoal'],
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ActivityLoggingMenu(
-                      userProfile: _currentUserProfile,
-                    ),
-                  ),
-                );
-              },
-            ),
-            _ProgressCard(
-              title: 'Calories',
-              value: todayProgress['calories'].toString(),
-              goal: todayProgress['caloriesGoal'].toString(),
-              icon: Icons.local_fire_department,
-              color: Colors.red,
-              progress: todayProgress['calories'] / todayProgress['caloriesGoal'],
-              onTap: null, // Calories are calculated, not directly editable
             ),
           ],
         ),
@@ -843,13 +781,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
       ),
     );
   }
-
-  Color _getProgressColor(double percentage) {
-    if (percentage < 30) return Colors.red;
-    if (percentage < 60) return Colors.orange;
-    if (percentage < 80) return Colors.yellow[700]!;
-    return Colors.green;
-  }
 }
 
 // ============== CUSTOM WIDGETS ==============
@@ -898,102 +829,98 @@ class _QuickActionButton extends StatelessWidget {
   }
 }
 
-class _ProgressCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final String goal;
-  final IconData icon;
-  final Color color;
-  final double progress;
-  final VoidCallback? onTap; 
-
-  const _ProgressCard({
-    required this.title,
-    required this.value,
-    required this.goal,
-    required this.icon,
-    required this.color,
-    required this.progress,
+class CompactDailyGoalsCard extends StatelessWidget {
+  final UserProfile userProfile;
+  final VoidCallback? onTap;
+  
+  const CompactDailyGoalsCard({
+    Key? key,
+    required this.userProfile,
     this.onTap,
-  });
-
+  }) : super(key: key);
+  
   @override
   Widget build(BuildContext context) {
-    return InkWell(  
+    final tdee = (userProfile.formData?['tdee'] ?? 2000).toDouble();
+    final weightGoal = userProfile.primaryGoal ?? 'maintain_weight';
+    
+    // Calculate goals
+    double dailyCalories;
+    if (weightGoal.toLowerCase().contains('lose')) {
+      dailyCalories = tdee * 0.82;
+    } else if (weightGoal.toLowerCase().contains('gain')) {
+      dailyCalories = tdee * 1.12;
+    } else {
+      dailyCalories = tdee;
+    }
+    
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: [
+              Colors.blue.shade400,
+              Colors.blue.shade600,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: Colors.blue.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 24),
-                Row(
-                  children: [
-                    Text(
-                      '${(progress * 100).toInt()}%',
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                      ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.local_fire_department,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Daily Calorie Goal',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
                     ),
-                    if (onTap != null)
-                      const Icon(Icons.edit, size: 14, color: Colors.grey),
-                  ],
-                ),
-              ],
-            ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${dailyCalories.round()} kcal',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                ' / $goal',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[500],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            backgroundColor: color.withOpacity(0.1),
-            valueColor: AlwaysStoppedAnimation(color),
-            minHeight: 4,
-          ),
-        ],
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white.withOpacity(0.7),
+              size: 20,
+            ),
+          ],
+        ),
       ),
-    )
     );
   }
 }
