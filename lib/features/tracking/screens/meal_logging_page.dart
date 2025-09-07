@@ -678,9 +678,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     
     return Column(
       children: [
-        // Daily goals card
-        _buildDailyGoalsCard(),
-        
         // Nutrition analysis card
         Container(
           margin: const EdgeInsets.all(16),
