@@ -20,6 +20,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
   WaterEntry? _todayEntry;
   bool _isLoading = true;
   bool _isSaving = false;
+  int _dailyGoal = 8; 
 
   // Constants for calculations
   static const double mlPerGlass = 250.0; // 250ml per glass
@@ -28,6 +29,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
   @override
   void initState() {
     super.initState();
+    _dailyGoal = widget.userProfile.waterIntakeGlasses ?? 8;
     _loadTodayEntry();
   }
 

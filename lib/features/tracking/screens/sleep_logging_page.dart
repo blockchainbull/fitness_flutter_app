@@ -27,6 +27,7 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
   double _qualityScore = 0.7;
   bool _isLoading = false;
   List<String> _sleepIssues = [];
+  double _targetHours = 8.0;
   
   SleepEntry? _existingEntry;
   bool _hasEntryForToday = false;
@@ -34,6 +35,7 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
   @override
   void initState() {
     super.initState();
+    _targetHours = widget.userProfile.sleepHours ?? 8.0;
     _initializeFromUserProfile();
     _loadExistingEntry();
   }

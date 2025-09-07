@@ -27,6 +27,11 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   Map<String, ExerciseLog> _exerciseLogs = {};
   bool _isLoading = false;
   DateTime _selectedDate = DateTime.now();
+
+  int _targetDuration = 30;
+  List<String> _preferredWorkouts = [];
+  String _fitnessLevel = 'Beginner';
+
   
   // Exercise history and smart defaults
   List<Map<String, dynamic>> _exerciseHistory = [];
@@ -127,6 +132,9 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   @override
   void initState() {
     super.initState();
+    _targetDuration = widget.userProfile.workoutDuration ?? 30;
+    _preferredWorkouts = widget.userProfile.preferredWorkouts ?? [];
+    _fitnessLevel = widget.userProfile.fitnessLevel ?? 'Beginner';
     _loadExerciseData();
     _loadCustomExercises();
   }

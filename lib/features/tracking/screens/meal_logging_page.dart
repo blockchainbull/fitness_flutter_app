@@ -31,6 +31,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   Map<String, dynamic>? _nutritionData;
   List<Map<String, dynamic>> _foodItems = [];
   bool _useMultiLineEntry = false;
+  int _dailyMealGoal = 3;
   
   
   // Common meal combos for quick selection
@@ -60,6 +61,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   @override
   void initState() {
     super.initState();
+    _dailyMealGoal = widget.userProfile.dailyMealsCount ?? 3;
     _setMealTypeByTime();
   }
   

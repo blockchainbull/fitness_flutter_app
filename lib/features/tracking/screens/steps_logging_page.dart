@@ -32,6 +32,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   void initState() {
     super.initState();
     _userStepGoal = (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 10000;
+    _goalController.text = _userStepGoal.toString();
     _checkAndShowGoalModal();
   }
 
