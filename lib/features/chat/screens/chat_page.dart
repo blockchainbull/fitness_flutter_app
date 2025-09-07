@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class ChatPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -288,12 +289,48 @@ class _ChatPageState extends State<ChatPage> {
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
-                      return MessageBubble(
-                        text: message['text'],
-                        isUser: message['isUser'],
-                        timestamp: message['timestamp'],
-                        type: message['type'],
-                        userProfile: widget.userProfile,
+                      final showDateDivider = _shouldShowDateDivider(index);
+                      return Column(
+                        children: [
+                          if (showDateDivider)
+                            Container(
+                              margin: const EdgeInsets.symmetric(vertical: 16),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Divider(
+                                      color: Colors.grey[300],
+                                      height: 1,
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: Text(
+                                      _formatDateDivider(message['timestamp']),
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Divider(
+                                      color: Colors.grey[300],
+                                      height: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          MessageBubble(
+                            text: message['text'],
+                            isUser: message['isUser'],
+                            timestamp: message['timestamp'],
+                            type: message['type'],
+                            userProfile: widget.userProfile,
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -500,6 +537,37 @@ class _ChatPageState extends State<ChatPage> {
         break;
     }
   }
+
+  bool _shouldShowDateDivider(int index) {
+    if (index == 0) return true; // Always show for first message
+    
+    final currentMessage = _messages[index];
+    final previousMessage = _messages[index - 1];
+    
+    final currentDate = currentMessage['timestamp'] as DateTime;
+    final previousDate = previousMessage['timestamp'] as DateTime;
+    
+    // Show divider if messages are from different days
+    return currentDate.day != previousDate.day ||
+          currentDate.month != previousDate.month ||
+          currentDate.year != previousDate.year;
+  }
+
+  // Add this method to format the date for the divider
+  String _formatDateDivider(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date).inDays;
+    
+    if (difference == 0) {
+      return 'Today';
+    } else if (difference == 1) {
+      return 'Yesterday';
+    } else if (difference < 7) {
+      return DateFormat('EEEE').format(date); // Day name
+    } else {
+      return DateFormat('MMMM d, yyyy').format(date); // Full date
+    }
+}
 
   void _showFrameworkDetails() {
     if (_userFramework == null) {

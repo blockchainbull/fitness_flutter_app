@@ -222,6 +222,7 @@ class ApiService {
     try {
       print('[ApiService] Sending chat message for user: $userId');
       
+      // Add timeout and better error handling
       final response = await http.post(
         Uri.parse('$baseUrl/chat'),
         headers: headers,
@@ -229,21 +230,42 @@ class ApiService {
           'user_id': userId,
           'message': message,
         }),
+      ).timeout(
+        const Duration(seconds: 15), // Reduce timeout for better UX
+        onTimeout: () {
+          print('[ApiService] Request timed out');
+          throw Exception('Request timed out - please check your connection');
+        },
       );
 
       print('[ApiService] Chat response status: ${response.statusCode}');
+      print('[ApiService] Chat response body: ${response.body}'); // Add this for debugging
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['response'] ?? 'Sorry, I couldn\'t generate a response.';
+        // Check if response was successful
+        if (data['success'] == true) {
+          return data['response'] ?? 'Sorry, I couldn\'t generate a response.';
+        } else {
+          // If backend returned an error, show it
+          print('[ApiService] Backend error: ${data['error']}');
+          return data['response'] ?? 'I\'m having trouble connecting right now. Please try again.';
+        }
       } else {
+        print('[ApiService] HTTP error: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to send chat message: ${response.body}');
       }
     } catch (e) {
       print('[ApiService] Chat error: $e');
+      // More specific error messages
+      if (e.toString().contains('SocketException')) {
+        return 'No internet connection. Please check your network settings.';
+      } else if (e.toString().contains('timeout')) {
+        return 'Connection timed out. Please try again.';
+      }
       return 'I\'m having trouble connecting right now. Please try again later.';
     }
-  }
+}
 
   Future<Map<String, dynamic>> getUserChatContext(String userId) async {
     try {
