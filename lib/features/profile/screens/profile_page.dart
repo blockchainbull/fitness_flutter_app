@@ -1071,16 +1071,16 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         // BMI Row
         _buildMetricRowResponsive(
           'BMI', 
-          _calculateBMI()?.toStringAsFixed(1) ?? 'Not calculated',
-          _getBMICategory(_calculateBMI() ?? 0),
-          _getBMIColor(_calculateBMI() ?? 0),
+          currentProfile.bmi?.toStringAsFixed(1) ?? 'Not calculated',
+          _getBMICategory(currentProfile.bmi ?? 0),
+          _getBMIColor(currentProfile.bmi ?? 0),
           isSmallScreen,
         ),
         
         // BMR Row
         _buildMetricRowResponsive(
           'BMR', 
-          '${_calculateBMR()?.toStringAsFixed(0) ?? 0} cal/day',
+          '${currentProfile.bmr?.toStringAsFixed(0) ?? 0} cal/day',
           'Basal Metabolic Rate',
           null,
           isSmallScreen,
@@ -1089,7 +1089,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         // TDEE Row
         _buildMetricRowResponsive(
           'TDEE', 
-          '${_calculateTDEE()?.toStringAsFixed(0) ?? 0} cal/day',
+          '${currentProfile.tdee?.toStringAsFixed(0) ?? 0} cal/day',
           'Total Daily Energy Expenditure',
           null,
           isSmallScreen,
@@ -1335,22 +1335,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     return descriptions[normalizedLevel] ?? 'Activity level set';
   }
 
-  String _getActivityDescription(String? level) {
-    if (level == null || level.isEmpty) return 'Activity level not specified';
-    
-    final normalizedLevel = level.toLowerCase().replaceAll(' ', '_');
-    
-    final Map<String, String> descriptions = {
-      'sedentary': 'Little or no exercise',
-      'lightly_active': 'Exercise 1-3 days/week',
-      'moderately_active': 'Exercise 3-5 days/week',
-      'very_active': 'Exercise 6-7 days/week',
-      'extra_active': 'Very intense exercise daily',
-    };
-    
-    return descriptions[normalizedLevel] ?? 'Activity level: $level';
-  }
-
   IconData _getActivityIcon(String? level) {
     if (level == null || level.isEmpty) return Icons.help_outline;
     
@@ -1381,50 +1365,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     };
     
     return colors[normalizedLevel] ?? Colors.blue;
-  }
-
- // Calculation Methods
- double? _calculateBMI() {
-   final height = currentProfile.height;
-   // Use current weight from weight_entries if available
-   final weight = currentWeight ?? currentProfile.weight;
-   if (height != null && height > 0 && weight != null && weight > 0) {
-     final heightInMeters = height / 100;
-     return weight / (heightInMeters * heightInMeters);
-   }
-   return null;
- }
-
- double? _calculateBMR() {
-   final height = currentProfile.height;
-   // Use current weight from weight_entries if available
-   final weight = currentWeight ?? currentProfile.weight;
-   final age = currentProfile.age;
-   final gender = currentProfile.gender;
-   
-   if (height != null && weight != null && age != null && gender != null) {
-     if (gender.toLowerCase() == 'male') {
-       return (10 * weight) + (6.25 * height) - (5 * age) + 5;
-     } else {
-       return (10 * weight) + (6.25 * height) - (5 * age) - 161;
-     }
-   }
-   return null;
- }
-
- double? _calculateTDEE() {
-    final bmr = _calculateBMR();
-    if (bmr != null) {
-      final activityMultipliers = {
-        'sedentary': 1.2,
-        'lightly_active': 1.375,
-        'moderately_active': 1.55,
-        'very_active': 1.725,
-        'extra_active': 1.9,
-      };
-      return bmr * (activityMultipliers[currentProfile.activityLevel] ?? 1.55);
-   }
-   return null;
   }
 
   // Get trend message based on goal

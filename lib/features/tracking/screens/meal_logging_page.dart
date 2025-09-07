@@ -33,8 +33,12 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   List<Map<String, dynamic>> _foodItems = [];
   bool _useMultiLineEntry = false;
   int _dailyMealGoal = 3;
-  late double _dailyCalorieGoal;
-  late Map<String, double> _macroGoals;
+  double _dailyCalorieGoal = 2000;
+  Map<String, double> _macroGoals = {
+    'protein': 150.0,
+    'carbs': 225.0,
+    'fat': 67.0,
+  };
   
   
   // Common meal combos for quick selection
@@ -64,73 +68,89 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   @override
   void initState() {
     super.initState();
-    _calculateDailyGoals();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _calculateDailyGoals();
+      if (mounted) setState(() {});
+    });
     _dailyMealGoal = widget.userProfile.dailyMealsCount ?? 3;
     _setMealTypeByTime();
   }
 
   void _calculateDailyGoals() {
-    // Get TDEE from user profile
-    final tdee = widget.userProfile.formData?['tdee']?.toDouble() ?? 2000.0;
-    final weightGoal = widget.userProfile.primaryGoal ?? 'maintain_weight';
-    
-    // Calculate daily calorie goal based on weight goal
-    switch (weightGoal.toLowerCase()) {
-      case 'lose_weight':
-      case 'lose weight':
-      case 'weight_loss':
+    try {
+      // Safely get TDEE with default value
+      final tdee = (widget.userProfile.formData?['tdee'] ?? 2000).toDouble();
+      final weightGoal = widget.userProfile.primaryGoal ?? 'maintain_weight';
+      
+      // Calculate daily calorie goal
+      if (weightGoal.toLowerCase().contains('lose')) {
         _dailyCalorieGoal = tdee * 0.82; // 18% deficit
-        break;
-      case 'gain_weight':
-      case 'gain weight':
-      case 'muscle_gain':
-      case 'weight_gain':
-        _dailyCalorieGoal = tdee * 1.12; // 12% surplus
-        break;
-      default:
-        _dailyCalorieGoal = tdee; // maintenance
+      } else if (weightGoal.toLowerCase().contains('gain')) {
+        _dailyCalorieGoal = tdee * 1.12; // 12% surplus  
+      } else {
+        _dailyCalorieGoal = tdee;
+      }
+      
+      // Initialize macro goals map if null
+      _macroGoals ??= {};
+      
+      // Calculate macros
+      _calculateMacroGoals();
+      
+    } catch (e) {
+      print('Error calculating goals: $e');
+      // Set default values to prevent crashes
+      _dailyCalorieGoal = 2000;
+      _macroGoals = {
+        'protein': 150.0,
+        'carbs': 225.0,
+        'fat': 67.0,
+      };
     }
-    
-    // Calculate macro goals
-    _calculateMacroGoals();
   }
   
   void _calculateMacroGoals() {
-    final weightGoal = widget.userProfile.primaryGoal ?? 'maintain_weight';
-    
-    // Adjust macro percentages based on goal
-    double proteinPercent;
-    double carbPercent;
-    double fatPercent;
-    
-    if (weightGoal.toLowerCase().contains('lose')) {
-      // Higher protein for weight loss to preserve muscle
-      proteinPercent = 0.30;
-      carbPercent = 0.35;
-      fatPercent = 0.35;
-    } else if (weightGoal.toLowerCase().contains('gain')) {
-      // Higher carbs for muscle gain
-      proteinPercent = 0.25;
-      carbPercent = 0.50;
-      fatPercent = 0.25;
-    } else {
-      // Balanced for maintenance
-      proteinPercent = 0.25;
-      carbPercent = 0.45;
-      fatPercent = 0.30;
+    try {
+      final weightGoal = widget.userProfile.primaryGoal ?? 'maintain_weight';
+      
+      double proteinPercent;
+      double carbPercent;
+      double fatPercent;
+      
+      if (weightGoal.toLowerCase().contains('lose')) {
+        proteinPercent = 0.30;
+        carbPercent = 0.35;
+        fatPercent = 0.35;
+      } else if (weightGoal.toLowerCase().contains('gain')) {
+        proteinPercent = 0.25;
+        carbPercent = 0.50;
+        fatPercent = 0.25;
+      } else {
+        proteinPercent = 0.25;
+        carbPercent = 0.45;
+        fatPercent = 0.30;
+      }
+      
+      // Calculate with null safety
+      final proteinCalories = _dailyCalorieGoal * proteinPercent;
+      final carbCalories = _dailyCalorieGoal * carbPercent;
+      final fatCalories = _dailyCalorieGoal * fatPercent;
+      
+      _macroGoals = {
+        'protein': proteinCalories / 4,
+        'carbs': carbCalories / 4,
+        'fat': fatCalories / 9,
+      };
+    } catch (e) {
+      print('Error calculating macros: $e');
+      // Set defaults
+      _macroGoals = {
+        'protein': 150.0,
+        'carbs': 225.0,
+        'fat': 67.0,
+      };
     }
-    
-    // Calculate grams from percentages
-    final proteinCalories = _dailyCalorieGoal * proteinPercent;
-    final carbCalories = _dailyCalorieGoal * carbPercent;
-    final fatCalories = _dailyCalorieGoal * fatPercent;
-    
-    _macroGoals = {
-      'protein': proteinCalories / 4, // 4 cal per gram
-      'carbs': carbCalories / 4,
-      'fat': fatCalories / 9, // 9 cal per gram
-    };
-  }
+}
   
   void _setMealTypeByTime() {
     final hour = DateTime.now().hour;
@@ -567,6 +587,90 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
+  Future<void> _analyzeMeal() async {
+    if (widget.userProfile.id == null || widget.userProfile.id!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User ID not found. Please log in again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isAnalyzing = true);
+
+    try {
+      String mealDescription;
+      String quantity = '1 serving';
+      
+      if (_useMultiLineEntry) {
+        mealDescription = _multiLineController.text;
+      } else {
+        // Combine individual items
+        mealDescription = _foodItems
+            .map((item) => '${item['quantity']} ${item['food']}')
+            .join(', ');
+      }
+
+      // Use the existing analyzeMeal method with Map parameter
+      final response = await _apiService.analyzeMeal({
+        'user_id': widget.userProfile.id,
+        'food_item': mealDescription,
+        'quantity': quantity,
+        'meal_type': _selectedMealType,
+        'meal_date': DateTime.now().toIso8601String(),
+      });
+
+      setState(() {
+        // Handle the response structure properly
+        if (response.containsKey('meal')) {
+          _nutritionData = response['meal'];
+        } else if (response.containsKey('data')) {
+          _nutritionData = response['data'];
+        } else {
+          _nutritionData = response;
+        }
+        
+        _isAnalyzing = false;
+        
+        // Debug logging to see the structure
+        print('Nutrition Data Structure: ${_nutritionData?.keys.toList()}');
+        print('Calories: ${_nutritionData?['calories']}');
+        print('Protein: ${_nutritionData?['protein_g']} or ${_nutritionData?['protein']}');
+        print('Carbs: ${_nutritionData?['carbs_g']} or ${_nutritionData?['carbs']}');
+        print('Fat: ${_nutritionData?['fat_g']} or ${_nutritionData?['fat']}');
+      });
+
+      String dataSource = _nutritionData?['data_source'] ?? 'Unknown';
+      print('Data source used: $dataSource');
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Meal analyzed successfully! (${_nutritionData?['calories']?.round() ?? 0} calories)'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Clear the form after successful analysis
+      _multiLineController.clear();
+      _quantityController.clear();
+      _foodItems.clear();
+      
+    } catch (e) {
+      setState(() => _isAnalyzing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error analyzing meal: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      print('Error details: $e');
+    }
+  }
+
   Widget _buildResults() {
     if (_nutritionData == null) return const SizedBox.shrink();
     
@@ -667,173 +771,354 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   }
 
   Widget _buildDailyGoalsCard() {
-    final tdee = widget.userProfile.formData?['tdee']?.toDouble() ?? 2000.0;
+    // Safely get values with null checks
+    final tdee = (widget.userProfile.formData?['tdee'] ?? 2000).toDouble();
     final weightGoal = widget.userProfile.primaryGoal ?? 'maintain_weight';
     
+    // Calculate goals with null safety
+    _calculateDailyGoals();
+    
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.blue.shade50,
-            Colors.blue.shade100.withOpacity(0.5),
-          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Colors.grey.shade50,
+          ],
         ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          // Header
-          Row(
-            children: [
-              Icon(Icons.track_changes, color: Colors.blue.shade700, size: 24),
-              const SizedBox(width: 8),
-              const Text(
-                'Daily Nutrition Goals',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getGoalColor(weightGoal),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _getGoalLabel(weightGoal),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Summary table matching your image
+          // Modern Header with Gradient
           Container(
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.grey.shade900,
-              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: _getGradientColors(weightGoal),
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
             ),
             child: Column(
               children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  child: const Text(
-                    'Summary:',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.local_fire_department,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Daily Nutrition Goals',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _getGoalDescription(weightGoal),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getGoalIcon(weightGoal),
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _getGoalLabel(weightGoal),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 20),
                 
-                // Table rows
-                _buildGoalRow('Weight Goal', 'Calorie Goal', 'Purpose'),
-                const Divider(height: 1, color: Colors.grey),
-                
-                if (weightGoal.toLowerCase().contains('lose'))
-                  _buildGoalRow(
-                    'lose_weight',
-                    'TDEE - 18%',
-                    'Creates deficit for fat loss (~0.5-0.7 kg/week)',
-                  )
-                else if (weightGoal.toLowerCase().contains('gain'))
-                  _buildGoalRow(
-                    'gain_weight',
-                    'TDEE + 12%',
-                    'Creates surplus for muscle gain (~0.3-0.5 kg/week)',
-                  )
-                else
-                  _buildGoalRow(
-                    'maintain_weight',
-                    'TDEE',
-                    'Maintains current weight',
-                  ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Calorie and macro targets
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
+                // Main Calorie Display
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Column(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Daily Calories',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${_dailyCalorieGoal.round()}',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                      Text(
-                        'TDEE: ${tdee.round()}',
-                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      Column(
+                        children: [
+                          const Text(
+                            'Daily Calorie Target',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '${_dailyCalorieGoal.round()}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'kcal',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'TDEE: ${tdee.round()} kcal',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           
-          const SizedBox(height: 12),
-          
-          // Macro targets
-          Row(
-            children: [
-              Expanded(
-                child: _buildMacroTarget(
-                  'Protein',
-                  _macroGoals['protein']?.round() ?? 0,
-                  Colors.blue,
+          // Macro Targets Section
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.pie_chart_outline,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'MACRO TARGETS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildMacroTarget(
-                  'Carbs',
-                  _macroGoals['carbs']?.round() ?? 0,
-                  Colors.orange,
+                const SizedBox(height: 16),
+                
+                // Beautiful Macro Cards
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildModernMacroCard(
+                        'Protein',
+                        _macroGoals['protein']?.round() ?? 0,
+                        const Color(0xFF4A90E2),
+                        Icons.fitness_center,
+                        '${((_macroGoals['protein'] ?? 0) * 100 / (_dailyCalorieGoal / 4)).round()}%',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildModernMacroCard(
+                        'Carbs',
+                        _macroGoals['carbs']?.round() ?? 0,
+                        const Color(0xFFF5A623),
+                        Icons.grain,
+                        '${((_macroGoals['carbs'] ?? 0) * 100 / (_dailyCalorieGoal / 4)).round()}%',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildModernMacroCard(
+                        'Fats',
+                        _macroGoals['fat']?.round() ?? 0,
+                        const Color(0xFF9B59B6),
+                        Icons.water_drop,
+                        '${((_macroGoals['fat'] ?? 0) * 100 / (_dailyCalorieGoal / 9)).round()}%',
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildMacroTarget(
-                  'Fat',
-                  _macroGoals['fat']?.round() ?? 0,
-                  Colors.purple,
+                
+                // Info Section
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.blue.shade100,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: Colors.blue.shade600,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _getInfoText(weightGoal),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade700,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernMacroCard(
+    String label,
+    int grams,
+    Color color,
+    IconData icon,
+    String percentage,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${grams}g',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              percentage,
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.bold,
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -1503,12 +1788,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     return Colors.blue;
   }
 
-  String _getGoalLabel(String goal) {
-    if (goal.toLowerCase().contains('lose')) return 'Weight Loss';
-    if (goal.toLowerCase().contains('gain')) return 'Muscle Gain';
-    return 'Maintenance';
-  }
-
   void _addFoodItem() {
     if (_multiLineController.text.isNotEmpty) {
       setState(() {
@@ -1554,88 +1833,43 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     }
   }
 
-  Future<void> _analyzeMeal() async {
-    if (widget.userProfile.id == null || widget.userProfile.id!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('User ID not found. Please log in again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+  List<Color> _getGradientColors(String goal) {
+    if (goal.toLowerCase().contains('lose')) {
+      return [const Color(0xFFFF6B6B), const Color(0xFFFF8E53)];
+    } else if (goal.toLowerCase().contains('gain')) {
+      return [const Color(0xFF4FACFE), const Color(0xFF00F2FE)];
     }
+    return [const Color(0xFF667EEA), const Color(0xFF764BA2)];
+  }
 
-    setState(() => _isAnalyzing = true);
+  IconData _getGoalIcon(String goal) {
+    if (goal.toLowerCase().contains('lose')) return Icons.trending_down;
+    if (goal.toLowerCase().contains('gain')) return Icons.trending_up;
+    return Icons.trending_flat;
+  }
 
-    try {
-      String mealDescription;
-      String quantity = '1 serving';
-      
-      if (_useMultiLineEntry) {
-        mealDescription = _multiLineController.text;
-      } else {
-        // Combine individual items
-        mealDescription = _foodItems
-            .map((item) => '${item['quantity']} ${item['food']}')
-            .join(', ');
-      }
-
-      // Use the existing analyzeMeal method with Map parameter
-      final response = await _apiService.analyzeMeal({
-        'user_id': widget.userProfile.id,
-        'food_item': mealDescription,
-        'quantity': quantity,
-        'meal_type': _selectedMealType,
-        'meal_date': DateTime.now().toIso8601String(),
-      });
-
-      setState(() {
-        // Handle the response structure properly
-        if (response.containsKey('meal')) {
-          _nutritionData = response['meal'];
-        } else if (response.containsKey('data')) {
-          _nutritionData = response['data'];
-        } else {
-          _nutritionData = response;
-        }
-        
-        _isAnalyzing = false;
-        
-        // Debug logging to see the structure
-        print('Nutrition Data Structure: ${_nutritionData?.keys.toList()}');
-        print('Calories: ${_nutritionData?['calories']}');
-        print('Protein: ${_nutritionData?['protein_g']} or ${_nutritionData?['protein']}');
-        print('Carbs: ${_nutritionData?['carbs_g']} or ${_nutritionData?['carbs']}');
-        print('Fat: ${_nutritionData?['fat_g']} or ${_nutritionData?['fat']}');
-      });
-
-      String dataSource = _nutritionData?['data_source'] ?? 'Unknown';
-      print('Data source used: $dataSource');
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Meal analyzed successfully! (${_nutritionData?['calories']?.round() ?? 0} calories)'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-
-      // Clear the form after successful analysis
-      _multiLineController.clear();
-      _quantityController.clear();
-      _foodItems.clear();
-      
-    } catch (e) {
-      setState(() => _isAnalyzing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error analyzing meal: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      print('Error details: $e');
+  String _getGoalDescription(String goal) {
+    if (goal.toLowerCase().contains('lose')) {
+      return 'Caloric deficit for healthy weight loss';
+    } else if (goal.toLowerCase().contains('gain')) {
+      return 'Caloric surplus for muscle building';
     }
+    return 'Balanced intake for weight maintenance';
+  }
+
+  String _getInfoText(String goal) {
+    if (goal.toLowerCase().contains('lose')) {
+      return 'Your plan creates an 18% caloric deficit for sustainable fat loss of 0.5-0.7 kg per week.';
+    } else if (goal.toLowerCase().contains('gain')) {
+      return 'Your plan includes a 12% caloric surplus to support muscle growth of 0.3-0.5 kg per week.';
+    }
+    return 'Your plan maintains your current weight with balanced nutrition.';
+  }
+
+  String _getGoalLabel(String goal) {
+    if (goal.toLowerCase().contains('lose')) return 'Fat Loss';
+    if (goal.toLowerCase().contains('gain')) return 'Muscle Gain';
+    return 'Maintenance';
   }
 
   void _viewHistory() {
