@@ -107159,7 +107159,7 @@ aDu(a){var s=null
 return this.Om(s,s,s,a,s,s,s)},
 lw(){var s=this,r=A.F(t.N,t.z),q=s.a
 if(q!=null)r.q(0,"id",q)
-r.q(0,"user_id",s.b)
+r.q(0,"userid",s.b)
 r.q(0,"date",s.c.cD())
 r.q(0,"steps",s.d)
 r.q(0,"goal",s.e)
@@ -108509,6 +108509,7 @@ return A.l(A.lC(i,B.E.dB(A.Q(["user_id",g,"food_item",f,"quantity",e,"meal_type"
 case 7:m=a2
 if(m.b===200){i=m
 l=B.E.bC(0,A.bK(A.bJ(i.e)).aT(0,i.w),null)
+A.q("Full response: "+A.f(m))
 if(J.B(l,"components")!=null)A.q("Analyzed "+A.f(J.bh(J.B(l,"components")))+" food items")
 q=l
 s=1

@@ -1225,7 +1225,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+        print('Full response: $response');
         // Handle multi-food response
         if (data['components'] != null) {
           print('Analyzed ${data['components'].length} food items');
