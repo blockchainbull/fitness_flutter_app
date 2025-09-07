@@ -121,7 +121,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
           'caloriesConsumed': metrics['caloriesConsumed'],
           'netCalories': metrics['netCalories'],
         };
-        _isLoadingMetrics = false;
+        _isLoadingMetrics = true;
       });
     } catch (e) {
       print('Error loading today progress: $e');
