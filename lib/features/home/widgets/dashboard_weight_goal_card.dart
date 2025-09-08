@@ -239,17 +239,25 @@ class DashboardWeightGoalCard extends StatelessWidget {
   }
   
   String _formatTimeline(String timeline) {
-    switch (timeline.toLowerCase()) {
-      case '1_month':
+    switch (timeline.toLowerCase().replaceAll('_', '')) {
+      case '1month':
         return '1 Month';
-      case '3_months':
+      case '3months':
         return '3 Months';
-      case '6_months':
+      case '6months':
         return '6 Months';
-      case '1_year':
+      case '1year':
         return '1 Year';
+      case '12weeks':
+        return '12 Weeks';
+      case '24weeks':
+        return '24 Weeks';
       default:
-        return timeline;
+        // For any other format, replace underscores with spaces and capitalize
+        return timeline.replaceAll('_', ' ').split(' ').map((word) {
+          if (word.isEmpty) return '';
+          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+        }).join(' ');
     }
   }
 }

@@ -427,7 +427,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
           Row(
             children: [
               Expanded(
-                child: _buildCleanNutrientBox(
+                child: _buildCompactNutrientBox(
                   'Protein',
                   '${_dailyTotals['protein_g']?.toStringAsFixed(1) ?? '0'}g',
                   Colors.red[600]!,
@@ -435,7 +435,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildCleanNutrientBox(
+                child: _buildCompactNutrientBox(
                   'Carbs',
                   '${_dailyTotals['carbs_g']?.toStringAsFixed(1) ?? '0'}g',
                   Colors.orange[600]!,
@@ -443,7 +443,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildCleanNutrientBox(
+                child: _buildCompactNutrientBox(
                   'Fat',
                   '${_dailyTotals['fat_g']?.toStringAsFixed(1) ?? '0'}g',
                   Colors.blue[600]!,

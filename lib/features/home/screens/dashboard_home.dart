@@ -1,14 +1,14 @@
 // lib/features/home/screens/dashboard_home.dart
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
 import 'package:user_onboarding/features/reports/screens/today_report_screen.dart';
-import 'package:provider/provider.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_logging_page.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
-import 'dart:async';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 import 'package:user_onboarding/data/services/metrics_service.dart';
 import 'package:user_onboarding/data/services/insights_service.dart';
@@ -17,6 +17,8 @@ import 'package:user_onboarding/features/home/widgets/dashboard_weight_goal_card
 import 'package:user_onboarding/features/home/widgets/daily_meal_card.dart';
 import 'package:user_onboarding/features/home/widgets/compact_water_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/compact_step_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/compact_exercise_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/compact_sleep_tracker.dart';
 
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -46,12 +48,14 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   
   // Feature flags - turn these on as we implement each section
   final bool _quickActionsEnabled = true;
-  final bool _todayProgressEnabled = true;
+  final bool _dailyMacros = true;
   final bool _smartInsightsEnabled = true;
   final bool _upcomingEventsEnabled = true;
   final bool _goalProgressEnabled = true;
   final bool _waterTrackerEnabled = true;
   final bool _stepTrackerEnabled = true;
+  final bool _exerciseTrackerEnabled = true;
+  final bool _sleepTrackerEnabled = true;
   
   // Data placeholders
   Map<String, dynamic> todayProgress = {
@@ -97,7 +101,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
 
   Future<void> _loadInitialData() async {
     await Future.wait([
-      if (_todayProgressEnabled) _loadTodayProgress(),
+      if (_dailyMacros) _loadTodayProgress(),
       if (_smartInsightsEnabled) _generateSmartInsights(),
     ]);
     
@@ -107,7 +111,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   }
 
   Future<void> _loadTodayProgress() async {
-    if (!_todayProgressEnabled) return;
+    if (!_dailyMacros) return;
     
     setState(() => _isLoadingMetrics = true);
     
@@ -188,123 +192,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     }
   }
 
-  Future<void> _quickUpdateWater(int glasses) async {
-    try {
-      await _metricsService.updateWater(_currentUserProfile.id!, glasses);
-      await _loadTodayProgress();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Water intake updated: $glasses glasses')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to update water intake')),
-      );
-    }
-  }
-
-  Future<void> _quickUpdateSteps(int steps) async {
-    try {
-      await _metricsService.updateSteps(_currentUserProfile.id!, steps);
-      await _loadTodayProgress();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Steps updated: $steps')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to update steps')),
-      );
-    }
-  }
-
-  void _showWaterUpdateDialog() {
-    int currentGlasses = todayProgress['water'] ?? 0;
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Update Water Intake'),
-        content: StatefulBuilder(
-          builder: (context, setDialogState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$currentGlasses glasses',
-                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: currentGlasses > 0
-                        ? () => setDialogState(() => currentGlasses--)
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline, size: 36),
-                    color: Colors.red,
-                  ),
-                  const SizedBox(width: 20),
-                  IconButton(
-                    onPressed: () => setDialogState(() => currentGlasses++),
-                    icon: const Icon(Icons.add_circle_outline, size: 36),
-                    color: Colors.green,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _quickUpdateWater(currentGlasses);
-            },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showStepsUpdateDialog() {
-    final controller = TextEditingController(
-      text: todayProgress['steps'].toString(),
-    );
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Update Steps'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Step Count',
-            suffixText: 'steps',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final steps = int.tryParse(controller.text) ?? 0;
-              Navigator.pop(context);
-              _quickUpdateSteps(steps);
-            },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _getGreeting() {
     final hour = DateTime.now().hour;
     final name = _currentUserProfile.name.split(' ')[0];
@@ -348,17 +235,9 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                       child: _buildGoalProgress(),
                     ),
                   ),
-              
-              // Quick Actions
-              if (_quickActionsEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildQuickActions(),
-                  ),
-                ),
 
-              if (_todayProgressEnabled)
+              // Daily Macros
+              if (_dailyMacros)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -407,6 +286,33 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   ),
                 ),
 
+              if (_exerciseTrackerEnabled)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: CompactExerciseTracker(
+                      userProfile: _currentUserProfile,
+                      onUpdate: () {
+                        _loadTodayProgress();
+                      },
+                    ),
+                  ),
+                ),
+
+              // Sleep Tracker  
+              if (_sleepTrackerEnabled)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: CompactSleepTracker(
+                      userProfile: _currentUserProfile,
+                      onUpdate: () {
+                        _loadTodayProgress();
+                      },
+                    ),
+                  ),
+                ),
+
               // Smart Insights
               if (_smartInsightsEnabled)
                 SliverToBoxAdapter(
@@ -425,7 +331,14 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   ),
                 ),
               
-              
+              // Quick Actions
+              if (_quickActionsEnabled)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _buildQuickActions(),
+                  ),
+                ),
               
               // Bottom padding
               const SliverToBoxAdapter(
@@ -872,7 +785,7 @@ class CompactDailyGoalsCard extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
-    final tdee = (userProfile.formData?['tdee'] ?? 2000).toDouble();
+    final tdee = (userProfile.tdee ?? 2000).toDouble();
     final weightGoal = userProfile.primaryGoal ?? 'maintain_weight';
     
     // Calculate goals

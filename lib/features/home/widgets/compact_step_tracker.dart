@@ -62,7 +62,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     try {
       final entry = await StepRepository.getTodayStepEntry(widget.userProfile.id!);
       final stepGoal = widget.userProfile.dailyStepGoal ?? 
-                      (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 
+                      (widget.userProfile.dailyStepGoal as int?) ?? 
                       10000;
       
       setState(() {
