@@ -1,13 +1,16 @@
 // lib/features/home/widgets/dashboard_weight_goal_card.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 
 class DashboardWeightGoalCard extends StatelessWidget {
   final UserProfile userProfile;
+  final VoidCallback? onUpdate;
   
   const DashboardWeightGoalCard({
     Key? key,
     required this.userProfile,
+    this.onUpdate,
   }) : super(key: key);
   
   @override
@@ -84,13 +87,50 @@ class DashboardWeightGoalCard extends StatelessWidget {
           
           const SizedBox(height: 16),
           
-          // Weight stats
+          // Weight stats and button
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildWeightStat('Current', currentWeight, Colors.blue),
-              if (weightGoal != 'maintain_weight') 
-                _buildWeightStat('Target', targetWeight, Colors.green),
+              // Weight stats
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildWeightStat('Current', currentWeight, Colors.blue),
+                    if (weightGoal != 'maintain_weight') 
+                      _buildWeightStat('Target', targetWeight, Colors.green),
+                  ],
+                ),
+              ),
+              // Log Weight button
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => WeightLoggingPage(
+                        userProfile: userProfile,
+                      ),
+                    ),
+                  ).then((_) {
+                    // Call the refresh callback if provided
+                    onUpdate?.call();
+                  });
+                },
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Log'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _getWeightGoalColor(weightGoal),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
             ],
           ),
           

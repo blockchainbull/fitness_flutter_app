@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
@@ -19,6 +21,8 @@ import 'package:user_onboarding/features/home/widgets/compact_water_tracker.dart
 import 'package:user_onboarding/features/home/widgets/compact_step_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/compact_exercise_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/compact_sleep_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/compact_supplements_tracker.dart';
+
 
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -56,6 +60,8 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   final bool _stepTrackerEnabled = true;
   final bool _exerciseTrackerEnabled = true;
   final bool _sleepTrackerEnabled = true;
+  bool _supplementsTrackerEnabled = true;
+  bool _hasSupplementsSetup = false;
   
   // Data placeholders
   Map<String, dynamic> todayProgress = {
@@ -78,6 +84,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     _currentUserProfile = widget.userProfile;
     WidgetsBinding.instance.addObserver(this);
     _setupListeners();
+    _checkSupplementsSetup();
     _loadInitialData();
   }
 
@@ -97,6 +104,37 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
         _loadInitialData();
       }
     });
+  }
+
+  Future<void> _checkSupplementsSetup() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = _currentUserProfile.id ?? '';
+      
+      // Check if supplements are set up (not disabled and has supplements list)
+      final isDisabled = prefs.getBool('supplement_setup_${userId}_disabled') ?? false;
+      if (isDisabled) {
+        setState(() => _hasSupplementsSetup = false);
+        return;
+      }
+      
+      // Check for setup flag or supplements list
+      final hasSetup = prefs.getBool('supplement_setup_$userId') ?? false;
+      final supplementsJson = prefs.getString('supplement_setup_${userId}_list');
+      
+      if (hasSetup || (supplementsJson != null && supplementsJson.isNotEmpty)) {
+        setState(() => _hasSupplementsSetup = true);
+        return;
+      }
+      
+      // Check database as fallback
+      final apiService = ApiService();
+      final preferences = await apiService.getSupplementPreferences(userId);
+      setState(() => _hasSupplementsSetup = preferences.isNotEmpty);
+    } catch (e) {
+      print('Error checking supplement setup: $e');
+      setState(() => _hasSupplementsSetup = false);
+    }
   }
 
   Future<void> _loadInitialData() async {
@@ -226,15 +264,17 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
               ),
 
               // Goal Progress
-              if(_goalProgressEnabled)
-                if (_currentUserProfile.weightGoal != null && 
-                  _currentUserProfile.weightGoal.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: _buildGoalProgress(),
-                    ),
-                  ),
+              if (_goalProgressEnabled || 
+                _currentUserProfile.weightGoal != null && 
+                _currentUserProfile.weightGoal!.isNotEmpty)
+              SliverToBoxAdapter(
+                child: DashboardWeightGoalCard(
+                  userProfile: _currentUserProfile,
+                  onUpdate: () {
+                    _loadTodayProgress();
+                  },
+                ),
+              ),
 
               // Daily Macros
               if (_dailyMacros)
@@ -305,6 +345,20 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: CompactSleepTracker(
+                      userProfile: _currentUserProfile,
+                      onUpdate: () {
+                        _loadTodayProgress();
+                      },
+                    ),
+                  ),
+                ),
+
+              // Supplements Tracker - only show if setup
+              if (_supplementsTrackerEnabled && _hasSupplementsSetup)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: CompactSupplementsTracker(
                       userProfile: _currentUserProfile,
                       onUpdate: () {
                         _loadTodayProgress();
