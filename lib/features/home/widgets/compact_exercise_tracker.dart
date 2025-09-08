@@ -23,12 +23,35 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
   int _todayMinutes = 0;
   int _weeklyWorkouts = 0;
   bool _isLoading = true;
-  final int _dailyGoal = 30; // minutes
+  late int _dailyGoal;
 
   @override
   void initState() {
     super.initState();
+    _initializeExerciseGoal();
     _loadExerciseData();
+  }
+
+  void _initializeExerciseGoal() {
+    // Get exercise goal from user profile
+    if (widget.userProfile.workoutDuration != null) {
+      _dailyGoal = widget.userProfile.workoutDuration;
+    } else {
+      // Default fallback if no exercise goal is set
+      _dailyGoal = 30; // 30 minutes default
+    }
+    
+    // Ensure exercise goal is reasonable (between 10 and 180 minutes)
+    _dailyGoal = _dailyGoal.clamp(10, 180);
+  }
+
+  @override
+  void didUpdateWidget(CompactExerciseTracker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userProfile != widget.userProfile) {
+      _initializeExerciseGoal();
+      _loadExerciseData();
+    }
   }
 
   Future<void> _loadExerciseData() async {

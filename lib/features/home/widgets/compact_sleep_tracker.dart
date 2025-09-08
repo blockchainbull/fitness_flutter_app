@@ -23,17 +23,41 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker> {
   double _lastNightHours = 0;
   String _sleepQuality = '';
   bool _isLoading = true;
-  final double _sleepGoal = 8.0; // hours
+  late double _sleepGoal;
 
   @override
   void initState() {
     super.initState();
+    _initializeSleepGoal();
     _loadSleepData();
+  }
+
+  void _initializeSleepGoal() {
+    // Get sleep goal from user profile
+    // Check various possible fields where sleep goal might be stored
+    if (widget.userProfile.sleepHours != null) {
+      _sleepGoal = widget.userProfile.sleepHours!.toDouble();
+    } else {
+      // Default fallback if no sleep goal is set in profile
+      _sleepGoal = 8.0;
+    }
+    
+    // Ensure sleep goal is reasonable (between 4 and 12 hours)
+    _sleepGoal = _sleepGoal.clamp(4.0, 12.0);
+  }
+
+  @override
+  void didUpdateWidget(CompactSleepTracker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userProfile != widget.userProfile) {
+      _initializeSleepGoal();
+      _loadSleepData();
+    }
   }
 
   Future<void> _loadSleepData() async {
     setState(() => _isLoading = true);
-    
+    _sleepGoal = widget.userProfile.sleepHours;
     try {
       // Load sleep data for last night
       final today = DateTime.now();
