@@ -15,6 +15,8 @@ import 'package:user_onboarding/data/services/insights_service.dart';
 import 'package:user_onboarding/data/services/schedule_service.dart';
 import 'package:user_onboarding/features/home/widgets/dashboard_weight_goal_card.dart';
 import 'package:user_onboarding/features/home/widgets/daily_meal_card.dart';
+import 'package:user_onboarding/features/home/widgets/compact_water_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/compact_step_tracker.dart';
 
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -48,6 +50,8 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   final bool _smartInsightsEnabled = true;
   final bool _upcomingEventsEnabled = true;
   final bool _goalProgressEnabled = true;
+  final bool _waterTrackerEnabled = true;
+  final bool _stepTrackerEnabled = true;
   
   // Data placeholders
   Map<String, dynamic> todayProgress = {
@@ -375,6 +379,33 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   ),
                 ),
 
+              // Water Tracker
+              if (_waterTrackerEnabled)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: CompactWaterTracker(
+                      userProfile: _currentUserProfile,
+                      onUpdate: () {
+                        _loadTodayProgress();
+                      },
+                    ),
+                  ),
+                ),
+
+              // Step Tracker
+              if (_stepTrackerEnabled)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: CompactStepTracker(
+                      userProfile: _currentUserProfile,
+                      onUpdate: () {
+                        _loadTodayProgress();
+                      },
+                    ),
+                  ),
+                ),
 
               // Smart Insights
               if (_smartInsightsEnabled)
