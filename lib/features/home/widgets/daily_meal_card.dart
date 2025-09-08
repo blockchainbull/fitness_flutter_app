@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/features/tracking/screens/meal_history_page.dart';
 
 class DailyGoalsCard extends StatefulWidget {
   final UserProfile userProfile;
@@ -434,27 +435,69 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
                     ),
                   ),
                   
-                  // Log Meals Button
-                  if (widget.onTap != null) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: widget.onTap,
-                        icon: const Icon(Icons.add_circle_outline, size: 16),
-                        label: const Text('Log Your Meals', style: TextStyle(fontSize: 13)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade50,
-                          foregroundColor: Colors.blue.shade700,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.blue.shade200),
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      children: [
+                        // Log Meals button (expanded)
+                        Expanded(
+                          flex: 3,
+                          child: ElevatedButton.icon(
+                            onPressed: widget.onTap,
+                            icon: const Icon(Icons.add_circle_outline, size: 18),
+                            label: const Text(
+                              'Log Your Meals',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: _getGradientColors(_weightGoal)[0],
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              elevation: 0,
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        // History button (compact)
+                        Expanded(
+                          flex: 1,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MealHistoryPage(
+                                    userProfile: widget.userProfile,
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white.withOpacity(0.9),
+                              foregroundColor: _getGradientColors(_weightGoal)[0],
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.history, size: 18),
+                                SizedBox(width: 4),
+                                Text('History', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+
                 ],
               ),
             ),

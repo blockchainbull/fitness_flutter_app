@@ -324,7 +324,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
   Widget _buildDailyTotalsCard() {
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -342,34 +342,34 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.calculate, color: Colors.green, size: 24),
+                child: const Icon(Icons.calculate, color: Colors.green, size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               const Text(
                 'Daily Nutrition Summary',
                 style: TextStyle(
                   color: Colors.black87,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.green,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${_meals.length} meals',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -377,12 +377,12 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
             ],
           ),
           
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           
           // Main Calories Display
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.grey[50],
               borderRadius: BorderRadius.circular(12),
@@ -394,7 +394,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
                   '${_dailyTotals['calories']?.toStringAsFixed(0) ?? '0'}',
                   style: const TextStyle(
                     color: Colors.black87,
-                    fontSize: 48,
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -402,7 +402,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
                   'TOTAL CALORIES',
                   style: TextStyle(
                     color: Colors.grey,
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.2,
                   ),
@@ -452,7 +452,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
             ],
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
           // Micronutrients
           const Text(
@@ -468,7 +468,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
           Row(
             children: [
               Expanded(
-                child: _buildCleanNutrientBox(
+                child: _buildCompactNutrientBox(
                   'Fiber',
                   '${_dailyTotals['fiber_g']?.toStringAsFixed(1) ?? '0'}g',
                   Colors.green[600]!,
@@ -476,7 +476,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildCleanNutrientBox(
+                child: _buildCompactNutrientBox(
                   'Sugar',
                   '${_dailyTotals['sugar_g']?.toStringAsFixed(1) ?? '0'}g',
                   Colors.purple[600]!,
@@ -484,7 +484,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildCleanNutrientBox(
+                child: _buildCompactNutrientBox(
                   'Sodium',
                   '${_dailyTotals['sodium_mg']?.toStringAsFixed(0) ?? '0'}mg',
                   Colors.amber[700]!,
@@ -522,6 +522,38 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
               color: Colors.grey,
               fontSize: 11,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactNutrientBox(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Colors.grey,
             ),
           ),
         ],
