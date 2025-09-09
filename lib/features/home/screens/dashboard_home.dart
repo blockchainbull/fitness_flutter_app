@@ -22,6 +22,7 @@ import 'package:user_onboarding/features/home/widgets/compact_step_tracker.dart'
 import 'package:user_onboarding/features/home/widgets/compact_exercise_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/compact_sleep_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/compact_supplements_tracker.dart';
+import 'package:user_onboarding/features/home/widgets/compact_period_tracker.dart';
 
 
 class DashboardHome extends StatefulWidget {
@@ -359,6 +360,22 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: CompactSupplementsTracker(
+                      userProfile: _currentUserProfile,
+                      onUpdate: () {
+                        _loadTodayProgress();
+                      },
+                    ),
+                  ),
+                ),
+
+              
+              
+              
+              if (widget.userProfile.hasPeriods == true)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: CompactPeriodTracker(
                       userProfile: _currentUserProfile,
                       onUpdate: () {
                         _loadTodayProgress();

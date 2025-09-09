@@ -72,16 +72,16 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
         );
         _isLoading = false;
       });
-      
+
       // Animate the fill
       _fillAnimation = Tween<double>(
-        begin: 0.0,
+        begin: _fillAnimation.value,
         end: (_todayEntry!.glassesConsumed / targetGlasses).clamp(0.0, 1.0),
       ).animate(CurvedAnimation(
         parent: _animationController,
         curve: Curves.easeInOut,
       ));
-      _animationController.forward();
+      _animationController.forward(from: 0);
     } catch (e) {
       print('Error loading water entry: $e');
       setState(() => _isLoading = false);
@@ -89,67 +89,118 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
   }
 
   Future<void> _quickAddGlass() async {
+    await _addGlasses(1);
+  }
+
+  Future<void> _addGlasses(int count) async {
     if (_todayEntry == null || _isSaving) return;
-    
-    HapticFeedback.lightImpact();
-    
-    setState(() {
-      _todayEntry = _todayEntry!.copyWith(
-        glassesConsumed: _todayEntry!.glassesConsumed + 1,
-        totalMl: (_todayEntry!.glassesConsumed + 1) * mlPerGlass,
-        updatedAt: DateTime.now(),
-      );
-      _isSaving = true;
-    });
-    
-    // Update animation
-    final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
-    _fillAnimation = Tween<double>(
-      begin: _fillAnimation.value,
-      end: (_todayEntry!.glassesConsumed / targetGlasses).clamp(0.0, 1.0),
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    _animationController.forward(from: 0);
-    
+
+    setState(() => _isSaving = true);
+
     try {
-      await WaterRepository.saveWaterEntry(_todayEntry!);
+      final updatedEntry = _todayEntry!.copyWith(
+        glassesConsumed: _todayEntry!.glassesConsumed + count,
+        totalMl: (_todayEntry!.glassesConsumed + count) * mlPerGlass,
+      );
+
+      await WaterRepository.saveWaterEntry(updatedEntry);
+      
+      setState(() {
+        _todayEntry = updatedEntry;
+        _isSaving = false;
+      });
+
+      // Animate the fill
+      final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
+      _fillAnimation = Tween<double>(
+        begin: _fillAnimation.value,
+        end: (updatedEntry.glassesConsumed / targetGlasses).clamp(0.0, 1.0),
+      ).animate(CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ));
+      _animationController.forward(from: 0);
+
+      // Haptic feedback
+      HapticFeedback.lightImpact();
+
+      // Call the update callback
       widget.onUpdate?.call();
+
+      // Show achievement message if goal reached
+      if (updatedEntry.glassesConsumed >= targetGlasses && 
+          (_todayEntry!.glassesConsumed - count) < targetGlasses) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 Daily water goal achieved!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
     } catch (e) {
       print('Error saving water entry: $e');
-      // Revert on error
-      setState(() {
-        _todayEntry = _todayEntry!.copyWith(
-          glassesConsumed: _todayEntry!.glassesConsumed - 1,
-          totalMl: (_todayEntry!.glassesConsumed - 1) * mlPerGlass,
-        );
-      });
-    } finally {
       setState(() => _isSaving = false);
     }
+  }
+
+  void _showQuickLogDialog() {
+    final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
+    final glassesConsumed = _todayEntry?.glassesConsumed ?? 0;
+    final remaining = targetGlasses - glassesConsumed;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _QuickLogBottomSheet(
+        currentGlasses: glassesConsumed,
+        targetGlasses: targetGlasses,
+        remainingGlasses: remaining,
+        onAddGlasses: (count) {
+          Navigator.pop(context);
+          _addGlasses(count);
+        },
+        onFillAll: () {
+          Navigator.pop(context);
+          if (remaining > 0) {
+            _addGlasses(remaining);
+          }
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         height: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 4,
+            ),
+          ],
+        ),
         child: const Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
           ),
         ),
       );
     }
 
-    if (_todayEntry == null) return const SizedBox.shrink();
-
     final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
-    final glassesConsumed = _todayEntry!.glassesConsumed;
+    final glassesConsumed = _todayEntry?.glassesConsumed ?? 0;
     final progress = (glassesConsumed / targetGlasses).clamp(0.0, 1.0);
     final isGoalReached = glassesConsumed >= targetGlasses;
 
@@ -184,124 +235,395 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
                   duration: const Duration(milliseconds: 300),
                   child: Icon(
                     Icons.water_drop,
-                    color: isGoalReached ? Colors.blue : Colors.blue.shade300,
+                    color: isGoalReached ? Colors.green : Colors.blue,
                     size: 24,
                   ),
                 ),
                 const SizedBox(width: 12),
                 
-                // Progress content
+                // Progress info and bar
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Text(
+                            'Water',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[800],
+                            ),
+                          ),
                           Text(
                             '$glassesConsumed / $targetGlasses glasses',
                             style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade800,
+                              fontSize: 12,
+                              color: isGoalReached ? Colors.green : Colors.grey[600],
+                              fontWeight: isGoalReached ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
-                          if (isGoalReached) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.check_circle,
-                              size: 16,
-                              color: Colors.green,
-                            ),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
                       
-                      // Animated progress bar
-                      AnimatedBuilder(
-                        animation: _fillAnimation,
-                        builder: (context, child) {
-                          return Stack(
-                            children: [
-                              // Background track
-                              Container(
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(4),
-                                  color: Colors.blue.shade50,
-                                ),
-                              ),
-                              // Filled progress with wave effect
-                              Container(
-                                height: 8,
-                                width: MediaQuery.of(context).size.width * 
-                                       _fillAnimation.value * 0.65,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(4),
-                                  gradient: LinearGradient(
-                                    colors: isGoalReached 
-                                        ? [Colors.blue, Colors.blue.shade600]
-                                        : [Colors.blue.shade300, Colors.blue.shade400],
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                  ),
-                                  boxShadow: [
-                                    if (_fillAnimation.value > 0)
-                                      BoxShadow(
-                                        color: Colors.blue.withOpacity(0.3),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              // Water droplets overlay (visual enhancement)
-                              if (_fillAnimation.value > 0 && _fillAnimation.value < 1)
-                                Positioned(
-                                  right: MediaQuery.of(context).size.width * 
-                                         (1 - _fillAnimation.value) * 0.65 - 4,
-                                  top: 0,
-                                  child: Container(
-                                    width: 8,
+                      // Progress bar
+                      Stack(
+                        children: [
+                          Container(
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          AnimatedBuilder(
+                            animation: _fillAnimation,
+                            builder: (context, child) {
+                              return Stack(
+                                children: [
+                                  Container(
                                     height: 8,
+                                    width: MediaQuery.of(context).size.width * 
+                                           _fillAnimation.value * 0.65,
                                     decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.white.withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(4),
+                                      gradient: LinearGradient(
+                                        colors: isGoalReached
+                                            ? [Colors.green, Colors.green.shade600]
+                                            : [Colors.blue, Colors.blue.shade600],
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                      ),
+                                      boxShadow: [
+                                        if (_fillAnimation.value > 0)
+                                          BoxShadow(
+                                            color: Colors.blue.withOpacity(0.3),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                            ],
-                          );
-                        },
+                                ],
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
                 
-                // Quick add button
-                IconButton(
-                  onPressed: _isSaving || isGoalReached ? null : _quickAddGlass,
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                          ),
-                        )
-                      : Icon(
-                          Icons.add_circle,
-                          color: isGoalReached 
-                              ? Colors.grey.shade400 
-                              : Colors.blue,
-                        ),
-                  tooltip: 'Add glass',
+                // Action buttons
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Quick add single glass
+                    IconButton(
+                      onPressed: _isSaving || isGoalReached ? null : _quickAddGlass,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                              ),
+                            )
+                          : Icon(
+                              Icons.add_circle_outline,
+                              color: isGoalReached 
+                                  ? Colors.grey.shade400 
+                                  : Colors.blue,
+                              size: 22,
+                            ),
+                      tooltip: 'Add 1 glass',
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                    ),
+                    
+                    // More options button
+                    IconButton(
+                      onPressed: _isSaving ? null : _showQuickLogDialog,
+                      icon: Icon(
+                        Icons.more_vert,
+                        color: Colors.grey[600],
+                        size: 22,
+                      ),
+                      tooltip: 'More options',
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// Bottom sheet for quick logging options
+class _QuickLogBottomSheet extends StatelessWidget {
+  final int currentGlasses;
+  final int targetGlasses;
+  final int remainingGlasses;
+  final Function(int) onAddGlasses;
+  final VoidCallback onFillAll;
+
+  const _QuickLogBottomSheet({
+    Key? key,
+    required this.currentGlasses,
+    required this.targetGlasses,
+    required this.remainingGlasses,
+    required this.onAddGlasses,
+    required this.onFillAll,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // Title
+          const Text(
+            'Quick Water Log',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          
+          // Current status
+          Text(
+            '$currentGlasses of $targetGlasses glasses',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Quick add options
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _QuickAddButton(
+                label: '+2',
+                subtitle: 'glasses',
+                onTap: () => onAddGlasses(2),
+                color: Colors.blue,
+              ),
+              _QuickAddButton(
+                label: '+3',
+                subtitle: 'glasses',
+                onTap: () => onAddGlasses(3),
+                color: Colors.blue,
+              ),
+              _QuickAddButton(
+                label: '+4',
+                subtitle: 'glasses',
+                onTap: () => onAddGlasses(4),
+                color: Colors.blue,
+              ),
+              _QuickAddButton(
+                label: '+5',
+                subtitle: 'glasses',
+                onTap: () => onAddGlasses(5),
+                color: Colors.blue,
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Fill remaining button
+          if (remainingGlasses > 0) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onFillAll,
+                icon: const Icon(Icons.water_drop),
+                label: Text(
+                  'Fill remaining ($remainingGlasses glasses)',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Goal Achieved! 🎉',
+                    style: TextStyle(
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          
+          const SizedBox(height: 12),
+          
+          // Custom amount input
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _showCustomAmountDialog(context);
+            },
+            icon: const Icon(Icons.edit),
+            label: const Text('Custom amount'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  void _showCustomAmountDialog(BuildContext context) {
+    final controller = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter glasses'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Number of glasses',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.water_drop),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final count = int.tryParse(controller.text);
+              if (count != null && count > 0) {
+                Navigator.pop(context);
+                onAddGlasses(count);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickAddButton extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Color color;
+
+  const _QuickAddButton({
+    Key? key,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+    required this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 75,
+        height: 75,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: color.withOpacity(0.8),
+              ),
+            ),
+          ],
         ),
       ),
     );
