@@ -437,12 +437,12 @@ class DataManager {
     try {
       _log('Updating user weight to $newWeight kg');
       
-      // Update local profile first
+      // Always update local profile, regardless of weight increase/decrease
       final userProfile = await loadUserProfile();
       if (userProfile != null) {
         final updatedProfile = userProfile.copyWith(weight: newWeight);
         await _saveUserProfileLocally(updatedProfile);
-        _log('User weight updated locally');
+        _log('User weight updated locally to $newWeight kg');
       }
 
       // Try to update remotely if connected

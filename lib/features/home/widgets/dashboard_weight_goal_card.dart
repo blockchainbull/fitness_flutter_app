@@ -1,9 +1,11 @@
 // lib/features/home/widgets/dashboard_weight_goal_card.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/data/models/weight_entry.dart';
+import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 
-class DashboardWeightGoalCard extends StatelessWidget {
+class DashboardWeightGoalCard extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
   
@@ -14,14 +16,62 @@ class DashboardWeightGoalCard extends StatelessWidget {
   }) : super(key: key);
   
   @override
+  State<DashboardWeightGoalCard> createState() => _DashboardWeightGoalCardState();
+}
+
+class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
+  double? _currentWeight;
+  bool _isLoading = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadLatestWeight();
+  }
+  
+  Future<void> _loadLatestWeight() async {
+    try {
+      // Get the latest weight from weight entries
+      final weightHistory = await DataManager().getWeightHistory(widget.userProfile.id);
+      
+      setState(() {
+        if (weightHistory.isNotEmpty) {
+          // Always use the most recent weight entry
+          _currentWeight = weightHistory.first.weight;
+        } else {
+          // Fall back to profile weight if no entries
+          _currentWeight = widget.userProfile.weight ?? 70.0;
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading latest weight: $e');
+      setState(() {
+        _currentWeight = widget.userProfile.weight ?? 70.0;
+        _isLoading = false;
+      });
+    }
+  }
+  
+  @override
   Widget build(BuildContext context) {
-    final weightGoal = userProfile.weightGoal;
+    final weightGoal = widget.userProfile.weightGoal;
     if (weightGoal == null || weightGoal.isEmpty) {
       return const SizedBox.shrink();
     }
     
-    final currentWeight = userProfile.weight ?? 70.0;
-    final targetWeight = userProfile.targetWeight ?? currentWeight;
+    if (_isLoading) {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(32),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    final currentWeight = _currentWeight ?? widget.userProfile.weight ?? 70.0;
+    final targetWeight = widget.userProfile.targetWeight ?? currentWeight;
     
     return Container(
       margin: const EdgeInsets.all(16),
@@ -104,18 +154,21 @@ class DashboardWeightGoalCard extends StatelessWidget {
               ),
               // Log Weight button
               ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => WeightLoggingPage(
-                        userProfile: userProfile,
+                        userProfile: widget.userProfile,
                       ),
                     ),
-                  ).then((_) {
-                    // Call the refresh callback if provided
-                    onUpdate?.call();
-                  });
+                  );
+                  
+                  // Refresh the weight after returning
+                  await _loadLatestWeight();
+                  
+                  // Call the parent's refresh callback if provided
+                  widget.onUpdate?.call();
                 },
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Log'),
@@ -141,11 +194,11 @@ class DashboardWeightGoalCard extends StatelessWidget {
           ],
           
           // Timeline if exists
-          if (userProfile.goalTimeline != null && weightGoal != 'maintain_weight') ...[
+          if (widget.userProfile.goalTimeline != null && weightGoal != 'maintain_weight') ...[
             const SizedBox(height: 12),
             Center(
               child: Text(
-                'Timeline: ${_formatTimeline(userProfile.goalTimeline!)}',
+                'Timeline: ${_formatTimeline(widget.userProfile.goalTimeline!)}',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 14,
@@ -187,21 +240,31 @@ class DashboardWeightGoalCard extends StatelessWidget {
     
     if (goal == 'lose_weight') {
       // For weight loss, progress increases as weight decreases
-      if (current > target) {
-        progress = 0;
-        progressText = '${(current - target).toStringAsFixed(1)} kg to go';
-      } else {
-        progress = 1.0;
-        progressText = 'Goal achieved! 🎉';
+      final startingWeight = widget.userProfile.startingWeight ?? current;
+      if (startingWeight > target) {
+        final totalToLose = startingWeight - target;
+        final lost = startingWeight - current;
+        progress = (lost / totalToLose).clamp(0.0, 1.0);
+        
+        if (current > target) {
+          progressText = '${(current - target).toStringAsFixed(1)} kg to go';
+        } else {
+          progressText = 'Goal achieved! 🎉';
+        }
       }
     } else if (goal == 'gain_weight') {
       // For weight gain, progress increases as weight increases
-      if (current < target) {
-        progress = 0;
-        progressText = '${(target - current).toStringAsFixed(1)} kg to go';
-      } else {
-        progress = 1.0;
-        progressText = 'Goal achieved! 🎉';
+      final startingWeight = widget.userProfile.startingWeight ?? current;
+      if (startingWeight < target) {
+        final totalToGain = target - startingWeight;
+        final gained = current - startingWeight;
+        progress = (gained / totalToGain).clamp(0.0, 1.0);
+        
+        if (current < target) {
+          progressText = '${(target - current).toStringAsFixed(1)} kg to go';
+        } else {
+          progressText = 'Goal achieved! 🎉';
+        }
       }
     }
     
@@ -226,6 +289,7 @@ class DashboardWeightGoalCard extends StatelessWidget {
     );
   }
   
+  // ... rest of the helper methods remain the same ...
   IconData _getWeightGoalIcon(String goal) {
     switch (goal.toLowerCase()) {
       case 'lose_weight':
@@ -293,7 +357,6 @@ class DashboardWeightGoalCard extends StatelessWidget {
       case '24weeks':
         return '24 Weeks';
       default:
-        // For any other format, replace underscores with spaces and capitalize
         return timeline.replaceAll('_', ' ').split(' ').map((word) {
           if (word.isEmpty) return '';
           return word[0].toUpperCase() + word.substring(1).toLowerCase();

@@ -738,7 +738,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
     }
 
     // Show last 10 entries for the chart
-    final chartData = _weightHistory.reversed.take(10).toList();
+    final chartData = _weightHistory.reversed.toList();
 
     return Card(
       child: Padding(
@@ -755,6 +755,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
               height: 200,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
                 itemCount: chartData.length,
                 itemBuilder: (context, index) {
                   final entry = chartData[index];
@@ -783,21 +784,31 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                         Container(
                           height: normalizedHeight,
                           decoration: BoxDecoration(
-                            color: Colors.indigo,
-                            borderRadius: BorderRadius.circular(4),
+                            color: index == chartData.length - 1 
+                              ? Colors.indigo // Highlight most recent
+                              : Colors.indigo.shade300,
+                          borderRadius: BorderRadius.circular(4),
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           DateFormat('MM/dd').format(date),
                           style: const TextStyle(fontSize: 10),
-                        ),
+                         ),
                       ],
                     ),
                   );
                 },
               ),
             ),
+            if (chartData.length > 10)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Scroll to see all ${chartData.length} entries →',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ),
           ],
         ),
       ),
@@ -1438,23 +1449,29 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
     });
 
     try {
+      // Convert local time to UTC before sending to backend (fixes timezone issue)
+      final utcDateTime = dateTime.toUtc();
+      
       final entry = WeightEntry(
         userId: _currentUserProfile?.id ?? widget.userProfile.id ?? '',
         weight: weight,
-        date: dateTime,
+        date: utcDateTime,  // Send UTC time to fix timezone issue
         notes: notes.isEmpty ? null : notes,
       );
 
       await _dataManager.saveWeightEntry(entry);
       
-      // Update the user's current weight in profile if this is today's entry
-      final isToday = _isToday(dateTime);
-      if (_currentUserProfile != null && isToday) {
+      // Always update the user's current weight in profile (not just for today)
+      // This fixes the dashboard not updating when weight increases
+      if (_currentUserProfile != null) {
         final updatedProfile = _currentUserProfile!.copyWith(weight: weight);
         
         // Use Provider to update
         final userProvider = Provider.of<UserProvider>(context, listen: false);
         await userProvider.updateProfile(updatedProfile);
+        
+        // Also update via DataManager to ensure persistence
+        await _dataManager.updateUserWeight(_currentUserProfile!.id, weight);
       }
 
       // Reload history to show the new entry
