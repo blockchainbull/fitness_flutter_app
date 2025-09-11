@@ -272,7 +272,7 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                '$_weeklyWorkouts exercise${_weeklyWorkouts > 1 ? 's' : ''} today',
+                                '$_weeklyWorkouts exercise${_weeklyWorkouts > 1 ? 's' : ''} this week',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.white.withOpacity(0.9),

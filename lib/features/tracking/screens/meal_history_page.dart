@@ -254,19 +254,18 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
                 
                 // Food item
                 Text(
-                  meal['food_item'] ?? 'Unknown Food',
+                  meal['food_item'] ?? 'Unknown food',
                   style: const TextStyle(
-                    fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    fontSize: 15,
                   ),
                 ),
                 
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 
                 // Quantity
                 Text(
-                  meal['quantity'] ?? '1 serving',
+                  meal['quantity'] ?? '',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey[600],
@@ -276,27 +275,53 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
             ),
           ),
           
-          // Just calories - no detailed breakdown
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${meal['calories']?.toStringAsFixed(0) ?? '0'} cal',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+          // Calories
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '${meal['calories']?.toStringAsFixed(0) ?? '0'} cal',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.green,
+              ),
+            ),
+          ),
+          
+          // ADD THIS: Action buttons
+          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.grey),
+            onSelected: (value) {
+              if (value == 'edit') {
+                _editMeal(meal);
+              } else if (value == 'delete') {
+                _confirmDeleteMeal(meal);
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, color: Colors.blue, size: 18),
+                    SizedBox(width: 8),
+                    Text('Edit'),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-            
-              // Larger, more readable macro summary
-              Text(
-                'P:${meal['protein_g']?.toStringAsFixed(0) ?? '0'}g C:${meal['carbs_g']?.toStringAsFixed(0) ?? '0'}g F:${meal['fat_g']?.toStringAsFixed(0) ?? '0'}g',
-                style: TextStyle(
-                  fontSize: 12, // Increased from 10 to 12
-                  color: Colors.grey[600], // Darker color for better contrast
-                  fontWeight: FontWeight.w500, // Added weight for better readability
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red, size: 18),
+                    SizedBox(width: 8),
+                    Text('Delete'),
+                  ],
                 ),
               ),
             ],
@@ -529,6 +554,106 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
     );
   }
 
+  // Delete meal with confirmation
+  Future<void> _confirmDeleteMeal(Map<String, dynamic> meal) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Meal'),
+        content: Text('Are you sure you want to delete "${meal['food_item']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      await _deleteMeal(meal);
+    }
+  }
+
+  // Delete meal
+  Future<void> _deleteMeal(Map<String, dynamic> meal) async {
+    try {
+      final success = await _apiService.deleteMeal(meal['id']);
+      
+      if (success) {
+        // Reload meals after deletion
+        await _loadMeals();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meal deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        throw Exception('Failed to delete meal');
+      }
+    } catch (e) {
+      print('Error deleting meal: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting meal: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Edit meal - opens a dialog or navigates to edit page
+  void _editMeal(Map<String, dynamic> meal) {
+    // Option 1: Show edit dialog
+    showDialog(
+      context: context,
+      builder: (context) => _EditMealDialog(
+        meal: meal,
+        onSave: (updatedMeal) async {
+          await _updateMeal(meal['id'], updatedMeal);
+          await _loadMeals();
+        },
+      ),
+    );
+  }
+
+  // Update meal
+  Future<void> _updateMeal(String mealId, Map<String, dynamic> updatedData) async {
+    try {
+      await _apiService.updateMeal(mealId, updatedData);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meal updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error updating meal: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating meal: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildCompactNutrientBox(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -560,5 +685,101 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
       ),
     );
   }
+}
 
+class _EditMealDialog extends StatefulWidget {
+  final Map<String, dynamic> meal;
+  final Function(Map<String, dynamic>) onSave;
+  
+  const _EditMealDialog({
+    required this.meal,
+    required this.onSave,
+  });
+  
+  @override
+  State<_EditMealDialog> createState() => _EditMealDialogState();
+}
+
+class _EditMealDialogState extends State<_EditMealDialog> {
+  late TextEditingController _foodController;
+  late TextEditingController _quantityController;
+  String? _selectedMealType;
+  
+  @override
+  void initState() {
+    super.initState();
+    _foodController = TextEditingController(text: widget.meal['food_item']);
+    _quantityController = TextEditingController(text: widget.meal['quantity']);
+    _selectedMealType = widget.meal['meal_type'];
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Meal'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _foodController,
+            decoration: const InputDecoration(
+              labelText: 'Food Item',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _quantityController,
+            decoration: const InputDecoration(
+              labelText: 'Quantity',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedMealType,
+            decoration: const InputDecoration(
+              labelText: 'Meal Type',
+              border: OutlineInputBorder(),
+            ),
+            items: ['Breakfast', 'Lunch', 'Dinner', 'Snack']
+                .map((type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(type),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedMealType = value;
+              });
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            widget.onSave({
+              'food_item': _foodController.text,
+              'quantity': _quantityController.text,
+              'meal_type': _selectedMealType,
+            });
+            Navigator.pop(context);
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+  
+  @override
+  void dispose() {
+    _foodController.dispose();
+    _quantityController.dispose();
+    super.dispose();
+  }
 }

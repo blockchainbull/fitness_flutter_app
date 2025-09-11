@@ -1,10 +1,12 @@
 // lib/features/tracking/screens/enhanced_meal_logging_page.dart
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_history_page.dart';
 import 'package:user_onboarding/features/tracking/widgets/voice_input_widget.dart';
+
 
 
 class EnhancedMealLoggingPage extends StatefulWidget {
@@ -39,6 +41,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     'carbs': 225.0,
     'fat': 67.0,
   };
+  List<Map<String, dynamic>> _todaysMeals = [];
   
   
   // Common meal combos for quick selection
@@ -68,12 +71,29 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   @override
   void initState() {
     super.initState();
+    _loadTodaysMeals();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _calculateDailyGoals();
       if (mounted) setState(() {});
     });
     _dailyMealGoal = widget.userProfile.dailyMealsCount ?? 3;
     _setMealTypeByTime();
+  }
+
+  Future<void> _loadTodaysMeals() async {
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final meals = await _apiService.getMealHistory(
+        widget.userProfile.id!,
+        date: dateStr,
+      );
+      
+      setState(() {
+        _todaysMeals = meals;
+      });
+    } catch (e) {
+      print('Error loading today\'s meals: $e');
+    }
   }
 
   void _calculateDailyGoals() {
@@ -204,6 +224,8 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             
             // Analyze Button
             _buildAnalyzeButton(),
+
+            _buildTodaysMeals(),
             
             // Results
             if (_nutritionData != null) _buildResults(),
@@ -585,6 +607,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
               ),
       ),
     );
+    _loadTodaysMeals();
   }
 
   Future<void> _analyzeMeal() async {
@@ -669,6 +692,57 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       );
       print('Error details: $e');
     }
+  }
+
+  Widget _buildTodaysMeals() {
+    if (_todaysMeals.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Today\'s Meals',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._todaysMeals.map((meal) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: _getMealTypeColor(meal['meal_type']).withOpacity(0.2),
+                child: Text(
+                  meal['meal_type']?.substring(0, 1).toUpperCase() ?? 'S',
+                  style: TextStyle(
+                    color: _getMealTypeColor(meal['meal_type']),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              title: Text(meal['food_item']),
+              subtitle: Text('${meal['quantity']} • ${meal['calories']} cal'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.blue),
+                    onPressed: () => _editMeal(meal),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _confirmDeleteMeal(meal),
+                  ),
+                ],
+              ),
+            ),
+          )).toList(),
+        ],
+      ),
+    );
   }
 
   Widget _buildResults() {
@@ -1779,6 +1853,106 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
+  // Delete meal with confirmation
+  Future<void> _confirmDeleteMeal(Map<String, dynamic> meal) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Meal'),
+        content: Text('Are you sure you want to delete "${meal['food_item']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      await _deleteMeal(meal);
+    }
+  }
+
+  // Delete meal
+  Future<void> _deleteMeal(Map<String, dynamic> meal) async {
+    try {
+      final success = await _apiService.deleteMeal(meal['id']);
+      
+      if (success) {
+        // Reload meals after deletion
+        await _loadTodaysMeals();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Meal deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        throw Exception('Failed to delete meal');
+      }
+    } catch (e) {
+      print('Error deleting meal: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting meal: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Edit meal - opens a dialog or navigates to edit page
+  void _editMeal(Map<String, dynamic> meal) {
+    // Option 1: Show edit dialog
+    showDialog(
+      context: context,
+      builder: (context) => _EditMealDialog(
+        meal: meal,
+        onSave: (updatedMeal) async {
+          await _updateMeal(meal['id'], updatedMeal);
+          await _loadTodaysMeals();
+        },
+      ),
+    );
+  }
+
+  // Update meal
+  Future<void> _updateMeal(String mealId, Map<String, dynamic> updatedData) async {
+    try {
+      await _apiService.updateMeal(mealId, updatedData);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meal updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error updating meal: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating meal: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Color _getGoalColor(String goal) {
     if (goal.toLowerCase().contains('lose')) return Colors.red;
     if (goal.toLowerCase().contains('gain')) return Colors.green;
@@ -1795,6 +1969,21 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         _multiLineController.clear();
         _quantityController.clear();
       });
+    }
+  }
+
+  Color _getMealTypeColor(String? mealType) {
+    switch (mealType?.toLowerCase()) {
+      case 'breakfast':
+        return Colors.orange;
+      case 'lunch':
+        return Colors.green;
+      case 'dinner':
+        return Colors.blue;
+      case 'snack':
+        return Colors.purple;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -1877,5 +2066,102 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         builder: (context) => MealHistoryPage(userProfile: widget.userProfile),
       ),
     );
+  }
+}
+
+class _EditMealDialog extends StatefulWidget {
+  final Map<String, dynamic> meal;
+  final Function(Map<String, dynamic>) onSave;
+  
+  const _EditMealDialog({
+    required this.meal,
+    required this.onSave,
+  });
+  
+  @override
+  State<_EditMealDialog> createState() => _EditMealDialogState();
+}
+
+class _EditMealDialogState extends State<_EditMealDialog> {
+  late TextEditingController _foodController;
+  late TextEditingController _quantityController;
+  String? _selectedMealType;
+  
+  @override
+  void initState() {
+    super.initState();
+    _foodController = TextEditingController(text: widget.meal['food_item']);
+    _quantityController = TextEditingController(text: widget.meal['quantity']);
+    _selectedMealType = widget.meal['meal_type'];
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Meal'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _foodController,
+            decoration: const InputDecoration(
+              labelText: 'Food Item',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _quantityController,
+            decoration: const InputDecoration(
+              labelText: 'Quantity',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedMealType,
+            decoration: const InputDecoration(
+              labelText: 'Meal Type',
+              border: OutlineInputBorder(),
+            ),
+            items: ['Breakfast', 'Lunch', 'Dinner', 'Snack']
+                .map((type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(type),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedMealType = value;
+              });
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            widget.onSave({
+              'food_item': _foodController.text,
+              'quantity': _quantityController.text,
+              'meal_type': _selectedMealType,
+            });
+            Navigator.pop(context);
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+  
+  @override
+  void dispose() {
+    _foodController.dispose();
+    _quantityController.dispose();
+    super.dispose();
   }
 }
