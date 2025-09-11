@@ -21,7 +21,9 @@ class CompactExerciseTracker extends StatefulWidget {
 class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
   final ApiService _apiService = ApiService();
   int _todayMinutes = 0;
-  int _weeklyWorkouts = 0;
+  int _todayExercises = 0;
+  int _weeklyExercises = 0;
+  Set<String> _weeklyMuscleGroups = {};
   bool _isLoading = true;
   late int _dailyGoal;
 
@@ -58,23 +60,69 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
     setState(() => _isLoading = true);
     
     try {
+      final now = DateTime.now();
+      final today = DateFormat('yyyy-MM-dd').format(now);
+      
+      // Calculate start of week (Monday)
+      final weekStart = now.subtract(Duration(days: now.weekday - 1));
+      final weekStartStr = DateFormat('yyyy-MM-dd').format(weekStart);
+      
       // Load today's exercise data
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final exercises = await _apiService.getExerciseLogs(
+      final todayExercises = await _apiService.getExerciseLogs(
         widget.userProfile.id,
+        startDate: today,
+        endDate: today,
       );
       
-      // Calculate total minutes today
-      int totalMinutes = 0;
-      if (exercises != null && exercises.isNotEmpty) {
-        for (var exercise in exercises) {
-          totalMinutes += (exercise['duration'] as num?)?.toInt() ?? 0;
+      // Load this week's exercise data
+      final weekExercises = await _apiService.getExerciseLogs(
+        widget.userProfile.id,
+        startDate: weekStartStr,
+        endDate: today,
+      );
+      
+      // Calculate today's total minutes
+      int todayMinutes = 0;
+      int todayCount = 0;
+      if (todayExercises != null && todayExercises.isNotEmpty) {
+        for (var exercise in todayExercises) {
+          // Check if the exercise date is actually today
+          final exerciseDate = exercise['exercise_date'] ?? exercise['created_at'];
+          if (exerciseDate != null && exerciseDate.toString().startsWith(today)) {
+            todayMinutes += (exercise['duration_minutes'] as num?)?.toInt() ?? 0;
+            todayCount++;
+          }
+        }
+      }
+      
+      // Calculate weekly stats and muscle groups
+      int weeklyCount = 0;
+      Set<String> muscleGroups = {};
+      
+      if (weekExercises != null && weekExercises.isNotEmpty) {
+        for (var exercise in weekExercises) {
+          final exerciseDate = exercise['exercise_date'] ?? exercise['created_at'];
+          if (exerciseDate != null) {
+            final exDate = DateTime.parse(exerciseDate.toString());
+            // Only count exercises from this week
+            if (exDate.isAfter(weekStart.subtract(Duration(days: 1)))) {
+              weeklyCount++;
+              
+              // Track muscle groups
+              final muscleGroup = exercise['muscle_group'] as String?;
+              if (muscleGroup != null && muscleGroup != 'general') {
+                muscleGroups.add(muscleGroup);
+              }
+            }
+          }
         }
       }
       
       setState(() {
-        _todayMinutes = totalMinutes;
-        _weeklyWorkouts = exercises?.length ?? 0;
+        _todayMinutes = todayMinutes;
+        _todayExercises = todayCount;
+        _weeklyExercises = weeklyCount;
+        _weeklyMuscleGroups = muscleGroups;
         _isLoading = false;
       });
     } catch (e) {
@@ -95,6 +143,63 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
       _loadExerciseData();
       widget.onUpdate?.call();
     });
+  }
+
+  Widget _buildMuscleGroupChips() {
+    if (_weeklyMuscleGroups.isEmpty) {
+      return SizedBox.shrink();
+    }
+
+    // Map muscle group names to icons
+    final muscleIcons = {
+      'chest': Icons.fitness_center,
+      'back': Icons.rowing,
+      'shoulders': Icons.accessibility,
+      'arms': Icons.sports_handball,
+      'legs': Icons.directions_run,
+      'core': Icons.self_improvement,
+      'cardio': Icons.favorite,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: _weeklyMuscleGroups.map((muscle) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  muscleIcons[muscle.toLowerCase()] ?? Icons.fitness_center,
+                  size: 14,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  muscle.substring(0, 1).toUpperCase() + muscle.substring(1),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   @override
@@ -245,44 +350,65 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
                           minHeight: 6,
                         ),
                       ),
+                      if (_todayExercises > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '$_todayExercises exercise${_todayExercises > 1 ? 's' : ''} today',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
                 
                 const SizedBox(height: 12),
                 
-                // Today's exercises count
-                if (_weeklyWorkouts > 0)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.check_circle_outline,
-                                size: 14,
-                                color: Colors.white.withOpacity(0.8),
+                // Weekly stats
+                if (_weeklyExercises > 0)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'This week: $_weeklyExercises workout${_weeklyExercises > 1 ? 's' : ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.w500,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '$_weeklyWorkouts exercise${_weeklyWorkouts > 1 ? 's' : ''} this week',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        if (_weeklyMuscleGroups.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Muscle groups trained:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white.withOpacity(0.7),
+                            ),
+                          ),
+                          _buildMuscleGroupChips(),
+                        ],
+                      ],
+                    ),
                   ),
                 
                 const SizedBox(height: 12),
