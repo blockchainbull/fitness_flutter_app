@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:user_onboarding/data/services/chat_service.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
@@ -17,7 +18,7 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ApiService _apiService = ApiService();
@@ -27,58 +28,99 @@ class _ChatPageState extends State<ChatPage> {
   bool _isLoading = false;
   Map<String, dynamic>? _userContext;
   Map<String, dynamic>? _userFramework;
+  bool _isLoadingContext = false;
 
   @override
   void initState() {
     super.initState();
-    _loadChatHistory();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeChat();
   }
 
-  Future<void> _loadChatHistory() async {
+  Future<void> _initializeChat() async {
+    // Load user context first
+    await _loadUserContext();
+    
+    // Then show welcome message with context awareness
+    _showContextAwareWelcome();
+  }
+  
+  Future<void> _loadUserContext() async {
+    setState(() {
+      _isLoadingContext = true;
+    });
+    
     try {
-      setState(() {
-        _isLoading = true;
-      });
-
-      // Add null check here
-      final userId = widget.userProfile.id;
-      if (userId == null || userId.isEmpty) {
-        print('❌ User ID is null or empty');
-        setState(() {
-          _isLoading = false;
-        });
-        _addWelcomeMessage();
-        return;
-      }
-
-      final history = await _apiService.getChatHistory(userId);
+      final context = await ChatService.getUserContext(widget.userProfile.id);
       
       setState(() {
-        _messages.clear();
-        
-        if (history.isEmpty) {
-          _addWelcomeMessage();
-        } else {
-          for (var msg in history) {
-            _messages.add({
-              'text': msg['message'] ?? '',  // Add null safety
-              'isUser': msg['is_user'] ?? false,  // Add null safety
-              'timestamp': DateTime.tryParse(msg['created_at'] ?? '') ?? DateTime.now(),  // Use created_at
-            });
-          }
-        }
-        
-        _isLoading = false;
+        _userContext = context;
+        _isLoadingContext = false;
       });
-
-      _scrollToBottom();
+      
+      print('[ChatPage] Context loaded: ${context.keys}');
+      
+      // Log what data we have
+      final todayProgress = context['today_progress'] ?? {};
+      print('[ChatPage] Today\'s data:');
+      print('  - Meals: ${todayProgress['meals_logged']}');
+      print('  - Calories: ${todayProgress['total_calories']}');
+      print('  - Water: ${todayProgress['water_glasses']} glasses');
+      print('  - Steps: ${todayProgress['steps']}');
+      print('  - Exercise: ${todayProgress['exercise_minutes']} min');
+      print('  - Weight: ${todayProgress['weight_logged']}');
+      
     } catch (e) {
-      print('❌ Error loading chat history: $e');
+      print('[ChatPage] Error loading context: $e');
       setState(() {
-        _isLoading = false;
+        _isLoadingContext = false;
       });
-      _addWelcomeMessage();
     }
+  }
+  
+  void _showContextAwareWelcome() {
+    final userName = widget.userProfile.name.isNotEmpty 
+        ? widget.userProfile.name : 'there';
+    
+    String welcomeMessage = 'Hi $userName! 👋\n\n';
+    
+    if (_userContext != null) {
+      final todayProgress = _userContext!['today_progress'] ?? {};
+      final weeklySum = _userContext!['weekly_summary'] ?? {};
+      
+      // Add context-aware greeting based on actual data
+      welcomeMessage += 'I can see your activity data for today:\n';
+      
+      if (todayProgress['meals_logged'] != null && todayProgress['meals_logged'] > 0) {
+        welcomeMessage += '• ${todayProgress['meals_logged']} meals logged (${todayProgress['total_calories']} calories)\n';
+      }
+      
+      if (todayProgress['water_glasses'] != null && todayProgress['water_glasses'] > 0) {
+        welcomeMessage += '• ${todayProgress['water_glasses']} glasses of water\n';
+      }
+      
+      if (todayProgress['steps'] != null && todayProgress['steps'] > 0) {
+        welcomeMessage += '• ${todayProgress['steps']} steps taken\n';
+      }
+      
+      if (todayProgress['exercise_minutes'] != null && todayProgress['exercise_minutes'] > 0) {
+        welcomeMessage += '• ${todayProgress['exercise_minutes']} minutes of exercise\n';
+      }
+      
+      welcomeMessage += '\nWhat would you like to work on today?';
+    } else {
+      welcomeMessage += 'I\'m here to help with your health goals. What would you like to discuss?';
+    }
+    
+    setState(() {
+      _messages.add({
+        'text': welcomeMessage,
+        'isUser': false,
+        'timestamp': DateTime.now(),
+        'type': 'welcome',
+        'hasContext': _userContext != null,
+      });
+    });
   }
 
   Future<void> _handleSubmitted(String text) async {
@@ -98,12 +140,21 @@ class _ChatPageState extends State<ChatPage> {
     _textController.clear();
     _scrollToBottom();
 
+    // Refresh context for data-specific queries
+    if (_shouldRefreshContext(text)) {
+      await _loadUserContext();
+    }
+
     try {
       String response;
       
-      // Try the API first, fall back to local response if it fails
       try {
-        response = await _apiService.sendChatMessage(widget.userProfile.id!, text);
+        // Use the simplified sendMessage with context
+        response = await ChatService.sendMessage(
+          widget.userProfile.id!, 
+          text,
+          context: _userContext,  // Pass context if we have it
+        );
       } catch (e) {
         print('API failed, using fallback: $e');
         response = _generateFallbackResponse(text);
@@ -276,64 +327,74 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: Column(
         children: [
+          // Add loading indicator for context
+          if (_isLoadingContext)
+            LinearProgressIndicator(
+              backgroundColor: Colors.purple[100],
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
+            ),
+          
           // Quick actions bar
           _buildQuickActions(),
           
-          // Messages
+          // Messages with pull-to-refresh
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final showDateDivider = _shouldShowDateDivider(index);
-                      return Column(
-                        children: [
-                          if (showDateDivider)
-                            Container(
-                              margin: const EdgeInsets.symmetric(vertical: 16),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Divider(
-                                      color: Colors.grey[300],
-                                      height: 1,
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text(
-                                      _formatDateDivider(message['timestamp']),
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
+            child: RefreshIndicator(
+              onRefresh: _loadUserContext,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        final showDateDivider = _shouldShowDateDivider(index);
+                        return Column(
+                          children: [
+                            if (showDateDivider)
+                              Container(
+                                margin: const EdgeInsets.symmetric(vertical: 16),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Divider(
+                                        color: Colors.grey[300],
+                                        height: 1,
                                       ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    child: Divider(
-                                      color: Colors.grey[300],
-                                      height: 1,
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: Text(
+                                        _formatDateDivider(message['timestamp']),
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    Expanded(
+                                      child: Divider(
+                                        color: Colors.grey[300],
+                                        height: 1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                            MessageBubble(
+                              text: message['text'],
+                              isUser: message['isUser'],
+                              timestamp: message['timestamp'],
+                              type: message['type'],
+                              userProfile: widget.userProfile,
                             ),
-                          MessageBubble(
-                            text: message['text'],
-                            isUser: message['isUser'],
-                            timestamp: message['timestamp'],
-                            type: message['type'],
-                            userProfile: widget.userProfile,
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
           ),
           
           // "AI is typing" indicator
@@ -415,7 +476,11 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildQuickActionChip(String label, IconData icon, VoidCallback onTap) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () async {
+        // For quick actions, use the context
+        final message = _getQuickActionMessage(label);
+        _handleSubmitted(message);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
@@ -567,7 +632,34 @@ class _ChatPageState extends State<ChatPage> {
     } else {
       return DateFormat('MMMM d, yyyy').format(date); // Full date
     }
-}
+  }
+
+  String _getQuickActionMessage(String label) {
+    switch (label) {
+      case 'My Progress':
+        return 'Show me my progress summary with specific numbers';
+      case 'Today\'s Plan':
+        return 'What should I focus on today based on my current progress?';
+      case 'Meal Ideas':
+        return 'Suggest healthy meals based on my goals and dietary preferences';
+      case 'Workout Tips':
+        return 'What exercises should I do today based on my fitness level?';
+      default:
+        return label;
+    }
+  }
+
+  bool _shouldRefreshContext(String message) {
+    final keywords = [
+      'today', 'current', 'now', 'progress', 
+      'calories', 'steps', 'water', 'weight',
+      'meals', 'exercise', 'sleep', 'logged',
+      'how many', 'how much', 'did i', 'have i'
+    ];
+    
+    final lowerMessage = message.toLowerCase();
+    return keywords.any((keyword) => lowerMessage.contains(keyword));
+  }
 
   void _showFrameworkDetails() {
     if (_userFramework == null) {
@@ -643,7 +735,16 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _textController.dispose();
     _scrollController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh context when app comes back to foreground
+      _loadUserContext();
+    }
   }
 }
 
@@ -731,7 +832,7 @@ class MessageBubble extends StatelessWidget {
               radius: 16,
               backgroundColor: Colors.purple[100],
               child: Text(
-                userProfile?.name?.isNotEmpty == true 
+                userProfile?.name.isNotEmpty == true 
                     ? userProfile!.name[0].toUpperCase()
                     : 'U',
                 style: TextStyle(

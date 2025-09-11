@@ -5,20 +5,31 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 class ChatService {
   static final ApiService _apiService = ApiService();
 
-  /// Send a message to the AI chat and get response
-  static Future<String> sendMessage(String userId, String message) async {
+  /// Single method for sending messages - always includes context
+  static Future<String> sendMessage(
+    String userId, 
+    String message,
+    {Map<String, dynamic>? context}
+  ) async {
     try {
       print('[ChatService] Sending message for user: $userId');
-      print('[ChatService] Message: ${message.substring(0, message.length > 50 ? 50 : message.length)}...');
       
-      final response = await _apiService.sendChatMessage(userId, message);
+      // Always try to send with context metadata
+      final enrichedMessage = {
+        'message': message,
+        'has_fresh_context': context != null,
+        'context_timestamp': DateTime.now().toIso8601String(),
+      };
       
-      print('[ChatService] Received response: ${response.substring(0, response.length > 100 ? 100 : response.length)}...');
+      final response = await _apiService.sendChatMessage(
+        userId, 
+        enrichedMessage,
+      );
       
       return response;
     } catch (e) {
-      print('[ChatService] Error sending message: $e');
-      return 'I\'m having trouble connecting right now. Please try again in a moment.';
+      print('[ChatService] Error: $e');
+      return 'I\'m having trouble connecting right now. Please try again.';
     }
   }
 
@@ -63,7 +74,7 @@ class ChatService {
   }
 
   /// Send a quick action message (like "Show my progress")
-  static Future<String> sendQuickAction(String userId, String action) async {
+  static Future<String> sendQuickAction(String userId, String action, {Map<String, dynamic>? context}) async {
     final Map<String, String> actionMessages = {
       'progress': 'Show me my progress summary with specific numbers',
       'today_plan': 'What should I focus on today based on my current progress?',
@@ -76,7 +87,7 @@ class ChatService {
     };
 
     final message = actionMessages[action] ?? action;
-    return await sendMessage(userId, message);
+    return await sendMessage(userId, message, context: context);
   }
 
   /// Generate welcome message based on user profile
@@ -219,6 +230,28 @@ class ChatService {
       ];
     }
   }
+
+  static String formatContextSummary(Map<String, dynamic> context) {
+    final today = context['today_progress'] ?? {};
+    final parts = <String>[];
+    
+    if (today['meals_logged'] != null && today['meals_logged'] > 0) {
+      parts.add('${today['meals_logged']} meals (${today['total_calories']} cal)');
+    }
+    
+    if (today['water_glasses'] != null && today['water_glasses'] > 0) {
+      parts.add('${today['water_glasses']} water');
+    }
+    
+    if (today['steps'] != null && today['steps'] > 0) {
+      parts.add('${today['steps']} steps');
+    }
+    
+    return parts.isEmpty 
+      ? 'No activity logged yet today'
+      : 'Today: ${parts.join(', ')}';
+  }
+
 
   /// Clear conversation (if you implement conversation storage)
   static Future<void> clearConversation(String userId) async {

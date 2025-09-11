@@ -607,7 +607,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
               ),
       ),
     );
-    _loadTodaysMeals();
   }
 
   Future<void> _analyzeMeal() async {

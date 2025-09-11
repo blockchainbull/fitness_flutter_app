@@ -218,20 +218,23 @@ class ApiService {
     }
   }
 
-  Future<String> sendChatMessage(String userId, String message) async {
+  Future<String> sendChatMessage(String userId, Map<String, dynamic> messageData) async {
     try {
-      print('[ApiService] Sending chat message for user: $userId');
+      print('[ApiService] Sending message for user: $userId');
       
-      // Add timeout and better error handling
       final response = await http.post(
-        Uri.parse('$baseUrl/chat'),
+        Uri.parse('$baseUrl/chat'), 
         headers: headers,
         body: jsonEncode({
           'user_id': userId,
-          'message': message,
+          'message': messageData['message'],
+          'metadata': {
+            'has_fresh_context': messageData['has_fresh_context'] ?? false,
+            'context_timestamp': messageData['context_timestamp'],
+          }
         }),
       ).timeout(
-        const Duration(seconds: 15), // Reduce timeout for better UX
+        const Duration(seconds: 15),
         onTimeout: () {
           print('[ApiService] Request timed out');
           throw Exception('Request timed out - please check your connection');
@@ -239,25 +242,20 @@ class ApiService {
       );
 
       print('[ApiService] Chat response status: ${response.statusCode}');
-      print('[ApiService] Chat response body: ${response.body}'); // Add this for debugging
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Check if response was successful
         if (data['success'] == true) {
           return data['response'] ?? 'Sorry, I couldn\'t generate a response.';
         } else {
-          // If backend returned an error, show it
           print('[ApiService] Backend error: ${data['error']}');
           return data['response'] ?? 'I\'m having trouble connecting right now. Please try again.';
         }
       } else {
-        print('[ApiService] HTTP error: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to send chat message: ${response.body}');
       }
     } catch (e) {
       print('[ApiService] Chat error: $e');
-      // More specific error messages
       if (e.toString().contains('SocketException')) {
         return 'No internet connection. Please check your network settings.';
       } else if (e.toString().contains('timeout')) {
