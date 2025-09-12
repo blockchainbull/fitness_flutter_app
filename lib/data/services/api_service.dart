@@ -9,6 +9,8 @@ import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
 import 'package:user_onboarding/data/models/step_entry.dart';
 import 'package:user_onboarding/utils/timezone_helper.dart';
+import 'package:user_onboarding/data/models/nutrition_data.dart';
+import 'package:user_onboarding/data/models/meal_entry.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -860,8 +862,6 @@ class ApiService {
     }
   }
 
-  
-
   // Get supplement history
   Future<List<Map<String, dynamic>>> getSupplementHistory(String userId, {String? supplementName, int days = 30}) async {
     try {
@@ -1245,13 +1245,19 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('Full response: $response');
-        // Handle multi-food response
-        if (data['components'] != null) {
-          print('Analyzed ${data['components'].length} food items');
-        }
+        print('Full response: $data');
         
-        return data;
+        // The response includes the saved meal_entry data
+        // Convert to MealEntry to ensure proper type handling
+        final mealEntry = MealEntry.fromMap(data);
+        
+        // Return as Map for backward compatibility
+        return {
+          ...mealEntry.toMap(),
+          'nutrition_notes': data['nutrition_notes'],
+          'healthiness_score': data['healthiness_score'],
+          'suggestions': data['suggestions'],
+        };
       } else {
         final errorBody = jsonDecode(response.body);
         throw Exception(errorBody['error'] ?? 'Failed to analyze meal');
