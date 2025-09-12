@@ -280,33 +280,29 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: _isLoading 
-          ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.8,
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-              ],
-            )
-          : SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Container(
-                constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height - 
-                            AppBar().preferredSize.height - 
-                            MediaQuery.of(context).padding.top,
-                ),
-                child: _buildCurrentStep(),
-              ),
+        onRefresh: () async {
+          // Wrap in try-catch to prevent exceptions
+          try {
+            await _refreshData();
+          } catch (e) {
+            print('Error refreshing: $e');
+          }
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _buildCurrentStep(),
             ),
+          ],
+        ),
       ),
       bottomNavigationBar: _buildBottomNavigation(),
     );
   }
-
 
   String _getAppBarTitle() {
     switch (_currentStep) {

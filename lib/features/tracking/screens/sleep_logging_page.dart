@@ -187,23 +187,26 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: _isLoading 
-          ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.8,
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-              ],
-            )
-          : SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: _hasEntryForToday && _isToday(_selectedDate)
-                ? _buildAlreadyLoggedView()
-                : _buildLoggingForm(),
+        onRefresh: () async {
+          try {
+            await _refreshData();
+          } catch (e) {
+            print('Error refreshing: $e');
+          }
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : (_hasEntryForToday && _isToday(_selectedDate)
+                    ? _buildAlreadyLoggedView()
+                    : _buildLoggingForm()),
             ),
+          ],
+        ),
       ),
     );
   }
