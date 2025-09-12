@@ -38,34 +38,108 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
   }
 
   Future<void> _loadPeriodData() async {
-    if (widget.userProfile.id == null) return;
-    
-    setState(() => _isLoading = true);
-    
     try {
+      setState(() => _isLoading = true);
+      
+      // Initialize with safe defaults
+      final cycleLength = widget.userProfile.cycleLength ?? 28;
+      final periodLength = widget.userProfile.periodLength ?? 5;
+      
       // Load period history
       final history = await PeriodRepository.getPeriodHistory(
-        widget.userProfile.id!,
-        limit: 3,
-      );
-      
-      // Check for current period
-      final currentPeriod = await PeriodRepository.getCurrentPeriod(
-        widget.userProfile.id!,
+        widget.userProfile.id ?? '',  // Safe null handling
+        limit: 12,
       );
       
       setState(() {
         _periodHistory = history;
-        _currentPeriod = currentPeriod;
-        _isOnPeriod = currentPeriod != null;
         
-        // Calculate cycle day and predictions
-        _calculateCycleInfo();
-        _isLoading = false;
+        // Check if currently on period
+        if (history.isNotEmpty && history.first.endDate == null) {
+          _isOnPeriod = true;
+          _currentPeriod = history.first;
+        } else {
+          _isOnPeriod = false;
+          _currentPeriod = null;
+        }
+        
+        // Calculate cycle day - SAFE NULL HANDLING
+        if (widget.userProfile.lastPeriodDate != null) {
+          final daysSinceLastPeriod = DateTime.now()
+              .difference(widget.userProfile.lastPeriodDate!)
+              .inDays + 1;
+          _cycleDay = daysSinceLastPeriod % cycleLength;
+          if (_cycleDay == 0) _cycleDay = cycleLength;
+          
+          // Calculate next period date
+          _nextPeriodDate = widget.userProfile.lastPeriodDate!
+              .add(Duration(days: cycleLength));
+          
+          // Adjust if we have more recent period data
+          if (history.isNotEmpty) {
+            final mostRecentPeriod = history.first;
+            final periodStartDate = mostRecentPeriod.startDate;
+            final daysSincePeriod = DateTime.now()
+                .difference(periodStartDate)
+                .inDays + 1;
+            
+            if (mostRecentPeriod.endDate == null) {
+              // Currently on period
+              _cycleDay = daysSincePeriod;
+            } else {
+              // Not on period, calculate from last period end
+              final daysSincePeriodEnd = DateTime.now()
+                  .difference(mostRecentPeriod.endDate!)
+                  .inDays + 1;
+              _cycleDay = daysSincePeriodEnd + periodLength;
+              if (_cycleDay > cycleLength) {
+                _cycleDay = _cycleDay % cycleLength;
+                if (_cycleDay == 0) _cycleDay = cycleLength;
+              }
+              
+              // Calculate next period based on most recent data
+              _nextPeriodDate = mostRecentPeriod.startDate
+                  .add(Duration(days: cycleLength));
+            }
+          }
+        } else {
+          // No period data available - use safe defaults
+          _cycleDay = 1;
+          _nextPeriodDate = DateTime.now().add(Duration(days: cycleLength));
+          
+          // If we have history, use that instead
+          if (history.isNotEmpty) {
+            final mostRecentPeriod = history.first;
+            if (mostRecentPeriod.endDate != null) {
+              final daysSincePeriodEnd = DateTime.now()
+                  .difference(mostRecentPeriod.endDate!)
+                  .inDays + 1;
+              _cycleDay = daysSincePeriodEnd + periodLength;
+              if (_cycleDay > cycleLength) {
+                _cycleDay = _cycleDay % cycleLength;
+                if (_cycleDay == 0) _cycleDay = cycleLength;
+              }
+              _nextPeriodDate = mostRecentPeriod.startDate
+                  .add(Duration(days: cycleLength));
+            }
+          }
+        }
       });
     } catch (e) {
       print('Error loading period data: $e');
-      setState(() => _isLoading = false);
+      // Set safe defaults on error
+      setState(() {
+        _isLoading = false;
+        _periodHistory = [];
+        _isOnPeriod = false;
+        _currentPeriod = null;
+        _cycleDay = 1;
+        _nextPeriodDate = DateTime.now().add(const Duration(days: 28));
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -97,6 +171,17 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
   }
 
   Future<void> _quickLogPeriod() async {
+    // Check if user ID exists
+    if (widget.userProfile.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to log period - user not found'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
     if (_isOnPeriod && _currentPeriod != null) {
       // End current period
       await _endPeriod();
@@ -108,8 +193,14 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
 
   Future<void> _startPeriod() async {
     try {
+      // Ensure user ID exists
+      final userId = widget.userProfile.id;
+      if (userId == null) {
+        throw Exception('User ID is required to start period tracking');
+      }
+      
       final newPeriod = PeriodEntry(
-        userId: widget.userProfile.id!,
+        userId: userId,
         startDate: DateTime.now(),
         flowIntensity: 'Medium',
         symptoms: [],
@@ -131,6 +222,14 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
       widget.onUpdate?.call();
     } catch (e) {
       print('Error starting period: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error starting period: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
