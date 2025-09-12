@@ -1317,8 +1317,15 @@ double _calculateTotalCalories() {
   }
 
   Future<void> _refreshData() async {
-    _loadExerciseData();
-    _loadCustomExercises();
+    if (!mounted) return;
+    
+    try {
+      await _loadExerciseData();
+      await _loadCustomExercises();
+
+    } catch (e) {
+      print('Error in _refreshData: $e');
+    }
   }
 }
 
