@@ -279,12 +279,34 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
             ),
         ],
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : _buildCurrentStep(),
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: _isLoading 
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.8,
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+              ],
+            )
+          : SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Container(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height - 
+                            AppBar().preferredSize.height - 
+                            MediaQuery.of(context).padding.top,
+                ),
+                child: _buildCurrentStep(),
+              ),
+            ),
+      ),
       bottomNavigationBar: _buildBottomNavigation(),
     );
   }
+
 
   String _getAppBarTitle() {
     switch (_currentStep) {
@@ -1293,13 +1315,19 @@ double _calculateTotalCalories() {
       ),
     );
   }
+
+  Future<void> _refreshData() async {
+    _loadExerciseData();
+    _loadCustomExercises();
+  }
 }
+
 
 // Supporting classes
 class Exercise {
  final String name;
- final String type; // 'cardio' or 'strength'
- final double calorieRate; // calories per minute (cardio) or per rep (strength)
+ final String type;
+ final double calorieRate; 
 
  Exercise(this.name, this.type, this.calorieRate);
 }

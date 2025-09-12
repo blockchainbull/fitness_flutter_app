@@ -203,13 +203,6 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
     }
   }
 
-  Future<void> _onRefresh() async {
-    await Future.wait([
-      _refreshUserProfile(),
-      _loadWeightHistory(),
-    ]);
-  }
-
   UserProfile get currentUserProfile => _currentUserProfile ?? widget.userProfile;
   
   double get currentWeight {
@@ -285,16 +278,15 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
           ),
         ],
       ),
-      body: _isLoading
+      body: RefreshIndicator(
+      onRefresh: _refreshData,
+      child: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadWeightHistory,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+          : SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
                     _buildCurrentWeightCard(),
                     const SizedBox(height: 20),
                     if (_weightHistory.isNotEmpty) ...[
@@ -1543,7 +1535,12 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
        ),
      ),
    );
- }
+  }
+
+  Future<void> _refreshData() async {
+    await _refreshUserProfile();
+    await _loadWeightHistory();
+  }
 }
 
 // Separate page for viewing all weight history

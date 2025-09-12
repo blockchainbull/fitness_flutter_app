@@ -200,36 +200,40 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Daily Macro Goal
-            _buildDailyGoalsSection(),
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(), // Important!
+          child: Column(
+            children: [
+              // Daily Macro Goal
+              _buildDailyGoalsSection(),
 
-            // Meal Type Selector
-            _buildMealTypeSelector(),
-            
-            // Entry Mode Toggle
-            _buildEntryModeToggle(),
-            
-            // Quick Meal Combos
-            if (!_useMultiLineEntry) _buildQuickCombos(),
-            
-            // Main Entry Area
-            _buildEntryArea(),
-            
-            // Individual Items List (for manual mode)
-            if (!_useMultiLineEntry && _foodItems.isNotEmpty) 
-              _buildItemsList(),
-            
-            // Analyze Button
-            _buildAnalyzeButton(),
+              // Meal Type Selector
+              _buildMealTypeSelector(),
+              
+              // Entry Mode Toggle
+              _buildEntryModeToggle(),
+              
+              // Quick Meal Combos
+              if (!_useMultiLineEntry) _buildQuickCombos(),
+              
+              // Main Entry Area
+              _buildEntryArea(),
+              
+              // Individual Items List (for manual mode)
+              if (!_useMultiLineEntry && _foodItems.isNotEmpty) 
+                _buildItemsList(),
+              
+              // Analyze Button
+              _buildAnalyzeButton(),
 
-            _buildTodaysMeals(),
-            
-            // Results
-            if (_nutritionData != null) _buildResults(),
-          ],
+              _buildTodaysMeals(),
+              
+              // Results
+              if (_nutritionData != null) _buildResults(),
+            ],
+          ),
         ),
       ),
     );
@@ -1950,6 +1954,10 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         );
       }
     }
+  }
+
+  Future<void> _refreshData() async {
+    await _loadTodaysMeals();
   }
 
   Color _getGoalColor(String goal) {

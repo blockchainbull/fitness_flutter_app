@@ -168,7 +168,7 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
   }
 
   @override
-   Widget build(BuildContext context) {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sleep Tracking'),
@@ -186,11 +186,25 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
           ),
         ],
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : _hasEntryForToday && _isToday(_selectedDate)
-          ? _buildAlreadyLoggedView()
-          : _buildLoggingForm(),
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: _isLoading 
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.8,
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+              ],
+            )
+          : SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: _hasEntryForToday && _isToday(_selectedDate)
+                ? _buildAlreadyLoggedView()
+                : _buildLoggingForm(),
+            ),
+      ),
     );
   }
 
@@ -850,6 +864,7 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
     setState(() => _isLoading = false);
   }
 
+
   String _getQualityLabel(double score) {
     if (score >= 0.9) return 'Excellent';
     if (score >= 0.7) return 'Good';
@@ -864,6 +879,10 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
     if (score >= 0.5) return Colors.orange;
     if (score >= 0.3) return Colors.deepOrange;
     return Colors.red;
+  }
+
+  Future<void> _refreshData() async {
+    await _loadExistingEntry();
   }
 
   @override

@@ -177,12 +177,13 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
           ),
         ],
       ),
-      body: _isLoading
+      body: RefreshIndicator(
+      onRefresh: _refreshData,
+      child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildTodayHeader(),
                   const SizedBox(height: 20),
@@ -194,6 +195,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
                 ],
               ),
             ),
+      )
     );
   }
 
@@ -425,5 +427,8 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
       ),
     );
   }
+  Future<void> _refreshData() async {
+    await _loadTodayEntry();
+}
 
 }
