@@ -18,31 +18,43 @@ class CompactSleepTracker extends StatefulWidget {
   State<CompactSleepTracker> createState() => _CompactSleepTrackerState();
 }
 
-class _CompactSleepTrackerState extends State<CompactSleepTracker> {
+class _CompactSleepTrackerState extends State<CompactSleepTracker> 
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   double _lastNightHours = 0;
   String _sleepQuality = '';
   bool _isLoading = true;
   late double _sleepGoal;
+  late AnimationController _animationController;
+  late Animation<double> _progressAnimation;
+  DateTime? _sleepDate;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _progressAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
     _initializeSleepGoal();
     _loadSleepData();
   }
 
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
   void _initializeSleepGoal() {
-    // Get sleep goal from user profile
-    // Check various possible fields where sleep goal might be stored
-    if (widget.userProfile.sleepHours != null) {
-      _sleepGoal = widget.userProfile.sleepHours!.toDouble();
-    } else {
-      // Default fallback if no sleep goal is set in profile
-      _sleepGoal = 8.0;
-    }
-    
-    // Ensure sleep goal is reasonable (between 4 and 12 hours)
+    _sleepGoal = widget.userProfile.sleepHours?.toDouble() ?? 8.0;
     _sleepGoal = _sleepGoal.clamp(4.0, 12.0);
   }
 
@@ -57,10 +69,9 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker> {
 
   Future<void> _loadSleepData() async {
     setState(() => _isLoading = true);
-    _sleepGoal = widget.userProfile.sleepHours ?? 8.0;
     
     try {
-      // Check for today's sleep first (if already logged)
+      // Check for today's sleep first
       final today = DateTime.now();
       final todayStr = DateFormat('yyyy-MM-dd').format(today);
       
@@ -73,28 +84,34 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker> {
         final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
         sleepLog = await _apiService.getSleepEntryByDate(
           widget.userProfile.id, yesterdayStr);
+        _sleepDate = yesterday;
+      } else {
+        _sleepDate = today;
       }
       
-      // Parse the response correctly
       if (sleepLog != null && sleepLog['success'] == true && sleepLog['entry'] != null) {
         final entry = sleepLog['entry'];
         
-        // Use the correct field names from your API
-        _lastNightHours = (entry['total_hours'] as num?)?.toDouble() ?? 0;
+        setState(() {
+          _lastNightHours = (entry['total_hours'] as num?)?.toDouble() ?? 0;
+          final qualityScore = (entry['quality_score'] as num?)?.toDouble() ?? 0;
+          _sleepQuality = _getQualityFromScore(qualityScore);
+        });
         
-        // Convert quality_score (0.0-1.0) to quality string
-        final qualityScore = (entry['quality_score'] as num?)?.toDouble() ?? 0;
-        _sleepQuality = _getQualityFromScore(qualityScore);
-        
-        print('Loaded sleep data: ${_lastNightHours} hours, quality: $_sleepQuality');
+        // Animate progress after data loads
+        _animationController.forward();
       } else {
-        _lastNightHours = 0;
-        _sleepQuality = '';
+        setState(() {
+          _lastNightHours = 0;
+          _sleepQuality = '';
+        });
       }
     } catch (e) {
       print('Error loading sleep data: $e');
-      _lastNightHours = 0;
-      _sleepQuality = '';
+      setState(() {
+        _lastNightHours = 0;
+        _sleepQuality = '';
+      });
     } finally {
       setState(() => _isLoading = false);
     }
@@ -151,224 +168,348 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker> {
     }
   }
 
+  Widget _buildSleepRing() {
+    final progress = (_lastNightHours / _sleepGoal).clamp(0.0, 1.0);
+    
+    return AnimatedBuilder(
+      animation: _progressAnimation,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Background ring
+            SizedBox(
+              width: 90,
+              height: 90,
+              child: CircularProgressIndicator(
+                value: 1.0,
+                strokeWidth: 8,
+                backgroundColor: Colors.white.withOpacity(0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.transparent),
+              ),
+            ),
+            // Progress ring
+            SizedBox(
+              width: 90,
+              height: 90,
+              child: CircularProgressIndicator(
+                value: progress * _progressAnimation.value,
+                strokeWidth: 8,
+                backgroundColor: Colors.white.withOpacity(0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  progress >= 1.0 ? Colors.greenAccent : Colors.white,
+                ),
+              ),
+            ),
+            // Center content
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.nightlight_round,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_lastNightHours.toStringAsFixed(1)}h',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final progress = (_lastNightHours / _sleepGoal).clamp(0.0, 1.0);
     final bool goalMet = _lastNightHours >= _sleepGoal;
+    final isToday = _sleepDate != null && 
+        DateFormat('yyyy-MM-dd').format(_sleepDate!) == 
+        DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF7B68EE),
-            const Color(0xFF9D88F0),
+            const Color(0xFF6B5ACF),
+            const Color(0xFF8B7FD6),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1A237E).withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF6B5ACF).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          borderRadius: BorderRadius.circular(20),
           onTap: _navigateToSleepLogging,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.nightlight_round,
-                        color: Colors.white,
-                        size: 24,
-                      ),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Sleep Tracker',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.bedtime,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Sleep Tracker',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Goal: ${_sleepGoal.toStringAsFixed(0)} hours',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.8),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                          Text(
-                            'Goal: ${_sleepGoal.toStringAsFixed(0)} hours',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withOpacity(0.9),
+                          if (_lastNightHours > 0 && goalMet)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.greenAccent.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: Colors.greenAccent,
+                                    size: 14,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Goal Met',
+                                    style: TextStyle(
+                                      color: Colors.greenAccent,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Main content
+                      Row(
+                        children: [
+                          // Sleep ring
+                          _buildSleepRing(),
+                          
+                          const SizedBox(width: 20),
+                          
+                          // Sleep details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 14,
+                                      color: Colors.white.withOpacity(0.7),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isToday ? 'Last Night' : 
+                                        DateFormat('MMM d').format(_sleepDate ?? DateTime.now()),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white.withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                
+                                if (_lastNightHours > 0) ...[
+                                  Text(
+                                    '${_lastNightHours.toStringAsFixed(1)} hrs',
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _getQualityColor(_sleepQuality).withOpacity(0.3),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _getQualityIcon(_sleepQuality),
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Quality: $_sleepQuality',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else ...[
+                                  const Text(
+                                    'Not logged',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Tap to track your sleep',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white.withOpacity(0.6),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    if (_sleepQuality.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: _getQualityColor(_sleepQuality).withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          _getQualityIcon(_sleepQuality),
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                  ],
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Last night's sleep
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Progress bar
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Last Night',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                          ),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Icon(
-                                Icons.access_time,
-                                size: 16,
-                                color: Colors.white.withOpacity(0.9),
-                              ),
-                              const SizedBox(width: 4),
                               Text(
-                                _lastNightHours > 0 
-                                  ? '${_lastNightHours.toStringAsFixed(1)} hrs'
-                                  : 'Not logged',
-                                style: const TextStyle(
-                                  fontSize: 16,
+                                'Sleep Progress',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                              ),
+                              Text(
+                                '${(progress * 100).toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withOpacity(0.8),
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
                                 ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                goalMet ? Colors.greenAccent : Colors.white,
+                              ),
+                              minHeight: 8,
+                            ),
+                          ),
                         ],
                       ),
-                      if (_lastNightHours > 0) ...[
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.white.withOpacity(0.2),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              goalMet ? Colors.green : Colors.orange,
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Action button
+                      Container(
+                        width: double.infinity,
+                        height: 36,
+                        child: ElevatedButton.icon(
+                          onPressed: _navigateToSleepLogging,
+                          icon: Icon(
+                            _lastNightHours > 0 ? Icons.edit : Icons.add,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _lastNightHours > 0 ? 'Update Sleep' : 'Log Sleep',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF6B5ACF),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            minHeight: 6,
+                            elevation: 0,
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Sleep quality or prompt to log
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_lastNightHours > 0 && _sleepQuality.isNotEmpty) ...[
-                        Icon(
-                          _getQualityIcon(_sleepQuality),
-                          size: 14,
-                          color: Colors.white.withOpacity(0.8),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Quality: $_sleepQuality',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                        ),
-                      ] else ...[
-                        Icon(
-                          Icons.info_outline,
-                          size: 14,
-                          color: Colors.white.withOpacity(0.8),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Track your sleep for insights',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Log button
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: _navigateToSleepLogging,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(_lastNightHours > 0 ? 'Update Sleep' : 'Log Sleep'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF7B68EE),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
