@@ -57,51 +57,54 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker> {
 
   Future<void> _loadSleepData() async {
     setState(() => _isLoading = true);
-    _sleepGoal = widget.userProfile.sleepHours;
+    _sleepGoal = widget.userProfile.sleepHours ?? 8.0;
+    
     try {
-      // Load sleep data for last night
+      // Check for today's sleep first (if already logged)
       final today = DateTime.now();
-      final yesterday = today.subtract(const Duration(days: 1));
-      final dateStr = DateFormat('yyyy-MM-dd').format(yesterday);
+      final todayStr = DateFormat('yyyy-MM-dd').format(today);
       
-      final sleepLog = await _apiService.getSleepEntryByDate(
-        widget.userProfile.id, dateStr);
+      var sleepLog = await _apiService.getSleepEntryByDate(
+        widget.userProfile.id, todayStr);
       
-      // Check if we have sleep data
-      if (sleepLog != null && sleepLog.isNotEmpty) {
-        // If it's a single log object
-        _lastNightHours = (sleepLog['duration'] as num?)?.toDouble() ?? 0;
-        _sleepQuality = sleepLog['quality'] ?? '';
-        
-        // If the response contains a 'data' field with the actual log
-        if (sleepLog['data'] != null) {
-          final data = sleepLog['data'];
-          if (data is Map) {
-            _lastNightHours = (data['duration'] as num?)?.toDouble() ?? 0;
-            _sleepQuality = data['quality'] ?? '';
-          } else if (data is List && data.isNotEmpty) {
-            final lastLog = data.last;
-            _lastNightHours = (lastLog['duration'] as num?)?.toDouble() ?? 0;
-            _sleepQuality = lastLog['quality'] ?? '';
-          }
-        }
-        
-        // If the response contains a 'logs' field with array of logs
-        if (sleepLog['logs'] != null && sleepLog['logs'] is List) {
-          final logs = sleepLog['logs'] as List;
-          if (logs.isNotEmpty) {
-            final lastLog = logs.last;
-            _lastNightHours = (lastLog['duration'] as num?)?.toDouble() ?? 0;
-            _sleepQuality = lastLog['quality'] ?? '';
-          }
-        }
+      // If no entry for today, check yesterday
+      if (sleepLog == null || sleepLog['entry'] == null) {
+        final yesterday = today.subtract(const Duration(days: 1));
+        final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
+        sleepLog = await _apiService.getSleepEntryByDate(
+          widget.userProfile.id, yesterdayStr);
       }
       
-      setState(() => _isLoading = false);
+      // Parse the response correctly
+      if (sleepLog != null && sleepLog['success'] == true && sleepLog['entry'] != null) {
+        final entry = sleepLog['entry'];
+        
+        // Use the correct field names from your API
+        _lastNightHours = (entry['total_hours'] as num?)?.toDouble() ?? 0;
+        
+        // Convert quality_score (0.0-1.0) to quality string
+        final qualityScore = (entry['quality_score'] as num?)?.toDouble() ?? 0;
+        _sleepQuality = _getQualityFromScore(qualityScore);
+        
+        print('Loaded sleep data: ${_lastNightHours} hours, quality: $_sleepQuality');
+      } else {
+        _lastNightHours = 0;
+        _sleepQuality = '';
+      }
     } catch (e) {
       print('Error loading sleep data: $e');
+      _lastNightHours = 0;
+      _sleepQuality = '';
+    } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  String _getQualityFromScore(double score) {
+    if (score >= 0.9) return 'Excellent';
+    if (score >= 0.7) return 'Good';
+    if (score >= 0.5) return 'Fair';
+    return 'Poor';
   }
 
   void _navigateToSleepLogging() {
