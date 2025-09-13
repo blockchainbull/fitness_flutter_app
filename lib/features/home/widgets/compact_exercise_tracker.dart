@@ -3,6 +3,7 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/tracking/screens/exercise_logging_page.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 class CompactExerciseTracker extends StatefulWidget {
   final UserProfile userProfile;
@@ -147,6 +148,7 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
   }
 
   void _navigateToExerciseLogging() {
+    HapticFeedback.lightImpact();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -160,60 +162,86 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
     });
   }
 
-  Widget _buildMuscleGroupChips() {
-    if (_weeklyMuscleGroups.isEmpty) {
-      return SizedBox.shrink();
-    }
+  Widget _buildStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: Colors.white.withOpacity(0.8),
+            size: 20,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // Map muscle group names to icons
+  Widget _buildCleanMuscleGroupChips() {
     final muscleIcons = {
       'chest': Icons.fitness_center,
       'back': Icons.rowing,
-      'shoulders': Icons.accessibility,
+      'shoulders': Icons.accessibility_new,
       'arms': Icons.sports_handball,
       'legs': Icons.directions_run,
       'core': Icons.self_improvement,
       'cardio': Icons.favorite,
     };
 
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: _weeklyMuscleGroups.map((muscle) {
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _weeklyMuscleGroups.map((muscle) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2), // Uniform color for all chips
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                muscleIcons[muscle.toLowerCase()] ?? Icons.fitness_center,
+                size: 16,
+                color: Colors.white,
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  muscleIcons[muscle.toLowerCase()] ?? Icons.fitness_center,
-                  size: 14,
+              const SizedBox(width: 6),
+              Text(
+                muscle.substring(0, 1).toUpperCase() + muscle.substring(1),
+                style: const TextStyle(
+                  fontSize: 12,
                   color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  muscle.substring(0, 1).toUpperCase() + muscle.substring(1),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -225,19 +253,20 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFFFF6B35),
-            const Color(0xFFFF9558),
-          ],
+          colors: goalMet
+              ? [const Color(0xFF4CAF50), const Color(0xFF66BB6A)]  // Green when goal met
+              : [const Color(0xFFFF6B35), const Color(0xFFFF9558)],  // Orange default
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF7C4DFF).withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: goalMet 
+                ? Colors.green.withOpacity(0.3)
+                : const Color(0xFFFF6B35).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -245,28 +274,28 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
         color: Colors.transparent,
         child: InkWell(
           onTap: _navigateToExerciseLogging,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
+                // Header with Goal Met badge on the right
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
-                        Icons.fitness_center,
+                      child: Icon(
+                        goalMet ? Icons.emoji_events : Icons.fitness_center,
                         color: Colors.white,
-                        size: 24,
+                        size: 28,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,45 +303,51 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
                           const Text(
                             'Exercise Tracker',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
                           ),
+                          const SizedBox(height: 4),
                           Text(
                             'Daily goal: $_dailyGoal min',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               color: Colors.white.withOpacity(0.9),
                             ),
                           ),
                         ],
                       ),
                     ),
+                    // Goal Met Badge on the right
                     if (goalMet)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: 12,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.4),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: const [
                             Icon(
                               Icons.check_circle,
+                              size: 16,
                               color: Colors.white,
-                              size: 14,
                             ),
                             SizedBox(width: 4),
                             Text(
                               'Goal Met!',
                               style: TextStyle(
+                                fontSize: 12,
                                 color: Colors.white,
-                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -322,129 +357,224 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
                   ],
                 ),
                 
+                const SizedBox(height: 20),
+                
+                // Progress Section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Today\'s Activity',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          '$_todayMinutes / $_dailyGoal min',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    
+                    // Progress Bar
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Stack(
+                          children: [
+                            Container(
+                              height: 12,
+                              width: constraints.maxWidth,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 800),
+                              curve: Curves.easeOutCubic,
+                              height: 12,
+                              width: constraints.maxWidth * progress,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white,
+                                    Colors.white.withOpacity(0.8),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _todayExercises > 0
+                          ? '$_todayExercises exercise${_todayExercises > 1 ? 's' : ''} today'
+                          : 'No exercises logged yet',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+                
                 const SizedBox(height: 16),
                 
-                // Progress section
+                // Clean Weekly Stats Section
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
+                    ),
                   ),
                   child: Column(
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Today\'s Activity',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white.withOpacity(0.9),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 20,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '$_weeklyExercises workouts',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      'This week',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.white.withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            '$_todayMinutes / $_dailyGoal min',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                          Container(
+                            width: 1,
+                            height: 35,
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Icon(
+                                  Icons.sports_martial_arts,
+                                  size: 20,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${_weeklyMuscleGroups.length} trained',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Muscle groups',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.white.withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            goalMet ? Colors.green : Colors.white,
-                          ),
-                          minHeight: 6,
-                        ),
-                      ),
-                      if (_todayExercises > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            '$_todayExercises exercise${_todayExercises > 1 ? 's' : ''} today',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.white.withOpacity(0.8),
-                            ),
-                          ),
-                        ),
+                      if (_weeklyMuscleGroups.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildCleanMuscleGroupChips(),
+                      ],
                     ],
                   ),
                 ),
                 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 
-                // Weekly stats
-                if (_weeklyExercises > 0)
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                // Clean Action Button
+                Container(
+                  width: double.infinity,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1.5,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _navigateToExerciseLogging,
+                      borderRadius: BorderRadius.circular(24),
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
                             Icon(
-                              Icons.calendar_today,
-                              size: 14,
-                              color: Colors.white.withOpacity(0.8),
+                              Icons.add_circle_outline,
+                              color: Colors.white,
+                              size: 22,
                             ),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 8),
                             Text(
-                              'This week: $_weeklyExercises workout${_weeklyExercises > 1 ? 's' : ''}',
+                              'Log Exercise',
                               style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withOpacity(0.9),
-                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                        if (_weeklyMuscleGroups.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Muscle groups trained:',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.white.withOpacity(0.7),
-                            ),
-                          ),
-                          _buildMuscleGroupChips(),
-                        ],
-                      ],
-                    ),
-                  ),
-                
-                const SizedBox(height: 12),
-                
-                // Log button
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: _navigateToExerciseLogging,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Log Exercise'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFFFF6B35),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      elevation: 0,
                     ),
                   ),
                 ),

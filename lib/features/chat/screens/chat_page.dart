@@ -29,6 +29,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Map<String, dynamic>? _userContext;
   Map<String, dynamic>? _userFramework;
   bool _isLoadingContext = false;
+  bool _isLoadingHistory = false;
 
   @override
   void initState() {
@@ -38,11 +39,67 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _initializeChat() async {
-    // Load user context first
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Load chat history first
+    await _loadChatHistory();
+    
+    // Load user context
     await _loadUserContext();
     
-    // Then show welcome message with context awareness
-    _showContextAwareWelcome();
+    // Only show welcome message if there's no chat history
+    if (_messages.isEmpty) {
+      _showContextAwareWelcome();
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+    
+    // Scroll to bottom after loading
+    _scrollToBottom();
+  }
+
+  Future<void> _loadChatHistory() async {
+    setState(() {
+      _isLoadingHistory = true;
+    });
+    
+    try {
+      print('[ChatPage] Loading chat history for user: ${widget.userProfile.id}');
+      
+      // Get chat history from the backend
+      final history = await ChatService.getChatHistory(widget.userProfile.id);
+      
+      print('[ChatPage] Loaded ${history.length} messages from history');
+      
+      if (history.isNotEmpty) {
+        setState(() {
+          _messages = history.map((msg) {
+            // Convert backend message format to UI format
+            return {
+              'text': msg['message'] ?? '',
+              'isUser': msg['is_user'] ?? false,
+              'timestamp': msg['created_at'] != null 
+                  ? DateTime.parse(msg['created_at']) 
+                  : DateTime.now(),
+              'type': 'history',
+            };
+          }).toList();
+          _messages.sort((a, b) => 
+            (a['timestamp'] as DateTime).compareTo(b['timestamp'] as DateTime)
+          );
+        });
+      }
+    } catch (e) {
+      print('[ChatPage] Error loading chat history: $e');
+    } finally {
+      setState(() {
+        _isLoadingHistory = false;
+      });
+    }
   }
   
   Future<void> _loadUserContext() async {
@@ -195,7 +252,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       setState(() {
         _messages.clear();
       });
-      _addWelcomeMessage();
+      _showContextAwareWelcome();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Chat history cleared')),
       );
@@ -283,6 +340,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         elevation: 1,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              await _loadChatHistory();
+              await _loadUserContext();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Chat refreshed'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+            tooltip: 'Refresh',
+          ),
+          IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: _showContextInfo,
           ),
@@ -340,7 +411,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           // Messages with pull-to-refresh
           Expanded(
             child: RefreshIndicator(
-              onRefresh: _loadUserContext,
+              onRefresh: () async {
+                await _loadChatHistory(); 
+                await _loadUserContext();
+              },
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.builder(
