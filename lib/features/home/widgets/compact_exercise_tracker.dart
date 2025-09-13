@@ -89,7 +89,22 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
           // Check if the exercise date is actually today
           final exerciseDate = exercise['exercise_date'] ?? exercise['created_at'];
           if (exerciseDate != null && exerciseDate.toString().startsWith(today)) {
-            todayMinutes += (exercise['duration_minutes'] as num?)?.toInt() ?? 0;
+            // Check if it's a cardio exercise with duration
+            if (exercise['duration_minutes'] != null) {
+              todayMinutes += (exercise['duration_minutes'] as num?)?.toInt() ?? 0;
+            } else {
+              // For strength exercises, estimate duration based on sets
+              // Typically, a set takes about 1-2 minutes including rest
+              final sets = (exercise['sets'] as num?)?.toInt() ?? 0;
+              final exerciseType = exercise['exercise_type'] as String?;
+              
+              if (sets > 0) {
+                // Estimate: 2 minutes per set for strength training (includes rest)
+                // This is a reasonable approximation for tracking purposes
+                final estimatedMinutes = sets * 2;
+                todayMinutes += estimatedMinutes;
+              }
+            }
             todayCount++;
           }
         }
