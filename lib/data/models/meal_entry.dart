@@ -41,28 +41,34 @@ class MealEntry {
   });
 
   factory MealEntry.fromMap(Map<String, dynamic> map) {
+    // Handle nested meal object from flutter_compat response
+    final mealData = map['meal'] ?? map;
+    
     return MealEntry(
-      id: map['id'],
-      userId: map['user_id'] ?? map['userId'],  
-      foodItem: map['food_item'] ?? map['foodItem'],
-      quantity: map['quantity'],
-      preparation: map['preparation'],
-      mealType: map['meal_type'] ?? map['mealType'],
-      calories: (map['calories'] ?? 0).toDouble(),
-      proteinG: (map['protein_g'] ?? map['proteinG'] ?? 0).toDouble(),
-      carbsG: (map['carbs_g'] ?? map['carbsG'] ?? 0).toDouble(),
-      fatG: (map['fat_g'] ?? map['fatG'] ?? 0).toDouble(),
-      fiberG: (map['fiber_g'] ?? map['fiberG'])?.toDouble(),
-      sugarG: (map['sugar_g'] ?? map['sugarG'])?.toDouble(),
-      sodiumMg: (map['sodium_mg'] ?? map['sodiumMg'])?.toDouble(),
-      nutritionData: map['nutrition_data'] ?? map['nutritionData'],
-      dataSource: map['data_source'] ?? map['dataSource'],
-      mealDate: DateTime.parse(map['meal_date'] ?? map['mealDate']).toLocal(),  
-      loggedAt: map['logged_at'] != null || map['loggedAt'] != null
-          ? DateTime.parse(map['logged_at'] ?? map['loggedAt']).toLocal()  
-          : null,
+      id: mealData['id']?.toString(),
+      userId: mealData['user_id']?.toString() ?? mealData['userId']?.toString() ?? '',
+      foodItem: mealData['food_item'] ?? mealData['foodItem'] ?? mealData['name'] ?? '',
+      quantity: mealData['quantity']?.toString() ?? '1 serving',
+      preparation: mealData['preparation'],
+      mealType: mealData['meal_type'] ?? mealData['mealType'] ?? '',
+      calories: _parseToDouble(mealData['calories']),
+      proteinG: _parseToDouble(mealData['protein_g'] ?? mealData['protein']),
+      carbsG: _parseToDouble(mealData['carbs_g'] ?? mealData['carbs']),
+      fatG: _parseToDouble(mealData['fat_g'] ?? mealData['fat']),
+      fiberG: _parseToDouble(mealData['fiber_g'] ?? mealData['fiber']),
+      sugarG: _parseToDouble(mealData['sugar_g'] ?? mealData['sugar']),
+      sodiumMg: _parseToDouble(mealData['sodium_mg'] ?? mealData['sodium']),
+      nutritionData: mealData['nutrition_data'] ?? {
+        'healthiness_score': mealData['healthiness_score'],
+        'suggestions': mealData['suggestions'],
+        'nutrition_notes': mealData['nutrition_notes'],
+        'components': mealData['components'],
+      },
+      dataSource: mealData['data_source'] ?? 'ai',
+      mealDate: _parseDateTime(mealData['meal_date'] ?? mealData['logged_at']),
+      loggedAt: _parseDateTime(mealData['logged_at']),
     );
-}
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -112,5 +118,29 @@ class MealEntry {
       mealDate: mealDate,
       loggedAt: loggedAt,
     );
+  }
+
+  static double _parseToDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is DateTime) return value.toLocal();
+    if (value is String && value.isNotEmpty) {
+      try {
+        return DateTime.parse(value).toLocal();
+      } catch (e) {
+        print('Error parsing date: $value - $e');
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
   }
 }

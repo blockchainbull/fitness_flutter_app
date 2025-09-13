@@ -1247,20 +1247,36 @@ class ApiService {
         final data = jsonDecode(response.body);
         print('Full response: $data');
         
-        // The response includes the saved meal_entry data
-        // Convert to MealEntry to ensure proper type handling
-        final mealEntry = MealEntry.fromMap(data);
-        
-        // Return as Map for backward compatibility
-        return {
-          ...mealEntry.toMap(),
-          'nutrition_notes': data['nutrition_notes'],
-          'healthiness_score': data['healthiness_score'],
-          'suggestions': data['suggestions'],
-        };
+        // Check if it's the flutter_compat response format
+        if (data['success'] == true && data['meal'] != null) {
+          final meal = data['meal'];
+          // Return normalized format for the UI
+          return {
+            'id': meal['id'],
+            'food_item': meal['name'] ?? meal['food_item'],
+            'quantity': meal['quantity'],
+            'meal_type': mealData['meal_type'], // Keep original
+            'calories': meal['calories'],
+            'protein_g': meal['protein'] ?? meal['protein_g'],
+            'carbs_g': meal['carbs'] ?? meal['carbs_g'],
+            'fat_g': meal['fat'] ?? meal['fat_g'],
+            'fiber_g': meal['fiber'] ?? meal['fiber_g'],
+            'sugar_g': meal['sugar'] ?? meal['sugar_g'],
+            'sodium_mg': meal['sodium'] ?? meal['sodium_mg'],
+            'healthiness_score': meal['healthiness_score'],
+            'suggestions': meal['suggestions'],
+            'nutrition_notes': meal['nutrition_notes'],
+            'components': meal['components'],
+            'data_source': meal['data_source'],
+            'meal_date': meal['logged_at'] ?? DateTime.now().toIso8601String(),
+          };
+        } else {
+          // Handle other response formats
+          return data;
+        }
       } else {
         final errorBody = jsonDecode(response.body);
-        throw Exception(errorBody['error'] ?? 'Failed to analyze meal');
+        throw Exception(errorBody['error'] ?? errorBody['detail'] ?? 'Failed to analyze meal');
       }
     } catch (e) {
       throw Exception('Error analyzing meal: $e');
