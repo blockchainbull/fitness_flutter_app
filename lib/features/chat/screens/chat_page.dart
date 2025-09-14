@@ -5,6 +5,7 @@ import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/chat_service.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 
 class ChatPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -36,6 +37,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeChat();
+    _debugContext();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    final bottomInset = WidgetsBinding.instance.window.viewInsets.bottom;
+    if (bottomInset > 0.0) {
+      // Keyboard is visible, scroll to bottom
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _scrollToBottom();
+      });
+    }
   }
 
   Future<void> _initializeChat() async {
@@ -43,13 +57,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _isLoading = true;
     });
 
-    // Load chat history first
     await _loadChatHistory();
-    
-    // Load user context
     await _loadUserContext();
     
-    // Only show welcome message if there's no chat history
     if (_messages.isEmpty) {
       _showContextAwareWelcome();
     }
@@ -58,8 +68,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _isLoading = false;
     });
     
-    // Scroll to bottom after loading
-    _scrollToBottom();
+    // Add post-state update scroll
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
   }
 
   Future<void> _loadChatHistory() async {
@@ -99,6 +111,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       setState(() {
         _isLoadingHistory = false;
       });
+    }
+  }
+
+  Future<void> _debugContext() async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://health-ai-backend-i28b.onrender.com/api/health/chat/context/${widget.userProfile.id}'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      
+      print('Context Response Status: ${response.statusCode}');
+      print('Context Response Body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('Today Progress: ${data['today_progress']}');
+      }
+    } catch (e) {
+      print('Debug context error: $e');
     }
   }
   
@@ -169,7 +200,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       welcomeMessage += 'I\'m here to help with your health goals. What would you like to discuss?';
     }
     
-    setState(() {
+      setState(() {
       _messages.add({
         'text': welcomeMessage,
         'isUser': false,
@@ -177,6 +208,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         'type': 'welcome',
         'hasContext': _userContext != null,
       });
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
     });
   }
 
@@ -278,8 +312,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   void _scrollToBottom() {
+    // Immediate jump if possible
+    if (_scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    }
+    
+    // Post-frame callback for after UI updates
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (_scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+    
+    // Delayed fallback for complex layouts
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),

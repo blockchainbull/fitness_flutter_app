@@ -4,6 +4,8 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 
 class ChatService {
   static final ApiService _apiService = ApiService();
+  static Map<String, dynamic>? _cachedContext;
+  static DateTime? _lastContextFetch;
 
   /// Single method for sending messages - always includes context
   static Future<String> sendMessage(
@@ -45,17 +47,28 @@ class ChatService {
   }
 
   /// Get user context for debugging or chat initialization
-  static Future<Map<String, dynamic>> getUserContext(String userId) async {
+  static Future<Map<String, dynamic>> getUserContext(String userId, {bool forceRefresh = false}) async {
+    // Check if we have recent cached context (within 5 minutes)
+    if (!forceRefresh && 
+        _cachedContext != null && 
+        _lastContextFetch != null &&
+        DateTime.now().difference(_lastContextFetch!).inMinutes < 5) {
+      print('[ChatService] Using cached context');
+      return _cachedContext!;
+    }
+    
     try {
-      print('[ChatService] Getting user context for: $userId');
+      print('[ChatService] Fetching fresh context');
       final context = await _apiService.getUserChatContext(userId);
-      print('[ChatService] Context loaded with keys: ${context.keys}');
+      _cachedContext = context;
+      _lastContextFetch = DateTime.now();
       return context;
     } catch (e) {
-      print('[ChatService] Error getting user context: $e');
-      return {};
+      print('[ChatService] Error: $e');
+      return _cachedContext ?? {};
     }
   }
+
 
   /// Get user's personalized framework
   static Future<Map<String, dynamic>?> getUserFramework(String userId) async {
