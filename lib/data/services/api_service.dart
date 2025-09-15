@@ -236,7 +236,7 @@ class ApiService {
           }
         }),
       ).timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 30),
         onTimeout: () {
           print('[ApiService] Request timed out');
           throw Exception('Request timed out - please check your connection');
@@ -265,7 +265,7 @@ class ApiService {
       }
       return 'I\'m having trouble connecting right now. Please try again later.';
     }
-}
+  }
 
   Future<Map<String, dynamic>> getUserChatContext(String userId) async {
     try {
