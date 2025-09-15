@@ -236,7 +236,7 @@ class ApiService {
           }
         }),
       ).timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 60),
         onTimeout: () {
           print('[ApiService] Request timed out');
           throw Exception('Request timed out - please check your connection');
