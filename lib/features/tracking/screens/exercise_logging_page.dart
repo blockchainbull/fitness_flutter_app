@@ -190,13 +190,29 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     
     for (final exercise in _exerciseHistory) {
       final name = exercise['exercise_name'] as String;
+      final exerciseType = exercise['exercise_type'] as String? ?? 'strength';
+
+      // Calculate duration if not present
+      int duration = exercise['duration_minutes'] ?? 0;
+      if (duration == 0 && exerciseType == 'strength') {
+        final sets = exercise['sets'] ?? 0;
+        final reps = exercise['reps'] ?? 0;
+        if (sets > 0 && reps > 0) {
+          duration = calculateExerciseDuration(
+            exerciseType: exerciseType,
+            sets: sets,
+            reps: reps,
+            exerciseName: name,
+          ).round();
+        }
+      }
       
       if (!defaults.containsKey(name)) {
         defaults[name] = ExerciseDefaults(
           sets: exercise['sets'] ?? 0,
           reps: exercise['reps'] ?? 0,
           weight: exercise['weight_kg']?.toDouble() ?? 0.0,
-          duration: exercise['duration_minutes'] ?? 0,
+          duration: duration,  // USE the calculated duration here
           distance: exercise['distance_km']?.toDouble() ?? 0.0,
           frequency: 1,
           lastPerformed: DateTime.parse(exercise['exercise_date']),
@@ -208,7 +224,7 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
           sets: ((current.sets + (exercise['sets'] ?? 0)) / 2).round(),
           reps: ((current.reps + (exercise['reps'] ?? 0)) / 2).round(),
           weight: (current.weight + (exercise['weight_kg']?.toDouble() ?? 0.0)) / 2,
-          duration: ((current.duration + (exercise['duration_minutes'] ?? 0)) / 2).round(),
+          duration: ((current.duration + duration) / 2).round(),  // USE calculated duration here too
           distance: (current.distance + (exercise['distance_km']?.toDouble() ?? 0.0)) / 2,
           frequency: current.frequency + 1,
           lastPerformed: DateTime.parse(exercise['exercise_date']),
@@ -315,6 +331,35 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
       default:
         return 'Exercise Logging';
     }
+  }
+
+  double calculateExerciseDuration({
+    required String exerciseType,
+    required int sets,
+    required int reps,
+    String? exerciseName,
+  }) {
+    if (exerciseType == 'cardio') {
+      return 0; // Let user input actual duration
+    }
+    
+    // Time calculations
+    const timePerRep = 3; // seconds
+    var restBetweenSets = 60; // seconds
+    
+    // Heavy exercises need more rest
+    final heavyExercises = ['squat', 'deadlift', 'bench press', 'leg press'];
+    if (exerciseName != null && 
+        heavyExercises.any((e) => exerciseName.toLowerCase().contains(e))) {
+      restBetweenSets = 90;
+    }
+    
+    final totalRepTime = sets * reps * timePerRep;
+    final totalRestTime = sets > 1 ? (sets - 1) * restBetweenSets : 0;
+    const setupTime = 30; // seconds
+    
+    final totalSeconds = totalRepTime + totalRestTime + setupTime;
+    return (totalSeconds / 60).roundToDouble();
   }
 
   Widget _buildCurrentStep() {
@@ -656,6 +701,17 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     final log = _exerciseLogs[exercise.name] ?? ExerciseLog();
     final defaults = _exerciseDefaults[exercise.name];
     final progressData = _progressHistory[exercise.name];
+
+    // Calculate estimated duration
+    double estimatedDuration = 0;
+    if (exercise.type == 'strength' && log.sets > 0 && log.reps > 0) {
+      estimatedDuration = calculateExerciseDuration(
+        exerciseType: exercise.type,
+        sets: log.sets,
+        reps: log.reps,
+        exerciseName: exercise.name,
+      );
+    }
     
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1181,6 +1237,19 @@ double _calculateTotalCalories() {
         final log = _exerciseLogs[exerciseName]!;
         final calories = _calculateCalories(exercise, log);
         
+        // Calculate duration for strength exercises
+        double duration = 0;
+        if (exercise.type == 'strength') {
+          duration = calculateExerciseDuration(
+            exerciseType: exercise.type,
+            sets: log.sets,
+            reps: log.reps,
+            exerciseName: exerciseName,
+          );
+        } else if (exercise.type == 'cardio') {
+          duration = log.duration.toDouble();
+        }
+        
         // Base exercise data
         final exerciseData = <String, dynamic>{
           'user_id': widget.userProfile.id,
@@ -1189,7 +1258,8 @@ double _calculateTotalCalories() {
           'muscle_group': _selectedMuscleGroup.toLowerCase(),
           'calories_burned': calories,
           'exercise_date': _selectedDate.toIso8601String(),
-          'notes': '', // Add if needed
+          'duration_minutes': duration.round(), // Add calculated duration
+          'notes': '',
         };
         
         // Add type-specific data only if values exist
