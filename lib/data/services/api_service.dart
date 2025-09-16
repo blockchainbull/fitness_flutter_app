@@ -220,7 +220,7 @@ class ApiService {
     }
   }
 
-  Future<String> sendChatMessage(String userId, Map<String, dynamic> messageData) async {
+   Future<String> sendChatMessage(String userId, Map<String, dynamic> messageData) async {
     try {
       print('[ApiService] Sending message for user: $userId');
       
@@ -231,68 +231,111 @@ class ApiService {
           'user_id': userId,
           'message': messageData['message'],
           'metadata': {
-            'has_fresh_context': messageData['has_fresh_context'] ?? false,
-            'context_timestamp': messageData['context_timestamp'],
+            'context_version': messageData['context_version'],
+            'context_timestamp': DateTime.now().toIso8601String(),
           }
         }),
       ).timeout(
         const Duration(seconds: 60),
         onTimeout: () {
-          print('[ApiService] Request timed out');
-          throw Exception('Request timed out - please check your connection');
+          throw Exception('Request timed out');
         },
       );
 
-      print('[ApiService] Chat response status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          return data['response'] ?? 'Sorry, I couldn\'t generate a response.';
-        } else {
-          print('[ApiService] Backend error: ${data['error']}');
-          return data['response'] ?? 'I\'m having trouble connecting right now. Please try again.';
-        }
+        return data['response'] ?? 'Sorry, I couldn\'t generate a response.';
       } else {
-        throw Exception('Failed to send chat message: ${response.body}');
+        throw Exception('Failed to send message');
       }
     } catch (e) {
-      print('[ApiService] Chat error: $e');
-      if (e.toString().contains('SocketException')) {
-        return 'No internet connection. Please check your network settings.';
-      } else if (e.toString().contains('timeout')) {
-        return 'Connection timed out. Please try again.';
-      }
-      return 'I\'m having trouble connecting right now. Please try again later.';
+      debugPrint('[ApiService] Error sending message: $e');
+      rethrow;
     }
   }
 
-  Future<Map<String, dynamic>> getUserChatContext(String userId) async {
+  Future<Map<String, dynamic>> getChatContext(String userId, {DateTime? date}) async {
     try {
-      print('[ApiService] Getting chat context for user: $userId');
+      final dateStr = date != null 
+        ? DateFormat('yyyy-MM-dd').format(date)
+        : DateFormat('yyyy-MM-dd').format(DateTime.now());
       
+      // This now hits the cached endpoint
       final response = await http.get(
-        Uri.parse('$baseUrl/chat/context/$userId'),
+        Uri.parse('$baseUrl/chat/context/$userId?date=$dateStr'),
         headers: headers,
       );
 
-      print('[ApiService] Chat context response status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('[ApiService] Context loaded (cached)');
+        return data;
+      } else {
+        throw Exception('Failed to get context');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Error getting context: $e');
+      throw e;
+    }
+  }
+
+  // Force rebuild context if needed
+  Future<bool> rebuildChatContext(String userId, {DateTime? date}) async {
+    try {
+      final dateStr = date != null 
+        ? DateFormat('yyyy-MM-dd').format(date)
+        : DateFormat('yyyy-MM-dd').format(DateTime.now());
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/context/rebuild/$userId?date=$dateStr'),
+        headers: headers,
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService] Error rebuilding context: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> getCachedChatContext(String userId, DateTime date) async {
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final response = await http.get(
+        Uri.parse('$baseUrl/chat/context/cached/$userId?date=$dateStr'),
+        headers: headers,
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
-        // Safe null checking
-        if (data != null && data is Map<String, dynamic>) {
-          return data['context'] ?? {};
-        }
-        return {};
+        return data;
       } else {
-        print('[ApiService] Chat context error response: ${response.body}');
-        return {};
+        throw Exception('Failed to get cached context');
       }
     } catch (e) {
-      print('[ApiService] Chat context error: $e');
-      return {};
+      print('[ApiService] Error getting cached context: $e');
+      // Fallback to regular context
+      return getChatContext(userId);
+    }
+  }
+
+  // Add method to update context
+  Future<bool> updateChatContext(
+    String userId,
+    String activityType,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/context/update/$userId?activity_type=$activityType'),
+        headers: headers,
+        body: jsonEncode(data),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('[ApiService] Error updating context: $e');
+      return false;
     }
   }
 

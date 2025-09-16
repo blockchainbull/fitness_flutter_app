@@ -7,31 +7,27 @@ class ChatService {
   static Map<String, dynamic>? _cachedContext;
   static DateTime? _lastContextFetch;
 
-  /// Single method for sending messages - always includes context
+  /// Send message with context version tracking
   static Future<String> sendMessage(
     String userId, 
-    String message,
-    {Map<String, dynamic>? context}
-  ) async {
+    String message, {
+    Map<String, dynamic>? context,
+    int? contextVersion,
+  }) async {
     try {
-      print('[ChatService] Sending message for user: $userId');
+      // Get fresh context if not provided
+      if (context == null) {
+        context = await getUserContext(userId);
+      }
       
-      // Always try to send with context metadata
-      final enrichedMessage = {
+      return await _apiService.sendChatMessage(userId, {
         'message': message,
-        'has_fresh_context': context != null,
-        'context_timestamp': DateTime.now().toIso8601String(),
-      };
-      
-      final response = await _apiService.sendChatMessage(
-        userId, 
-        enrichedMessage,
-      );
-      
-      return response;
+        'context': context,
+        'context_version': contextVersion ?? 1,
+      });
     } catch (e) {
-      print('[ChatService] Error: $e');
-      return 'I\'m having trouble connecting right now. Please try again.';
+      print('[ChatService] Error sending message: $e');
+      throw e;
     }
   }
 
@@ -46,29 +42,40 @@ class ChatService {
     }
   }
 
-  /// Get user context for debugging or chat initialization
-  static Future<Map<String, dynamic>> getUserContext(String userId, {bool forceRefresh = false}) async {
-    // Check if we have recent cached context (within 5 minutes)
-    if (!forceRefresh && 
-        _cachedContext != null && 
-        _lastContextFetch != null &&
-        DateTime.now().difference(_lastContextFetch!).inMinutes < 5) {
-      print('[ChatService] Using cached context');
-      return _cachedContext!;
-    }
-    
+  /// Get user context - now always cached
+  static Future<Map<String, dynamic>> getUserContext(String userId) async {
     try {
-      print('[ChatService] Fetching fresh context');
-      final context = await _apiService.getUserChatContext(userId);
-      _cachedContext = context;
-      _lastContextFetch = DateTime.now();
-      return context;
+      final response = await _apiService.getChatContext(userId);
+      
+      // Extract the context data
+      if (response['success'] == true || response['context'] != null) {
+        return response['context'] ?? response;
+      } else {
+        return response;
+      }
     } catch (e) {
-      print('[ChatService] Error: $e');
-      return _cachedContext ?? {};
+      print('[ChatService] Error getting context: $e');
+      // Return minimal context on error
+      return {
+        'user_profile': {},
+        'today_progress': {
+          'date': DateTime.now().toIso8601String(),
+          'meals_logged': 0,
+          'total_calories': 0,
+        },
+      };
     }
   }
 
+  /// Force rebuild context if sync issues
+  static Future<bool> rebuildContext(String userId) async {
+    try {
+      return await _apiService.rebuildChatContext(userId);
+    } catch (e) {
+      print('[ChatService] Error rebuilding context: $e');
+      return false;
+    }
+  }
 
   /// Get user's personalized framework
   static Future<Map<String, dynamic>?> getUserFramework(String userId) async {

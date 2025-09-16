@@ -29,15 +29,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _isLoading = false;
   Map<String, dynamic>? _userContext;
   Map<String, dynamic>? _userFramework;
-  bool _isLoadingContext = false;
   bool _isLoadingHistory = false;
+  int _contextVersion = 1;
+  bool _isLoadingContext = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeChat();
-    _debugContext();
+    _loadChatHistory();
+    _loadChatContext();
   }
 
   @override
@@ -50,28 +51,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _scrollToBottom();
       });
     }
-  }
-
-  Future<void> _initializeChat() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    await _loadChatHistory();
-    await _loadUserContext();
-    
-    if (_messages.isEmpty) {
-      _showContextAwareWelcome();
-    }
-
-    setState(() {
-      _isLoading = false;
-    });
-    
-    // Add post-state update scroll
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
   }
 
   Future<void> _loadChatHistory() async {
@@ -113,56 +92,59 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       });
     }
   }
-
-  Future<void> _debugContext() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://health-ai-backend-i28b.onrender.com/api/health/chat/context/${widget.userProfile.id}'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      
-      print('Context Response Status: ${response.statusCode}');
-      print('Context Response Body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('Today Progress: ${data['today_progress']}');
-      }
-    } catch (e) {
-      print('Debug context error: $e');
-    }
-  }
   
-  Future<void> _loadUserContext() async {
+  Future<void> _loadChatContext() async {
     setState(() {
       _isLoadingContext = true;
     });
     
     try {
-      final context = await ChatService.getUserContext(widget.userProfile.id);
+      // Get cached context - much faster!
+      final context = await ChatService.getUserContext(widget.userProfile.id!);
       
       setState(() {
         _userContext = context;
         _isLoadingContext = false;
       });
       
-      print('[ChatPage] Context loaded: ${context.keys}');
+      print('[ChatPage] Context loaded (cached)');
       
-      // Log what data we have
-      final todayProgress = context['today_progress'] ?? {};
-      print('[ChatPage] Today\'s data:');
-      print('  - Meals: ${todayProgress['meals_logged']}');
-      print('  - Calories: ${todayProgress['total_calories']}');
-      print('  - Water: ${todayProgress['water_glasses']} glasses');
-      print('  - Steps: ${todayProgress['steps']}');
-      print('  - Exercise: ${todayProgress['exercise_minutes']} min');
-      print('  - Weight: ${todayProgress['weight_logged']}');
+      // Show context-aware welcome
+      if (_messages.isEmpty) {
+        _showContextAwareWelcome();
+      }
       
     } catch (e) {
       print('[ChatPage] Error loading context: $e');
       setState(() {
         _isLoadingContext = false;
       });
+      
+      // Try to rebuild context on error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Rebuilding context...'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: _rebuildContext,
+          ),
+        ),
+      );
+    }
+  }
+
+  // Add rebuild context method
+  Future<void> _rebuildContext() async {
+    try {
+      final success = await ChatService.rebuildContext(widget.userProfile.id!);
+      if (success) {
+        await _loadChatContext();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Context rebuilt successfully')),
+        );
+      }
+    } catch (e) {
+      print('[ChatPage] Error rebuilding context: $e');
     }
   }
   
@@ -231,25 +213,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _textController.clear();
     _scrollToBottom();
 
-    // Refresh context for data-specific queries
-    if (_shouldRefreshContext(text)) {
-      await _loadUserContext();
-    }
-
     try {
-      String response;
-      
-      try {
-        // Use the simplified sendMessage with context
-        response = await ChatService.sendMessage(
-          widget.userProfile.id!, 
-          text,
-          context: _userContext,  // Pass context if we have it
-        );
-      } catch (e) {
-        print('API failed, using fallback: $e');
-        response = _generateFallbackResponse(text);
-      }
+      // Send with context version
+      final response = await ChatService.sendMessage(
+        widget.userProfile.id!, 
+        text,
+        context: _userContext,
+        contextVersion: _contextVersion,
+      );
       
       final aiMessage = {
         'text': response,
@@ -261,18 +232,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _messages.add(aiMessage);
         _isTyping = false;
       });
-    } catch (e) {
-      print('Error sending message: $e');
       
-      final errorMessage = {
-        'text': _generateFallbackResponse(text),
-        'isUser': false,
-        'timestamp': DateTime.now(),
-        'type': 'fallback'
-      };
-
+    } catch (e) {
+      print('[ChatPage] Error sending message: $e');
+      
       setState(() {
-        _messages.add(errorMessage);
+        _messages.add({
+          'text': 'Sorry, I encountered an error. Please try again.',
+          'isUser': false,
+          'timestamp': DateTime.now(),
+        });
         _isTyping = false;
       });
     }
@@ -394,7 +363,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             icon: const Icon(Icons.refresh),
             onPressed: () async {
               await _loadChatHistory();
-              await _loadUserContext();
+              await _loadChatContext();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Chat refreshed'),
@@ -464,7 +433,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             child: RefreshIndicator(
               onRefresh: () async {
                 await _loadChatHistory(); 
-                await _loadUserContext();
+                await _loadChatContext();
               },
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -774,18 +743,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  bool _shouldRefreshContext(String message) {
-    final keywords = [
-      'today', 'current', 'now', 'progress', 
-      'calories', 'steps', 'water', 'weight',
-      'meals', 'exercise', 'sleep', 'logged',
-      'how many', 'how much', 'did i', 'have i'
-    ];
-    
-    final lowerMessage = message.toLowerCase();
-    return keywords.any((keyword) => lowerMessage.contains(keyword));
-  }
-
   void _showFrameworkDetails() {
     if (_userFramework == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -868,7 +825,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       // Refresh context when app comes back to foreground
-      _loadUserContext();
+      _loadChatContext();
     }
   }
 }
