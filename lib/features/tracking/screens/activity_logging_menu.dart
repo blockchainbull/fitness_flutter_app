@@ -134,7 +134,7 @@ class ActivityLoggingMenu extends StatelessWidget {
         'subtitle': 'Menstrual cycle',
         'icon': Icons.favorite,
         'color': Colors.pink,
-        'page': PeriodLoggingPage(userProfile: userProfile),
+        'page': PeriodCalendarPage(),
       });
     }
 

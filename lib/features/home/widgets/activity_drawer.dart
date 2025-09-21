@@ -94,7 +94,7 @@ class ActivityDrawer extends StatelessWidget {
                     'Track your menstrual cycle',
                     Icons.favorite,
                     Colors.pink,
-                    () => _navigateToPage(context, PeriodLoggingPage(userProfile: userProfile)),
+                    () => _navigateToPage(context, PeriodCalendarPage()),
                   ),
                 
                 const Divider(),

@@ -1600,12 +1600,57 @@ class ApiService {
     }
   }
 
+  Future<bool> endPeriod(String periodId, DateTime endDate) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/period/$periodId/end'),
+        headers: headers,
+        body: jsonEncode({
+          'end_date': endDate.toIso8601String(),
+        }),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error ending period: $e');
+      return false;
+    }
+  }
+
+  Future<String> createCustomPeriod(PeriodEntry entry) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/period/custom'),
+        headers: headers,
+        body: jsonEncode({
+          'user_id': entry.userId,
+          'start_date': entry.startDate.toIso8601String(),
+          'end_date': entry.endDate?.toIso8601String(),
+          'flow_intensity': entry.flowIntensity,
+          'symptoms': entry.symptoms,
+          'mood': entry.mood,
+          'notes': entry.notes,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
+      } else {
+        throw Exception('Failed to create custom period: ${response.body}');
+      }
+    } catch (e) {
+      print('Error creating custom period: $e');
+      rethrow;
+    }
+  }
+
+
   // Exercise Logging Functions
   Future<Map<String, dynamic>> createExerciseEntry(Map<String, dynamic> exerciseData) async {
     // This just calls the existing logExercise method
     return await logExercise(exerciseData);
   }
-
 
   Future<Map<String, dynamic>> logExercise(Map<String, dynamic> exerciseData) async {
     try {

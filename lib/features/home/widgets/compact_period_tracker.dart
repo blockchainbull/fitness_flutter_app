@@ -41,20 +41,16 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
     try {
       setState(() => _isLoading = true);
       
-      // Initialize with safe defaults
       final cycleLength = widget.userProfile.cycleLength ?? 28;
-      final periodLength = widget.userProfile.periodLength ?? 5;
       
-      // Load period history
       final history = await PeriodRepository.getPeriodHistory(
-        widget.userProfile.id ?? '',  // Safe null handling
+        widget.userProfile.id ?? '',
         limit: 12,
       );
       
       setState(() {
         _periodHistory = history;
         
-        // Check if currently on period
         if (history.isNotEmpty && history.first.endDate == null) {
           _isOnPeriod = true;
           _currentPeriod = history.first;
@@ -63,7 +59,6 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
           _currentPeriod = null;
         }
         
-        // Calculate cycle day - SAFE NULL HANDLING
         if (widget.userProfile.lastPeriodDate != null) {
           final daysSinceLastPeriod = DateTime.now()
               .difference(widget.userProfile.lastPeriodDate!)
@@ -71,450 +66,164 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
           _cycleDay = daysSinceLastPeriod % cycleLength;
           if (_cycleDay == 0) _cycleDay = cycleLength;
           
-          // Calculate next period date
           _nextPeriodDate = widget.userProfile.lastPeriodDate!
               .add(Duration(days: cycleLength));
           
-          // Adjust if we have more recent period data
-          if (history.isNotEmpty) {
-            final mostRecentPeriod = history.first;
-            final periodStartDate = mostRecentPeriod.startDate;
-            final daysSincePeriod = DateTime.now()
-                .difference(periodStartDate)
-                .inDays + 1;
-            
-            if (mostRecentPeriod.endDate == null) {
-              // Currently on period
-              _cycleDay = daysSincePeriod;
-            } else {
-              // Not on period, calculate from last period end
-              final daysSincePeriodEnd = DateTime.now()
-                  .difference(mostRecentPeriod.endDate!)
-                  .inDays + 1;
-              _cycleDay = daysSincePeriodEnd + periodLength;
-              if (_cycleDay > cycleLength) {
-                _cycleDay = _cycleDay % cycleLength;
-                if (_cycleDay == 0) _cycleDay = cycleLength;
-              }
-              
-              // Calculate next period based on most recent data
-              _nextPeriodDate = mostRecentPeriod.startDate
-                  .add(Duration(days: cycleLength));
-            }
-          }
-        } else {
-          // No period data available - use safe defaults
-          _cycleDay = 1;
-          _nextPeriodDate = DateTime.now().add(Duration(days: cycleLength));
-          
-          // If we have history, use that instead
-          if (history.isNotEmpty) {
-            final mostRecentPeriod = history.first;
-            if (mostRecentPeriod.endDate != null) {
-              final daysSincePeriodEnd = DateTime.now()
-                  .difference(mostRecentPeriod.endDate!)
-                  .inDays + 1;
-              _cycleDay = daysSincePeriodEnd + periodLength;
-              if (_cycleDay > cycleLength) {
-                _cycleDay = _cycleDay % cycleLength;
-                if (_cycleDay == 0) _cycleDay = cycleLength;
-              }
-              _nextPeriodDate = mostRecentPeriod.startDate
-                  .add(Duration(days: cycleLength));
-            }
-          }
+          // Check if in fertile window (days 10-17 of cycle typically)
+          _isFertileWindow = _cycleDay >= (cycleLength - 17) && 
+                            _cycleDay <= (cycleLength - 11);
         }
+        
+        _isLoading = false;
       });
     } catch (e) {
       print('Error loading period data: $e');
-      // Set safe defaults on error
-      setState(() {
-        _isLoading = false;
-        _periodHistory = [];
-        _isOnPeriod = false;
-        _currentPeriod = null;
-        _cycleDay = 1;
-        _nextPeriodDate = DateTime.now().add(const Duration(days: 28));
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() => _isLoading = false);
     }
   }
 
-  void _calculateCycleInfo() {
-    final cycleLength = widget.userProfile.cycleLength ?? 28;
-    final periodLength = widget.userProfile.periodLength ?? 5;
-    
-    if (_isOnPeriod && _currentPeriod != null) {
-      // Currently on period
-      _cycleDay = DateTime.now().difference(_currentPeriod!.startDate).inDays + 1;
-      _nextPeriodDate = _currentPeriod!.startDate.add(Duration(days: cycleLength));
-    } else if (_periodHistory.isNotEmpty) {
-      // Calculate based on last period
-      final lastPeriod = _periodHistory.first;
-      _cycleDay = DateTime.now().difference(lastPeriod.startDate).inDays + 1;
-      _nextPeriodDate = lastPeriod.startDate.add(Duration(days: cycleLength));
-      
-      // Check if in fertile window (typically days 10-16 of cycle)
-      _isFertileWindow = _cycleDay >= 10 && _cycleDay <= 16;
-    } else if (widget.userProfile.lastPeriodDate != null) {
-      // Use profile data if no history
-      _cycleDay = DateTime.now().difference(widget.userProfile.lastPeriodDate!).inDays + 1;
-      _nextPeriodDate = widget.userProfile.lastPeriodDate!.add(Duration(days: cycleLength));
-    } else {
-      // No data available
-      _cycleDay = 1;
-      _nextPeriodDate = DateTime.now().add(Duration(days: cycleLength));
-    }
-  }
-
-  Future<void> _quickLogPeriod() async {
-    // Check if user ID exists
-    if (widget.userProfile.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to log period - user not found'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    
-    if (_isOnPeriod && _currentPeriod != null) {
-      // End current period
-      await _endPeriod();
-    } else {
-      // Start new period
-      await _startPeriod();
-    }
-  }
-
-  Future<void> _startPeriod() async {
-    try {
-      // Ensure user ID exists
-      final userId = widget.userProfile.id;
-      if (userId == null) {
-        throw Exception('User ID is required to start period tracking');
-      }
-      
-      final newPeriod = PeriodEntry(
-        userId: userId,
-        startDate: DateTime.now(),
-        flowIntensity: 'Medium',
-        symptoms: [],
-        mood: null,
-      );
-      
-      await PeriodRepository.savePeriodEntry(newPeriod);
-      await _loadPeriodData();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Period started!'),
-            backgroundColor: Color(0xFFE91E63),
-          ),
-        );
-      }
-      
+  void _openPeriodTracking() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PeriodCalendarPage(),
+      ),
+    ).then((_) {
+      _loadPeriodData();
       widget.onUpdate?.call();
-    } catch (e) {
-      print('Error starting period: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error starting period: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _endPeriod() async {
-    if (_currentPeriod == null) return;
-    
-    try {
-      final updatedPeriod = _currentPeriod!.copyWith(
-        endDate: DateTime.now(),
-      );
-      
-      await PeriodRepository.savePeriodEntry(updatedPeriod);
-      await _loadPeriodData();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Period ended!'),
-            backgroundColor: Color(0xFFE91E63),
-          ),
-        );
-      }
-      
-      widget.onUpdate?.call();
-    } catch (e) {
-      print('Error ending period: $e');
-    }
-  }
-
-  Color _getStatusColor() {
-    if (_isOnPeriod) return const Color(0xFFE91E63);
-    if (_isFertileWindow) return Colors.purple;
-    return Colors.grey;
-  }
-
-  IconData _getStatusIcon() {
-    if (_isOnPeriod) return Icons.water_drop;
-    if (_isFertileWindow) return Icons.favorite;
-    return Icons.circle_outlined;
-  }
-
-  String _getStatusText() {
-    if (_isOnPeriod) {
-      return 'Day ${_cycleDay} of period';
-    } else if (_isFertileWindow) {
-      return 'Fertile window';
-    } else if (_nextPeriodDate != null) {
-      final daysUntil = _nextPeriodDate!.difference(DateTime.now()).inDays;
-      if (daysUntil <= 7 && daysUntil > 0) {
-        return 'Period in $daysUntil days';
-      }
-    }
-    return 'Day $_cycleDay of cycle';
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Fixed: Check if hasPeriods is true (handle nullable properly)
-    if (widget.userProfile.hasPeriods != true) {
-      return const SizedBox.shrink();
-    }
-
     if (_isLoading) {
       return Container(
+        height: 140,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          gradient: LinearGradient(
+            colors: [
+              Colors.pink.shade50,
+              Colors.purple.shade50,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: const Center(
           child: CircularProgressIndicator(
             color: Color(0xFFE91E63),
+            strokeWidth: 2,
           ),
         ),
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: _openPeriodTracking,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: _isOnPeriod
+                ? [
+                    const Color(0xFFE91E63).withOpacity(0.9),
+                    const Color(0xFFEC407A).withOpacity(0.9),
+                  ]
+                : _isFertileWindow
+                    ? [
+                        Colors.purple.shade400,
+                        Colors.purple.shade500,
+                      ]
+                    : [
+                        Colors.pink.shade100,
+                        Colors.purple.shade100,
+                      ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PeriodLoggingPage(
-                  userProfile: widget.userProfile,
-                ),
-              ),
-            ).then((_) => _loadPeriodData());
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (_isOnPeriod ? const Color(0xFFE91E63) : Colors.purple)
+                  .withOpacity(0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today,
-                          color: _getStatusColor(),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Period Tracker',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor().withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Day $_cycleDay',
-                        style: TextStyle(
-                          color: _getStatusColor(),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                
-                // Status Row
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor().withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _getStatusIcon(),
-                        color: _getStatusColor(),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getStatusText(),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (_nextPeriodDate != null && !_isOnPeriod)
-                            Text(
-                              'Next: ${DateFormat('MMM d').format(_nextPeriodDate!)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Quick Action Button
-                    ElevatedButton(
-                      onPressed: _quickLogPeriod,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isOnPeriod 
-                            ? Colors.grey[400]
-                            : const Color(0xFFE91E63),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      child: Text(
-                        _isOnPeriod ? 'End' : 'Start',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                
-                // Quick Symptoms (if on period)
-                if (_isOnPeriod) ...[
-                  const SizedBox(height: 12),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        'How are you feeling?',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'Tap to log →',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-                
-                // Recent History Preview
-                if (!_isOnPeriod && _periodHistory.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.history,
-                        size: 14,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Last: ${DateFormat('MMM d').format(_periodHistory.first.startDate)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      if (_periodHistory.first.endDate != null) ...[
-                        Text(
-                          ' (${_periodHistory.first.endDate!.difference(_periodHistory.first.startDate).inDays + 1} days)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                      ],
-                    ],
+                  child: Icon(
+                    _isOnPeriod ? Icons.water_drop : Icons.favorite_border,
+                    color: Colors.white,
+                    size: 24,
                   ),
-                ],
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white.withOpacity(0.8),
+                  size: 18,
+                ),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            
+            Text(
+              'Period Tracker',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            
+            Text(
+              _isOnPeriod
+                  ? 'Day ${DateTime.now().difference(_currentPeriod!.startDate).inDays + 1} of period'
+                  : 'Day $_cycleDay of cycle',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _isOnPeriod
+                    ? 'Period in progress'
+                    : _isFertileWindow
+                        ? 'Fertile window'
+                        : _nextPeriodDate != null
+                            ? 'Next in ${_nextPeriodDate!.difference(DateTime.now()).inDays} days'
+                            : 'Tap to start tracking',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
