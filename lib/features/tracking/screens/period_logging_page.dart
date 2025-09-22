@@ -73,15 +73,31 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     _events.clear();
     
     for (var period in _periodHistory) {
-      final startDate = DateTime(period.startDate.year, period.startDate.month, period.startDate.day);
-      final endDate = period.endDate ?? DateTime.now();
+      // Normalize the dates to avoid time issues
+      final startDate = DateTime(
+        period.startDate.year, 
+        period.startDate.month, 
+        period.startDate.day
+      );
       
+      // If period has ended, use that date; otherwise use today
+      final endDate = period.endDate != null 
+          ? DateTime(
+              period.endDate!.year,
+              period.endDate!.month, 
+              period.endDate!.day
+            )
+          : DateTime.now();
+      
+      // Add each day of the period
       for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
         final day = startDate.add(Duration(days: i));
         _periodDays.add(day);
         _events[day] = ['Period'];
       }
     }
+    
+    print('Period days calculated: ${_periodDays.length} days marked');
   }
 
   void _calculateFertileDays() {
@@ -109,6 +125,119 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     }
   }
 
+  // Validation methods
+  bool _canStartPeriodOnDate(DateTime date) {
+    if (_periodHistory.isEmpty) {
+      // First period - allow any date within reasonable past
+      final monthsAgo = DateTime.now().subtract(const Duration(days: 365));
+      return date.isAfter(monthsAgo) && !date.isAfter(DateTime.now());
+    }
+
+    final cycleLength = _userProfile?.cycleLength ?? 28;
+    final minCycleLength = cycleLength - 7; // Allow 7 days variance
+    final maxCycleLength = cycleLength + 7;
+
+    // Find the most recent period before this date
+    PeriodEntry? previousPeriod;
+    for (var period in _periodHistory) {
+      if (period.startDate.isBefore(date)) {
+        previousPeriod = period;
+        break;
+      }
+    }
+
+    if (previousPeriod == null) {
+      // This would be the earliest period
+      // Check if it's not too close to the next period
+      final nextPeriod = _periodHistory.last;
+      final daysBetween = nextPeriod.startDate.difference(date).inDays;
+      
+      if (daysBetween < minCycleLength) {
+        return false; // Too close to next period
+      }
+      return true;
+    }
+
+    // Check if date is within valid cycle range from previous period
+    final daysSincePrevious = date.difference(previousPeriod.startDate).inDays;
+    
+    // Can't start a new period if previous one hasn't ended
+    if (previousPeriod.endDate == null) {
+      return false;
+    }
+
+    // Check if it's been at least minimum cycle length
+    if (daysSincePrevious < minCycleLength) {
+      return false;
+    }
+
+    // Check if there's already a period that would be too close
+    for (var period in _periodHistory) {
+      if (period != previousPeriod) {
+        final daysDiff = (period.startDate.difference(date).inDays).abs();
+        if (daysDiff < minCycleLength && daysDiff > 0) {
+          return false; // Too close to another period
+        }
+      }
+    }
+
+    return true;
+  }
+
+  String? _getStartPeriodValidationError(DateTime date) {
+    if (!_canStartPeriodOnDate(date)) {
+      final cycleLength = _userProfile?.cycleLength ?? 28;
+      final minCycleLength = cycleLength - 7;
+
+      // Find why it's invalid
+      if (_currentPeriod != null && _currentPeriod!.endDate == null) {
+        return 'Please end your current period first';
+      }
+
+      // Check for too close to other periods
+      for (var period in _periodHistory) {
+        final daysDiff = (period.startDate.difference(date).inDays).abs();
+        if (daysDiff < minCycleLength && daysDiff > 0) {
+          return 'Too close to another period (${daysDiff} days). Minimum cycle length is $minCycleLength days.';
+        }
+      }
+
+      // Check if date is too far in the past
+      final yearAgo = DateTime.now().subtract(const Duration(days: 365));
+      if (date.isBefore(yearAgo)) {
+        return 'Cannot add periods more than 1 year in the past';
+      }
+
+      // Check if date is in the future
+      if (date.isAfter(DateTime.now())) {
+        return 'Cannot start a period in the future';
+      }
+
+      return 'Invalid date for period start';
+    }
+    return null;
+  }
+
+  bool _canEndPeriodOnDate(DateTime endDate, PeriodEntry period) {
+    // End date must be after start date
+    if (endDate.isBefore(period.startDate)) {
+      return false;
+    }
+
+    // Period shouldn't be longer than 10 days typically
+    final duration = endDate.difference(period.startDate).inDays;
+    if (duration > 10) {
+      return false;
+    }
+
+    // End date can't be in the future
+    if (endDate.isAfter(DateTime.now())) {
+      return false;
+    }
+
+    return true;
+  }
+
   Widget _buildCalendarDay(DateTime day, DateTime focusedDay) {
     final normalizedDay = DateTime(day.year, day.month, day.day);
     final isToday = isSameDay(day, DateTime.now());
@@ -117,12 +246,13 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     final isFertile = _fertileDays.contains(normalizedDay);
     final isOvulation = _ovulationDays.contains(normalizedDay);
     
-    Color? backgroundColor;
-    Color? textColor;
-    Color? borderColor;
+    Color? backgroundColor = Colors.transparent;
+    Color? textColor = Colors.grey.shade800;
+    Color? borderColor = Colors.grey.shade300;
     
+    // Only color the days that are actually period/fertile days
     if (isPeriod) {
-      backgroundColor = const Color(0xFFE91E63).withOpacity(0.8);
+      backgroundColor = const Color(0xFFE91E63);
       textColor = Colors.white;
     } else if (isOvulation) {
       backgroundColor = Colors.purple.shade400;
@@ -130,65 +260,41 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     } else if (isFertile) {
       backgroundColor = Colors.purple.shade100;
       textColor = Colors.purple.shade900;
-    } else if (isSelected) {
-      backgroundColor = Colors.blue.withOpacity(0.1);
-      textColor = Colors.blue.shade900;
-      borderColor = Colors.blue;
-    } else {
-      backgroundColor = Colors.transparent;
-      textColor = Colors.grey.shade800;
     }
     
+    // Today gets a blue border
     if (isToday) {
       borderColor = Colors.blue.shade600;
     }
     
-    return Container(
-      margin: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: borderColor ?? Colors.transparent,
-          width: isToday ? 2 : 1,
+    // Selected day gets special treatment
+    if (isSelected && !isPeriod && !isFertile) {
+      borderColor = Colors.blue;
+      backgroundColor = Colors.blue.shade50;
+    }
+    
+    return GestureDetector(
+      onTap: () => _showDayDetails(day),
+      child: Container(
+        margin: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: borderColor,
+            width: isToday ? 2 : 1,
+          ),
         ),
-      ),
-      child: Stack(
-        children: [
-          Center(
-            child: Text(
-              '${day.day}',
-              style: TextStyle(
-                color: textColor,
-                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                fontSize: 14,
-              ),
+        child: Center(
+          child: Text(
+            '${day.day}',
+            style: TextStyle(
+              color: textColor,
+              fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+              fontSize: 14,
             ),
           ),
-          if (isPeriod || isFertile || isOvulation)
-            Positioned(
-              bottom: 4,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isPeriod 
-                          ? Colors.white 
-                          : isOvulation 
-                              ? Colors.white
-                              : Colors.purple.shade400,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -218,6 +324,9 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
   }
 
   Widget _buildDayDetailsSheet(DateTime day, bool isPeriod, bool isFertile, bool isOvulation, PeriodEntry? periodEntry) {
+    final canStartPeriod = _canStartPeriodOnDate(day);
+    final validationError = _getStartPeriodValidationError(day);
+    
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
@@ -301,16 +410,51 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
                     Colors.green,
                   ),
                   
+                  // Validation warning if applicable
+                  if (!isPeriod && validationError != null && _canEditDay(day)) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              validationError,
+                              style: TextStyle(
+                                color: Colors.orange.shade800,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
                   const SizedBox(height: 24),
                   
                   // Action buttons
                   if (_canEditDay(day)) ...[
-                    if (!isPeriod)
+                    if (!isPeriod && canStartPeriod)
                       _buildActionButton(
                         'Start Period',
                         Icons.add,
                         const Color(0xFFE91E63),
                         () => _startPeriodOnDay(day),
+                      )
+                    else if (!isPeriod && !canStartPeriod)
+                      _buildActionButton(
+                        'Cannot Start Period',
+                        Icons.block,
+                        Colors.grey,
+                        null, // Disabled
                       ),
                     
                     if (isPeriod && periodEntry?.endDate == null)
@@ -392,6 +536,12 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
                       ),
                     ),
                   ],
+                  
+                  // Cycle insights
+                  if (!_periodHistory.isEmpty) ...[
+                    const SizedBox(height: 20),
+                    _buildCycleInsights(),
+                  ],
                 ],
               ),
             ),
@@ -399,6 +549,112 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildCycleInsights() {
+    final cycleLength = _userProfile?.cycleLength ?? 28;
+    final averageCycle = _calculateAverageCycle();
+    final averagePeriodLength = _calculateAveragePeriodLength();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.insights, color: Colors.blue.shade700, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Cycle Insights',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          _buildInsightRow('Expected cycle:', '$cycleLength days'),
+          _buildInsightRow('Average cycle:', '${averageCycle.round()} days'),
+          _buildInsightRow('Average period:', '${averagePeriodLength.round()} days'),
+          _buildInsightRow('Total cycles tracked:', '${_periodHistory.length}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.blue.shade700,
+              fontSize: 13,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.blue.shade900,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _calculateAverageCycle() {
+    if (_periodHistory.length < 2) return _userProfile?.cycleLength?.toDouble() ?? 28.0;
+    
+    int totalDays = 0;
+    int cycleCount = 0;
+    
+    for (int i = 0; i < _periodHistory.length - 1; i++) {
+      final current = _periodHistory[i];
+      final previous = _periodHistory[i + 1];
+      final days = current.startDate.difference(previous.startDate).inDays;
+      
+      // Only count reasonable cycle lengths (15-45 days)
+      if (days >= 15 && days <= 45) {
+        totalDays += days;
+        cycleCount++;
+      }
+    }
+    
+    return cycleCount > 0 ? totalDays / cycleCount : _userProfile?.cycleLength?.toDouble() ?? 28.0;
+  }
+
+  double _calculateAveragePeriodLength() {
+    if (_periodHistory.isEmpty) return 5.0;
+    
+    int totalDays = 0;
+    int periodCount = 0;
+    
+    for (var period in _periodHistory) {
+      if (period.endDate != null) {
+        final days = period.endDate!.difference(period.startDate).inDays + 1;
+        if (days > 0 && days <= 10) {
+          totalDays += days;
+          periodCount++;
+        }
+      }
+    }
+    
+    return periodCount > 0 ? totalDays / periodCount : 5.0;
   }
 
   Widget _buildStatusCard(String title, String subtitle, IconData icon, Color color) {
@@ -449,7 +705,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     );
   }
 
-  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback? onPressed) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       width: double.infinity,
@@ -458,8 +714,8 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
         icon: Icon(icon),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
+          backgroundColor: onPressed != null ? color : Colors.grey.shade300,
+          foregroundColor: onPressed != null ? Colors.white : Colors.grey.shade600,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -532,6 +788,21 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
 
   Future<void> _startPeriodOnDay(DateTime day) async {
     if (_userProfile == null || _userProfile!.id == null) return;
+
+    // Validate the date first
+    final validationError = _getStartPeriodValidationError(day);
+    if (validationError != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(validationError),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
     
     setState(() => _isLoading = true);
     
@@ -572,11 +843,65 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     } catch (e) {
       print('Error starting period: $e');
       setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error starting period. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _endPeriodOnDay(DateTime day) async {
-    if (_currentPeriod == null) return;
+    if (_currentPeriod == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No ongoing period to end'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Validate end date
+    if (day.isBefore(_currentPeriod!.startDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('End date cannot be before start date'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final duration = day.difference(_currentPeriod!.startDate).inDays + 1;
+    if (duration > 10) {
+      // Show confirmation dialog for long periods
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Long Period Duration'),
+          content: Text('This period would be $duration days long. Is this correct?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
+      );
+      
+      if (confirm != true) return;
+    }
     
     setState(() => _isLoading = true);
     
@@ -587,17 +912,24 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
       await _loadData();
       
       if (mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Period ended on ${DateFormat('MMM d').format(day)}'),
-            backgroundColor: Colors.orange,
+            content: Text('Period ended (${duration} days)'),
+            backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       print('Error ending period: $e');
       setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error ending period. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -739,6 +1071,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     }
     
     final cycleDay = _getCycleDay(DateTime.now());
+    final hasOngoingPeriod = _currentPeriod != null && _currentPeriod!.endDate == null;
     
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -760,7 +1093,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
               ),
             ),
             Text(
-              _currentPeriod != null
+              hasOngoingPeriod
                   ? 'Period Day ${_getPeriodDay(DateTime.now(), _currentPeriod)}'
                   : 'Cycle Day $cycleDay',
               style: TextStyle(
@@ -781,127 +1114,174 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
       body: Column(
         children: [
           // Calendar
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.shade200,
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: TableCalendar(
-              firstDay: DateTime.utc(2020, 1, 1),
-              lastDay: DateTime.utc(2030, 12, 31),
-              focusedDay: _focusedDay,
-              calendarFormat: _calendarFormat,
-              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-              
-              calendarStyle: CalendarStyle(
-                outsideDaysVisible: false,
-                weekendTextStyle: TextStyle(color: Colors.grey.shade700),
-                defaultTextStyle: TextStyle(color: Colors.grey.shade800),
-                selectedTextStyle: const TextStyle(color: Colors.white),
-                todayTextStyle: const TextStyle(color: Colors.white),
-                todayDecoration: BoxDecoration(
-                  color: Colors.blue.shade400,
-                  shape: BoxShape.circle,
-                ),
-                selectedDecoration: BoxDecoration(
-                  color: Colors.blue.shade600,
-                  shape: BoxShape.circle,
-                ),
-                markersMaxCount: 1,
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.shade200,
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-              
-              headerStyle: HeaderStyle(
-                formatButtonVisible: false,
-                titleCentered: true,
-                leftChevronIcon: Icon(Icons.chevron_left, color: Colors.grey.shade600),
-                rightChevronIcon: Icon(Icons.chevron_right, color: Colors.grey.shade600),
-                titleTextStyle: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+              child: TableCalendar(
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2030, 12, 31),
+                focusedDay: _focusedDay,
+                calendarFormat: _calendarFormat,
+                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                
+                calendarStyle: const CalendarStyle(
+                  outsideDaysVisible: false,
+                  cellMargin: EdgeInsets.all(4),
+                  defaultDecoration: BoxDecoration(),
+                  weekendDecoration: BoxDecoration(),
+                  selectedDecoration: BoxDecoration(),
+                  todayDecoration: BoxDecoration(),
+                  outsideDecoration: BoxDecoration(),
+                  disabledDecoration: BoxDecoration(),
                 ),
-                headerPadding: const EdgeInsets.symmetric(vertical: 4),
-              ),
-              
-              daysOfWeekStyle: DaysOfWeekStyle(
-                weekdayStyle: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                
+                headerStyle: HeaderStyle(
+                  formatButtonVisible: false,
+                  titleCentered: true,
+                  leftChevronIcon: Icon(Icons.chevron_left, color: Colors.grey.shade600),
+                  rightChevronIcon: Icon(Icons.chevron_right, color: Colors.grey.shade600),
+                  titleTextStyle: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                weekendStyle: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                
+                daysOfWeekStyle: DaysOfWeekStyle(
+                  weekdayStyle: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  weekendStyle: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              
-              calendarBuilders: CalendarBuilders(
-                defaultBuilder: (context, day, focusedDay) {
-                  return _buildCalendarDay(day, focusedDay);
+                
+                calendarBuilders: CalendarBuilders(
+                  defaultBuilder: (context, day, focusedDay) {
+                    return _buildCalendarDay(day, focusedDay);
+                  },
+                  selectedBuilder: (context, day, focusedDay) {
+                    return _buildCalendarDay(day, focusedDay);
+                  },
+                  todayBuilder: (context, day, focusedDay) {
+                    return _buildCalendarDay(day, focusedDay);
+                  },
+                  disabledBuilder: (context, day, focusedDay) {
+                    return _buildCalendarDay(day, focusedDay);
+                  },
+                  outsideBuilder: (context, day, focusedDay) {
+                    return Container();
+                  },
+                ),
+                
+                onDaySelected: (selectedDay, focusedDay) {
+                  setState(() {
+                    _selectedDay = selectedDay;
+                    _focusedDay = focusedDay;
+                  });
+                  _showDayDetails(selectedDay);
                 },
-                selectedBuilder: (context, day, focusedDay) {
-                  return _buildCalendarDay(day, focusedDay);
-                },
-                todayBuilder: (context, day, focusedDay) {
-                  return _buildCalendarDay(day, focusedDay);
-                },
-              ),
-              
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  _selectedDay = selectedDay;
+                
+                onPageChanged: (focusedDay) {
                   _focusedDay = focusedDay;
-                });
-                _showDayDetails(selectedDay);
-              },
-              
-              onFormatChanged: (format) {
-                setState(() {
-                  _calendarFormat = format;
-                });
-              },
-              
-              onPageChanged: (focusedDay) {
-                _focusedDay = focusedDay;
-              },
+                },
+              ),
             ),
           ),
           
-          // Bottom action button
+          // Smart button that changes based on period status
           Padding(
             padding: const EdgeInsets.all(16),
-            child: ElevatedButton(
-              onPressed: _currentPeriod != null
-                  ? () => _endPeriodOnDay(DateTime.now())
-                  : () => _startPeriodOnDay(DateTime.now()),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _currentPeriod != null
-                    ? Colors.orange
-                    : const Color(0xFFE91E63),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Column(
+              children: [
+                // Show warning if there's an ongoing period
+                if (hasOngoingPeriod) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'You have an ongoing period. End it before starting a new one.',
+                            style: TextStyle(
+                              color: Colors.orange.shade800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                
+                // Primary action button
+                ElevatedButton.icon(
+                  onPressed: hasOngoingPeriod
+                      ? () => _endPeriodOnDay(DateTime.now())
+                      : () => _startPeriodOnDay(DateTime.now()),
+                  icon: Icon(hasOngoingPeriod ? Icons.stop : Icons.add),
+                  label: Text(
+                    hasOngoingPeriod ? 'End Current Period' : 'Start Period Today',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: hasOngoingPeriod
+                        ? Colors.orange
+                        : const Color(0xFFE91E63),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
                 ),
-                elevation: 0,
-              ),
-              child: Text(
-                _currentPeriod != null ? 'End Period' : 'Start Period',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+                
+                // Secondary action - log symptoms if period is ongoing
+                if (hasOngoingPeriod) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _showEditPeriodDialog(DateTime.now(), _currentPeriod),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Log Today\'s Symptoms'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFE91E63),
+                      side: const BorderSide(color: Color(0xFFE91E63)),
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
