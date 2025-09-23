@@ -44,6 +44,27 @@ class PeriodRepository {
     }
   }
 
+  static Future<bool> deletePeriodEntry(String periodId) async {
+    try {
+      if (kIsWeb) {
+        return await _apiService.deletePeriodEntry(periodId);
+      } else {
+        if (DatabaseService.isInitialized) {
+          await DatabaseService.execute(
+            'DELETE FROM period_tracking WHERE id = @id',
+            {'id': periodId}
+          );
+          return true;
+        } else {
+          return await _apiService.deletePeriodEntry(periodId);
+        }
+      }
+    } catch (e) {
+      print('Error deleting period entry: $e');
+      return false;
+    }
+  }
+
   static Future<List<PeriodEntry>> getPeriodHistory(String userId, {int limit = 12}) async {
     try {
       if (kIsWeb) {

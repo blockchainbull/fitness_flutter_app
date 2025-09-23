@@ -1584,19 +1584,17 @@ class ApiService {
     }
   }
 
-  Future<void> deletePeriodEntry(String entryId) async {
+  Future<bool> deletePeriodEntry(String periodId) async {
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/period/$entryId'),
+        Uri.parse('$baseUrl/period/$periodId'),
         headers: headers,
       );
 
-      if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Failed to delete period entry: ${response.body}');
-      }
+      return response.statusCode == 200;
     } catch (e) {
       print('Error deleting period entry from API: $e');
-      rethrow;
+      return false;
     }
   }
 

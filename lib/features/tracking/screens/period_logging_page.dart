@@ -324,8 +324,12 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
   }
 
   Widget _buildDayDetailsSheet(DateTime day, bool isPeriod, bool isFertile, bool isOvulation, PeriodEntry? periodEntry) {
+    final isToday = isSameDay(day, DateTime.now());
     final canStartPeriod = _canStartPeriodOnDate(day);
     final validationError = _getStartPeriodValidationError(day);
+    
+    // Check if this specific day has an ongoing period
+    final dayHasOngoingPeriod = periodEntry != null && periodEntry.endDate == null;
     
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
@@ -384,7 +388,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
                   // Status cards
                   if (isPeriod) _buildStatusCard(
                     'Period Day ${_getPeriodDay(day, periodEntry)}',
-                    'Track your flow and symptoms',
+                    dayHasOngoingPeriod ? 'Ongoing period' : 'Completed period',
                     Icons.water_drop,
                     const Color(0xFFE91E63),
                   ),
@@ -413,7 +417,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
                   // Validation warning if applicable
                   if (!isPeriod && validationError != null && _canEditDay(day)) ...[
                     Container(
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin: const EdgeInsets.only(top: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade50,
@@ -442,32 +446,50 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
                   
                   // Action buttons
                   if (_canEditDay(day)) ...[
-                    if (!isPeriod && canStartPeriod)
+                    if (!isPeriod && canStartPeriod) ...[
                       _buildActionButton(
-                        'Start Period',
+                        isToday ? 'Start Period' : 'Add Period for this Date',
                         Icons.add,
                         const Color(0xFFE91E63),
                         () => _startPeriodOnDay(day),
-                      )
-                    else if (!isPeriod && !canStartPeriod)
-                      _buildActionButton(
-                        'Cannot Start Period',
-                        Icons.block,
-                        Colors.grey,
-                        null, // Disabled
                       ),
+                      if (!isToday)
+                        Text(
+                          'You\'ll be asked to set the end date',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                    ],
                     
-                    if (isPeriod && periodEntry?.endDate == null)
+                    if (isPeriod && dayHasOngoingPeriod)
                       _buildActionButton(
                         'End Period',
                         Icons.stop,
                         Colors.orange,
-                        () => _endPeriodOnDay(day),
+                        () async {
+                          // Let user pick end date
+                          final DateTime? endDate = await showDatePicker(
+                            context: context,
+                            initialDate: day,
+                            firstDate: periodEntry!.startDate,
+                            lastDate: DateTime.now(),
+                            helpText: 'Select end date',
+                          );
+                          
+                          if (endDate != null) {
+                            await _endPeriodWithDate(periodEntry, endDate);
+                            if (mounted) Navigator.pop(context);
+                          }
+                        },
                       ),
                     
                     if (isPeriod)
                       _buildActionButton(
-                        'Log Symptoms',
+                        'Edit Symptoms',
                         Icons.edit,
                         Colors.blue,
                         () {
@@ -476,10 +498,45 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
                         },
                       ),
                     
+                    if (isPeriod && periodEntry != null)
+                      _buildActionButton(
+                        'Delete This Period',
+                        Icons.delete_outline,
+                        Colors.red.shade400,
+                        () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Delete Period?'),
+                              content: const Text('This will remove this period entry. This cannot be undone.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          );
+                          
+                          if (confirm == true) {
+                            // Add delete functionality here
+                            await _deletePeriod(periodEntry);
+                            if (mounted) Navigator.pop(context);
+                          }
+                        },
+                      ),
+                    
                     const SizedBox(height: 16),
                   ],
                   
-                  // Period details
+                  // Period details continue as before...
                   if (periodEntry != null) ...[
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -516,29 +573,13 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
                               periodEntry.symptoms!.join(', '),
                               Colors.orange,
                             ),
-                          
-                          if (periodEntry.mood != null)
-                            _buildDetailItem(
-                              Icons.mood,
-                              'Mood',
-                              periodEntry.mood!,
-                              Colors.blue,
-                            ),
-                          
-                          if (periodEntry.notes != null && periodEntry.notes!.isNotEmpty)
-                            _buildDetailItem(
-                              Icons.note,
-                              'Notes',
-                              periodEntry.notes!,
-                              Colors.grey,
-                            ),
                         ],
                       ),
                     ),
                   ],
                   
                   // Cycle insights
-                  if (!_periodHistory.isEmpty) ...[
+                  if (_periodHistory.isNotEmpty) ...[
                     const SizedBox(height: 20),
                     _buildCycleInsights(),
                   ],
@@ -804,12 +845,140 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
       return;
     }
     
+    // Check if this is a historical entry (not today)
+    final isToday = isSameDay(day, DateTime.now());
+    
+    if (!isToday) {
+      // For historical periods, ask for end date immediately
+      await _handleHistoricalPeriod(day);
+    } else {
+      // For today, start as ongoing period
+      await _savePeriodEntry(day, null);
+    }
+    
+    // Close the bottom sheet if it's open
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _handleHistoricalPeriod(DateTime startDate) async {
+    // Show dialog to get end date for historical period
+    final DateTime? endDate = await showDatePicker(
+      context: context,
+      initialDate: startDate.add(const Duration(days: 5)), // Default 5 days
+      firstDate: startDate,
+      lastDate: startDate.add(const Duration(days: 10)),
+      helpText: 'When did this period end?',
+      confirmText: 'Set End Date',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFFE91E63),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (endDate == null) {
+      // User cancelled - still save as ongoing period
+      await _savePeriodEntry(startDate, null);
+    } else {
+      // Save complete period
+      await _savePeriodEntry(startDate, endDate);
+    }
+  }
+
+  Future<void> _endPeriodWithDate(PeriodEntry period, DateTime endDate) async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final updatedPeriod = period.copyWith(endDate: endDate);
+      await PeriodRepository.savePeriodEntry(updatedPeriod);
+      
+      await _loadData();
+      
+      final duration = endDate.difference(period.startDate).inDays + 1;
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Period ended ($duration days)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error ending period: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _deletePeriod(PeriodEntry period) async {
+    if (period.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot delete this period entry'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      final success = await PeriodRepository.deletePeriodEntry(period.id!);
+      
+      if (success) {
+        await _loadData();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Period deleted'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to delete period'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error deleting period: $e');
+      setState(() => _isLoading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error deleting period'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _savePeriodEntry(DateTime startDate, DateTime? endDate) async {
+    if (_userProfile == null || _userProfile!.id == null) return;
+    
     setState(() => _isLoading = true);
     
     try {
       final newPeriod = PeriodEntry(
         userId: _userProfile!.id!,
-        startDate: day,
+        startDate: startDate,
+        endDate: endDate,
         flowIntensity: 'Medium',
         symptoms: [],
         mood: null,
@@ -818,39 +987,38 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
       
       await PeriodRepository.savePeriodEntry(newPeriod);
       
-      // Update the user profile with new last period date
-      final updatedProfile = _userProfile!.copyWith(
-        lastPeriodDate: day,
-      );
-      
-      await _apiService.updateUserProfile(updatedProfile);
-      
-      setState(() {
-        _userProfile = updatedProfile;
-      });
+      // Update last period date if this is the most recent
+      if (_periodHistory.isEmpty || startDate.isAfter(_periodHistory.first.startDate)) {
+        final updatedProfile = _userProfile!.copyWith(
+          lastPeriodDate: startDate,
+        );
+        await _apiService.updateUserProfile(updatedProfile);
+        setState(() {
+          _userProfile = updatedProfile;
+        });
+      }
       
       await _loadData();
       
       if (mounted) {
-        Navigator.pop(context);
+        final duration = endDate != null 
+            ? endDate.difference(startDate).inDays + 1
+            : null;
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Period started on ${DateFormat('MMM d').format(day)}'),
+            content: Text(
+              duration != null 
+                  ? 'Period added ($duration days)'
+                  : 'Period started on ${DateFormat('MMM d').format(startDate)}',
+            ),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      print('Error starting period: $e');
+      print('Error saving period: $e');
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error starting period. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
