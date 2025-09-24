@@ -54,36 +54,44 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
   }
 
   Future<void> _loadTodayEntry() async {
-    if (widget.userProfile.id == null) return;
-    
-    setState(() => _isLoading = true);
-    
     try {
-      final entry = await WaterRepository.getTodayWaterEntry(widget.userProfile.id!);
-      final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
+      setState(() => _isLoading = true);
       
+      final entry = await WaterRepository.getTodayWaterEntry(widget.userProfile.id);
+      
+      if (entry != null) {
+        setState(() {
+          _todayEntry = entry;
+        });
+      } else {
+        // Create a new entry for today if none exists
+        final targetGlasses = widget.userProfile.formData['waterIntakeGlasses'] ?? 8;
+        setState(() {
+          _todayEntry = WaterEntry(
+            userId: widget.userProfile.id,
+            date: DateTime.now(),
+            glassesConsumed: 0,
+            totalMl: 0,
+            targetMl: targetGlasses * 250.0, // 250ml per glass
+            notes: '',
+          );
+        });
+      }
+    } catch (e) {
+      print('Error loading today\'s water entry: $e');
+      // Still create a default entry on error
+      final targetGlasses = widget.userProfile.formData['waterIntakeGlasses'] ?? 8;
       setState(() {
-        _todayEntry = entry ?? WaterEntry(
-          userId: widget.userProfile.id!,
+        _todayEntry = WaterEntry(
+          userId: widget.userProfile.id,
           date: DateTime.now(),
           glassesConsumed: 0,
-          totalMl: 0.0,
-          targetMl: targetGlasses * mlPerGlass,
+          totalMl: 0,
+          targetMl: targetGlasses * 250.0,
+          notes: '',
         );
-        _isLoading = false;
       });
-
-      // Animate the fill
-      _fillAnimation = Tween<double>(
-        begin: _fillAnimation.value,
-        end: (_todayEntry!.glassesConsumed / targetGlasses).clamp(0.0, 1.0),
-      ).animate(CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ));
-      _animationController.forward(from: 0);
-    } catch (e) {
-      print('Error loading water entry: $e');
+    } finally {
       setState(() => _isLoading = false);
     }
   }
