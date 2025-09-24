@@ -863,28 +863,198 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
   }
 
   Future<void> _handleHistoricalPeriod(DateTime startDate) async {
-    // Show dialog to get end date for historical period
-    final DateTime? endDate = await showDatePicker(
+    // Show custom dialog for better UI
+    final DateTime? endDate = await showDialog<DateTime>(
       context: context,
-      initialDate: startDate.add(const Duration(days: 5)), // Default 5 days
-      firstDate: startDate,
-      lastDate: startDate.add(const Duration(days: 10)),
-      helpText: 'When did this period end?',
-      confirmText: 'Set End Date',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFFE91E63),
-            ),
-          ),
-          child: child!,
+      builder: (BuildContext context) {
+        DateTime selectedDate = startDate.add(const Duration(days: 5));
+        
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'When did this period end?',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Started: ${DateFormat('EEEE, MMMM d, yyyy').format(startDate)}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+              content: Container(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Show selected end date
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE91E63).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFE91E63).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'End Date:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                DateFormat('EEE, MMM d, yyyy').format(selectedDate),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.green.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              '${selectedDate.difference(startDate).inDays + 1} days',
+                              style: TextStyle(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Quick selection buttons
+                    const Text(
+                      'Quick Select:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [3, 4, 5, 6, 7].map((days) {
+                        final date = startDate.add(Duration(days: days - 1));
+                        final isSelected = isSameDay(date, selectedDate);
+                        
+                        return ChoiceChip(
+                          label: Text('$days days'),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                selectedDate = date;
+                              });
+                            }
+                          },
+                          selectedColor: const Color(0xFFE91E63).withOpacity(0.2),
+                          labelStyle: TextStyle(
+                            color: isSelected 
+                                ? const Color(0xFFE91E63)
+                                : Colors.grey.shade700,
+                            fontWeight: isSelected 
+                                ? FontWeight.w600 
+                                : FontWeight.normal,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Info message
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: Colors.blue.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Average period length is 3-7 days',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: Text(
+                    'Keep as Ongoing',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, selectedDate),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE91E63),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Set End Date'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
 
     if (endDate == null) {
-      // User cancelled - still save as ongoing period
+      // User chose to keep as ongoing
       await _savePeriodEntry(startDate, null);
     } else {
       // Save complete period

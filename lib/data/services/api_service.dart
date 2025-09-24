@@ -9,8 +9,6 @@ import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
 import 'package:user_onboarding/data/models/step_entry.dart';
 import 'package:user_onboarding/utils/timezone_helper.dart';
-import 'package:user_onboarding/data/models/nutrition_data.dart';
-import 'package:user_onboarding/data/models/meal_entry.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -279,25 +277,6 @@ class ApiService {
     }
   }
 
-  // Force rebuild context if needed
-  Future<bool> rebuildChatContext(String userId, {DateTime? date}) async {
-    try {
-      final dateStr = date != null 
-        ? DateFormat('yyyy-MM-dd').format(date)
-        : DateFormat('yyyy-MM-dd').format(DateTime.now());
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/chat/context/rebuild/$userId?date=$dateStr'),
-        headers: headers,
-      );
-
-      return response.statusCode == 200;
-    } catch (e) {
-      debugPrint('[ApiService] Error rebuilding context: $e');
-      return false;
-    }
-  }
-
   Future<Map<String, dynamic>> getCachedChatContext(String userId, DateTime date) async {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
@@ -320,21 +299,65 @@ class ApiService {
   }
 
   // Add method to update context
-  Future<bool> updateChatContext(
-    String userId,
-    String activityType,
+  Future<void> updateChatContext(
+    String userId, 
+    String activityType, 
     Map<String, dynamic> data,
+    {DateTime? date}
   ) async {
     try {
+      // Use provided date or today
+      final targetDate = date ?? DateTime.now();
+      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
+      
+      print('[ApiService] Updating chat context for $activityType on $dateStr');
+      
+      // Add the date to the data if not present
+      if (!data.containsKey('date') && !data.containsKey('created_at')) {
+        data['created_at'] = targetDate.toIso8601String();
+      }
+      
       final response = await http.post(
         Uri.parse('$baseUrl/chat/context/update/$userId?activity_type=$activityType'),
         headers: headers,
         body: jsonEncode(data),
       );
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        print('[ApiService] ✅ Chat context updated successfully for $activityType');
+      } else {
+        // Don't throw - this is non-critical, chat can rebuild if needed
+        print('[ApiService] ⚠️ Context update failed (${response.statusCode}), will sync on next chat');
+      }
     } catch (e) {
-      print('[ApiService] Error updating context: $e');
+      // Silent failure - the chat will rebuild context if needed
+      print('[ApiService] ⚠️ Context update error (non-critical): $e');
+    }
+  }
+
+  // Force rebuild context if needed
+  Future<bool> rebuildChatContext(String userId, {DateTime? date}) async {
+    try {
+      final dateStr = date != null 
+        ? DateFormat('yyyy-MM-dd').format(date)
+        : DateFormat('yyyy-MM-dd').format(DateTime.now());
+      
+      print('[ApiService] Force rebuilding chat context for $dateStr');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/context/rebuild/$userId?date=$dateStr'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        print('[ApiService] ✅ Chat context rebuilt successfully');
+        return true;
+      } else {
+        print('[ApiService] ❌ Failed to rebuild context: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('[ApiService] ❌ Context rebuild error: $e');
       return false;
     }
   }
@@ -409,16 +432,21 @@ class ApiService {
         }),
       );
 
-      print('[ApiService] Weight entry response status: ${response.statusCode}');
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        final entryId = data['id'] ?? weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
-        print('[ApiService] Weight entry saved with ID: $entryId');
+        final entryId = data['id'] ?? weightEntry.id;
+        
+        // ✅ UPDATE CHAT CONTEXT
+        await updateChatContext(
+          weightEntry.userId, 
+          'weight', 
+          {'weight': weightEntry.weight},
+          date: weightEntry.date
+        );
+        
         return entryId;
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to save weight entry');
+        throw Exception('Failed to save weight entry');
       }
     } catch (e) {
       print('[ApiService] Weight entry error: $e');
@@ -892,15 +920,22 @@ class ApiService {
 
       print('[ApiService] Log supplement response status: ${response.statusCode}');
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        
+        // ✅ UPDATE CHAT CONTEXT
+        await updateChatContext(
+          logData['user_id'], 
+          'supplement', 
+          logData
+        );
+        
+        return responseData;
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to log supplement intake');
+        throw Exception('Failed to save supplement entry');
       }
     } catch (e) {
-      print('[ApiService] Error logging supplement intake: $e');
+      print('[ApiService] Supplement save error: $e');
       rethrow;
     }
   }
@@ -982,19 +1017,24 @@ class ApiService {
         body: jsonEncode(waterEntry.toMap()),
       );
 
-      print('[ApiService] Water entry response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        final entryId = data['id'] ?? waterEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
-        print('[ApiService] Water entry saved with ID: $entryId');
+        final entryId = data['id'] ?? waterEntry.id;
+        
+        // ✅ UPDATE CHAT CONTEXT
+        await updateChatContext(
+          waterEntry.userId, 
+          'water', 
+          waterEntry.toMap(),
+          date: waterEntry.date
+        );
+        
         return entryId;
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to save water entry');
+        throw Exception('Failed to save water entry');
       }
     } catch (e) {
-      print('[ApiService] Water entry error: $e');
+      print('[ApiService] Water save error: $e');
       rethrow;
     }
   }
@@ -1114,26 +1154,30 @@ class ApiService {
   // Create sleep entry
   Future<Map<String, dynamic>> createSleepEntry(Map<String, dynamic> sleepData) async {
     try {
-      print('[ApiService] Creating sleep entry for date: ${sleepData['date']}');
+      print('[ApiService] Saving sleep entry');
       
       final response = await http.post(
-        Uri.parse('$baseUrl/sleep/entries'),  // This becomes /api/health/sleep/entries
+        Uri.parse('$baseUrl/sleep'),
         headers: headers,
         body: jsonEncode(sleepData),
       );
 
-      print('[ApiService] Sleep entry response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('[ApiService] Sleep entry saved successfully');
-        return data;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        
+        // ✅ UPDATE CHAT CONTEXT
+        await updateChatContext(
+          sleepData['user_id'], 
+          'sleep', 
+          responseData['entry'] ?? sleepData
+        );
+        
+        return responseData;
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['detail'] ?? 'Failed to create sleep entry');
+        throw Exception('Failed to save sleep entry');
       }
     } catch (e) {
-      print('[ApiService] Sleep entry error: $e');
+      print('[ApiService] Sleep save error: $e');
       rethrow;
     }
   }
@@ -1290,11 +1334,13 @@ class ApiService {
         final data = jsonDecode(response.body);
         print('Full response: $data');
         
+        Map<String, dynamic> normalizedMeal;
+        
         // Check if it's the flutter_compat response format
         if (data['success'] == true && data['meal'] != null) {
           final meal = data['meal'];
           // Return normalized format for the UI
-          return {
+          normalizedMeal = {
             'id': meal['id'],
             'food_item': meal['name'] ?? meal['food_item'],
             'quantity': meal['quantity'],
@@ -1315,8 +1361,21 @@ class ApiService {
           };
         } else {
           // Handle other response formats
-          return data;
+          normalizedMeal = data;
         }
+        
+        // ✅ UPDATE CHAT CONTEXT AFTER SUCCESSFUL MEAL SAVE
+        await updateChatContext(
+          mealData['user_id'], 
+          'meal', 
+          normalizedMeal,
+          date: mealData['meal_date'] != null 
+            ? DateTime.parse(mealData['meal_date']) 
+            : DateTime.now()
+        );
+        
+        return normalizedMeal;
+        
       } else {
         final errorBody = jsonDecode(response.body);
         throw Exception(errorBody['error'] ?? errorBody['detail'] ?? 'Failed to analyze meal');
@@ -1456,14 +1515,23 @@ class ApiService {
   }
 
   // Delete a meal
-  Future<bool> deleteMeal(String mealId) async {
+  Future<bool> deleteMeal(String mealId, String userId) async {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/meals/$mealId'),
         headers: headers,
       );
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        // ✅ UPDATE CHAT CONTEXT AFTER DELETION
+        await updateChatContext(
+          userId, 
+          'meal_delete', 
+          {'meal_id': mealId, 'deleted': true}
+        );
+        return true;
+      }
+      return false;
     } catch (e) {
       print('[ApiService] Delete meal error: $e');
       return false;
@@ -1480,7 +1548,18 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final updatedMeal = json.decode(response.body);
+        
+        // ✅ UPDATE CHAT CONTEXT AFTER MEAL UPDATE
+        if (mealData['user_id'] != null) {
+          await updateChatContext(
+            mealData['user_id'], 
+            'meal', 
+            updatedMeal
+          );
+        }
+        
+        return updatedMeal;
       }
       
       throw Exception('Failed to update meal');
@@ -1653,7 +1732,6 @@ class ApiService {
   Future<Map<String, dynamic>> logExercise(Map<String, dynamic> exerciseData) async {
     try {
       print('[ApiService] Logging exercise: ${exerciseData['exercise_name']}');
-      print('[ApiService] Exercise data: $exerciseData'); // Debug print
       
       final response = await http.post(
         Uri.parse('$baseUrl/exercise/log'),
@@ -1661,15 +1739,19 @@ class ApiService {
         body: jsonEncode(exerciseData),
       );
 
-      print('[ApiService] Exercise log response: ${response.statusCode}');
-      print('[ApiService] Exercise log response body: ${response.body}'); // Debug print
-
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final responseData = jsonDecode(response.body);
+        
+        // ✅ UPDATE CHAT CONTEXT
+        await updateChatContext(
+          exerciseData['user_id'], 
+          'exercise', 
+          responseData['exercise'] ?? exerciseData
+        );
+        
+        return responseData;
       } else {
-        final errorData = jsonDecode(response.body);
-        print('[ApiService] Exercise log error details: $errorData'); // Debug print
-        throw Exception(errorData['detail'] ?? 'Failed to log exercise');
+        throw Exception('Failed to log exercise');
       }
     } catch (e) {
       print('[ApiService] Exercise log error: $e');
@@ -1981,8 +2063,16 @@ class ApiService {
         body: jsonEncode(entry.toMap()),
       );
 
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to save step entry: ${response.body}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // ✅ UPDATE CHAT CONTEXT
+        await updateChatContext(
+          entry.userId, 
+          'steps', 
+          entry.toMap(),
+          date: entry.date
+        );
+      } else {
+        throw Exception('Failed to save step entry');
       }
     } catch (e) {
       throw Exception('Failed to save step entry: $e');

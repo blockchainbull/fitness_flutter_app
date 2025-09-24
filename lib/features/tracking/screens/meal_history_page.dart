@@ -583,7 +583,7 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
   // Delete meal
   Future<void> _deleteMeal(Map<String, dynamic> meal) async {
     try {
-      final success = await _apiService.deleteMeal(meal['id']);
+      final success = await _apiService.deleteMeal(meal['id'], widget.userProfile.id);
       
       if (success) {
         // Reload meals after deletion

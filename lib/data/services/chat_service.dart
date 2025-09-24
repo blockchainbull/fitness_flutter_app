@@ -13,8 +13,14 @@ class ChatService {
     String message, {
     Map<String, dynamic>? context,
     int? contextVersion,
+    bool forceRebuild = false,
   }) async {
     try {
+      // Force rebuild if requested or if we suspect stale data
+      if (forceRebuild) {
+        await _apiService.rebuildChatContext(userId);
+      }
+      
       // Get fresh context if not provided
       if (context == null) {
         context = await getUserContext(userId);
@@ -27,7 +33,22 @@ class ChatService {
       });
     } catch (e) {
       print('[ChatService] Error sending message: $e');
-      throw e;
+      
+      // If chat fails, try rebuilding context and retry once
+      try {
+        print('[ChatService] Attempting to rebuild context and retry...');
+        await _apiService.rebuildChatContext(userId);
+        context = await getUserContext(userId);
+        
+        return await _apiService.sendChatMessage(userId, {
+          'message': message,
+          'context': context,
+          'context_version': 1,
+        });
+      } catch (retryError) {
+        print('[ChatService] Retry also failed: $retryError');
+        throw retryError;
+      }
     }
   }
 
