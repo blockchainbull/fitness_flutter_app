@@ -332,7 +332,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
                               Container(
                                 height: 8,
                                 width: MediaQuery.of(context).size.width * 
-                                       _fillAnimation.value * 0.65,
+                                       _fillAnimation.value,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(4),
                                   gradient: LinearGradient(
