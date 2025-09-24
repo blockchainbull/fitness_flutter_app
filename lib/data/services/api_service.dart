@@ -1019,7 +1019,7 @@ class ApiService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        final entryId = data['id'] ?? waterEntry.id;
+        final entryId = data['id'] ?? waterEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
         
         // ✅ UPDATE CHAT CONTEXT
         await updateChatContext(
