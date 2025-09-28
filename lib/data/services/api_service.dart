@@ -298,7 +298,6 @@ class ApiService {
     }
   }
 
-  // Add method to update context
   Future<void> updateChatContext(
     String userId, 
     String activityType, 
@@ -335,7 +334,6 @@ class ApiService {
     }
   }
 
-  // Force rebuild context if needed
   Future<bool> rebuildChatContext(String userId, {DateTime? date}) async {
     try {
       final dateStr = date != null 
@@ -444,6 +442,8 @@ class ApiService {
           date: weightEntry.date
         );
         
+        await rebuildChatContext(weightEntry.userId);
+
         return entryId;
       } else {
         throw Exception('Failed to save weight entry');
@@ -929,6 +929,8 @@ class ApiService {
           'supplement', 
           logData
         );
+
+        await rebuildChatContext(logData['user_id']);
         
         return responseData;
       } else {
@@ -1028,6 +1030,8 @@ class ApiService {
           waterEntry.toMap(),
           date: waterEntry.date
         );
+
+        await rebuildChatContext(waterEntry.userId);
         
         return entryId;
       } else {
@@ -1157,7 +1161,7 @@ class ApiService {
       print('[ApiService] Saving sleep entry');
       
       final response = await http.post(
-        Uri.parse('$baseUrl/sleep'),
+        Uri.parse('$baseUrl/sleep/entries'),
         headers: headers,
         body: jsonEncode(sleepData),
       );
@@ -1171,6 +1175,8 @@ class ApiService {
           'sleep', 
           responseData['entry'] ?? sleepData
         );
+
+        await rebuildChatContext(sleepData['user_id']);
         
         return responseData;
       } else {
@@ -1373,6 +1379,8 @@ class ApiService {
             ? DateTime.parse(mealData['meal_date']) 
             : DateTime.now()
         );
+
+        await rebuildChatContext(mealData['user_id']);
         
         return normalizedMeal;
         
@@ -1529,6 +1537,9 @@ class ApiService {
           'meal_delete', 
           {'meal_id': mealId, 'deleted': true}
         );
+
+        await rebuildChatContext(userId);
+
         return true;
       }
       return false;
@@ -1558,6 +1569,8 @@ class ApiService {
             updatedMeal
           );
         }
+
+        await rebuildChatContext(mealData['user_id']);
         
         return updatedMeal;
       }
@@ -1748,6 +1761,8 @@ class ApiService {
           'exercise', 
           responseData['exercise'] ?? exerciseData
         );
+
+        await rebuildChatContext(exerciseData['user_id']);
         
         return responseData;
       } else {

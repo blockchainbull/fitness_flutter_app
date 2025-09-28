@@ -279,24 +279,24 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
                       const SizedBox(height: 4),
                       
                       // Progress bar
-                      Stack(
-                        children: [
-                          Container(
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          AnimatedBuilder(
-                            animation: _fillAnimation,
-                            builder: (context, child) {
-                              return Stack(
-                                children: [
-                                  Container(
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Stack(
+                            children: [
+                              Container(
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              AnimatedBuilder(
+                                animation: _fillAnimation,
+                                builder: (context, child) {
+                                  final actualProgress = progress * _fillAnimation.value;
+                                  return Container(
                                     height: 8,
-                                    width: MediaQuery.of(context).size.width * 
-                                           _fillAnimation.value,
+                                    width: constraints.maxWidth * actualProgress, 
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(4),
                                       gradient: LinearGradient(
@@ -307,7 +307,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
                                         end: Alignment.centerRight,
                                       ),
                                       boxShadow: [
-                                        if (_fillAnimation.value > 0)
+                                        if (actualProgress > 0)
                                           BoxShadow(
                                             color: Colors.blue.withOpacity(0.3),
                                             blurRadius: 4,
@@ -315,12 +315,12 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
                                           ),
                                       ],
                                     ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
+                                  );
+                                },
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),

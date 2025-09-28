@@ -315,68 +315,71 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
                       const SizedBox(height: 4),
                       
                       // Animated progress bar
-                      AnimatedBuilder(
-                        animation: _fillAnimation,
-                        builder: (context, child) {
-                          return Stack(
-                            children: [
-                              // Background track
-                              Container(
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(4),
-                                  color: Colors.orange.shade50,
-                                ),
-                              ),
-                              // Filled progress with gradient
-                              Container(
-                                height: 8,
-                                width: MediaQuery.of(context).size.width * 
-                                       _fillAnimation.value,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(4),
-                                  gradient: LinearGradient(
-                                    colors: isGoalReached 
-                                        ? [Colors.green, Colors.green.shade600]
-                                        : progress > 0.7
-                                            ? [Colors.orange.shade400, Colors.orange.shade500]
-                                            : [Colors.orange.shade300, Colors.orange.shade400],
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return AnimatedBuilder(
+                            animation: _fillAnimation,
+                            builder: (context, child) {
+                              final actualProgress = progress * _fillAnimation.value;
+                              return Stack(
+                                children: [
+                                  // Background track
+                                  Container(
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      color: Colors.orange.shade50,
+                                    ),
                                   ),
-                                  boxShadow: [
-                                    if (_fillAnimation.value > 0)
-                                      BoxShadow(
-                                        color: (isGoalReached ? Colors.green : Colors.orange)
-                                            .withOpacity(0.3),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                                  // Filled progress with gradient
+                                  Container(
+                                    height: 8,
+                                    width: constraints.maxWidth * actualProgress, 
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      gradient: LinearGradient(
+                                        colors: isGoalReached 
+                                            ? [Colors.green, Colors.green.shade600]
+                                            : actualProgress > 0.7
+                                                ? [Colors.orange.shade400, Colors.orange.shade500]
+                                                : [Colors.orange.shade300, Colors.orange.shade400],
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
                                       ),
-                                  ],
-                                ),
-                              ),
-                              // Step indicators along the bar
-                              if (_fillAnimation.value > 0.25 && _fillAnimation.value < 1)
-                                ...List.generate(3, (index) {
-                                  final position = 0.25 + (index * 0.25);
-                                  if (position <= _fillAnimation.value) {
-                                    return Positioned(
-                                      left: MediaQuery.of(context).size.width * 
-                                            position * 0.65 - 2,
-                                      top: 2,
-                                      child: Container(
-                                        width: 4,
-                                        height: 4,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white.withOpacity(0.7),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
-                                }),
-                            ],
+                                      boxShadow: [
+                                        if (actualProgress > 0)
+                                          BoxShadow(
+                                            color: (isGoalReached ? Colors.green : Colors.orange)
+                                                .withOpacity(0.3),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Step indicators along the bar
+                                  if (actualProgress > 0.25 && actualProgress < 1)
+                                    ...List.generate(3, (index) {
+                                      final position = 0.25 + (index * 0.25);
+                                      if (position <= actualProgress) {
+                                        return Positioned(
+                                          left: constraints.maxWidth * position - 2,
+                                          top: 2,
+                                          child: Container(
+                                            width: 4,
+                                            height: 4,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.white.withOpacity(0.7),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    }),
+                                ],
+                              );
+                            },
                           );
                         },
                       ),
