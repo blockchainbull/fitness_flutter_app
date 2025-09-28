@@ -34,12 +34,12 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     _fillAnimation = Tween<double>(
       begin: 0.0,
-      end: 0.0,
+      end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
@@ -76,14 +76,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
         _isLoading = false;
       });
       
-      // Animate the fill
-      _fillAnimation = Tween<double>(
-        begin: 0.0,
-        end: (_todayEntry!.steps / _todayEntry!.goal).clamp(0.0, 1.0),
-      ).animate(CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ));
+      // Start the animation (it goes from 0 to 1)
       _animationController.forward();
     } catch (e) {
       print('Error loading step entry: $e');
@@ -320,7 +313,9 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
                           return AnimatedBuilder(
                             animation: _fillAnimation,
                             builder: (context, child) {
-                              final actualProgress = progress * _fillAnimation.value;
+                              // Calculate the actual fill width based on progress
+                              final fillWidth = constraints.maxWidth * progress * _fillAnimation.value;
+                              
                               return Stack(
                                 children: [
                                   // Background track
@@ -328,26 +323,26 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
                                     height: 8,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(4),
-                                      color: Colors.orange.shade50,
+                                      color: Colors.grey[200],  // Use grey instead of orange.shade50
                                     ),
                                   ),
                                   // Filled progress with gradient
                                   Container(
                                     height: 8,
-                                    width: constraints.maxWidth * actualProgress, 
+                                    width: fillWidth,  // Use the calculated fill width
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(4),
                                       gradient: LinearGradient(
                                         colors: isGoalReached 
                                             ? [Colors.green, Colors.green.shade600]
-                                            : actualProgress > 0.7
+                                            : progress > 0.7
                                                 ? [Colors.orange.shade400, Colors.orange.shade500]
                                                 : [Colors.orange.shade300, Colors.orange.shade400],
                                         begin: Alignment.centerLeft,
                                         end: Alignment.centerRight,
                                       ),
                                       boxShadow: [
-                                        if (actualProgress > 0)
+                                        if (progress > 0)
                                           BoxShadow(
                                             color: (isGoalReached ? Colors.green : Colors.orange)
                                                 .withOpacity(0.3),
@@ -357,13 +352,13 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
                                       ],
                                     ),
                                   ),
-                                  // Step indicators along the bar
-                                  if (actualProgress > 0.25 && actualProgress < 1)
+                                  // Step indicators along the bar (optional - you can remove this if not needed)
+                                  if (progress > 0.25 && progress < 1)
                                     ...List.generate(3, (index) {
-                                      final position = 0.25 + (index * 0.25);
-                                      if (position <= actualProgress) {
+                                      final indicatorPosition = 0.25 + (index * 0.25);
+                                      if (indicatorPosition <= progress) {
                                         return Positioned(
-                                          left: constraints.maxWidth * position - 2,
+                                          left: constraints.maxWidth * indicatorPosition - 2,
                                           top: 2,
                                           child: Container(
                                             width: 4,

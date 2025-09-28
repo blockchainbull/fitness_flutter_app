@@ -39,7 +39,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
     );
     _fillAnimation = Tween<double>(
       begin: 0.0,
-      end: 0.0,
+      end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
