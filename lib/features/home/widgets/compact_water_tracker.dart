@@ -34,7 +34,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     _fillAnimation = Tween<double>(
@@ -72,11 +72,15 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
             date: DateTime.now(),
             glassesConsumed: 0,
             totalMl: 0,
-            targetMl: targetGlasses * 250.0, // 250ml per glass
+            targetMl: targetGlasses * 250.0,
             notes: '',
           );
         });
       }
+      
+      // Start the animation after data is loaded
+      _animationController.forward();
+      
     } catch (e) {
       print('Error loading today\'s water entry: $e');
       // Still create a default entry on error
@@ -91,6 +95,10 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
           notes: '',
         );
       });
+      
+      // Start animation even on error
+      _animationController.forward();
+      
     } finally {
       setState(() => _isLoading = false);
     }
@@ -118,15 +126,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
         _isSaving = false;
       });
 
-      // Animate the fill
-      final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
-      _fillAnimation = Tween<double>(
-        begin: _fillAnimation.value,
-        end: (updatedEntry.glassesConsumed / targetGlasses).clamp(0.0, 1.0),
-      ).animate(CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ));
+      // Don't recreate the animation, just reset and play it
       _animationController.forward(from: 0);
 
       // Haptic feedback
@@ -136,6 +136,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
       widget.onUpdate?.call();
 
       // Show achievement message if goal reached
+      final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
       if (updatedEntry.glassesConsumed >= targetGlasses && 
           (_todayEntry!.glassesConsumed - count) < targetGlasses) {
         if (mounted) {
@@ -293,10 +294,12 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
                               AnimatedBuilder(
                                 animation: _fillAnimation,
                                 builder: (context, child) {
-                                  final actualProgress = progress * _fillAnimation.value;
+                                  // Calculate the actual width based on current progress
+                                  final fillWidth = constraints.maxWidth * progress * _fillAnimation.value;
+                                  
                                   return Container(
                                     height: 8,
-                                    width: constraints.maxWidth * actualProgress, 
+                                    width: fillWidth,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(4),
                                       gradient: LinearGradient(
@@ -307,7 +310,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
                                         end: Alignment.centerRight,
                                       ),
                                       boxShadow: [
-                                        if (actualProgress > 0)
+                                        if (fillWidth > 0)
                                           BoxShadow(
                                             color: Colors.blue.withOpacity(0.3),
                                             blurRadius: 4,
