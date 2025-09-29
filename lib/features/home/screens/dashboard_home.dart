@@ -13,8 +13,6 @@ import 'package:user_onboarding/features/tracking/screens/meal_logging_page.dart
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 import 'package:user_onboarding/data/services/metrics_service.dart';
-import 'package:user_onboarding/data/services/insights_service.dart';
-import 'package:user_onboarding/data/services/schedule_service.dart';
 import 'package:user_onboarding/features/home/widgets/dashboard_weight_goal_card.dart';
 import 'package:user_onboarding/features/home/widgets/daily_meal_card.dart';
 import 'package:user_onboarding/features/home/widgets/compact_water_tracker.dart';
@@ -47,15 +45,11 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   late UserProfile _currentUserProfile;
   late StreamSubscription<UserProfile> _profileSubscription;
   final MetricsService _metricsService = MetricsService();
-  final InsightsService _insightsService = InsightsService();
-  final ScheduleService _scheduleService = ScheduleService();
   bool _isLoadingMetrics = false;
   
-  // Feature flags - turn these on as we implement each section
+  // Feature flags
   final bool _quickActionsEnabled = true;
   final bool _dailyMacros = true;
-  final bool _smartInsightsEnabled = true;
-  final bool _upcomingEventsEnabled = true;
   final bool _goalProgressEnabled = true;
   final bool _waterTrackerEnabled = true;
   final bool _stepTrackerEnabled = true;
@@ -141,12 +135,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   Future<void> _loadInitialData() async {
     await Future.wait([
       if (_dailyMacros) _loadTodayProgress(),
-      if (_smartInsightsEnabled) _generateSmartInsights(),
     ]);
-    
-    if (_upcomingEventsEnabled) {
-      _loadUpcomingEvents();
-    }
   }
 
   Future<void> _loadTodayProgress() async {
@@ -175,40 +164,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     } catch (e) {
       print('Error loading today progress: $e');
       setState(() => _isLoadingMetrics = false);
-    }
-  }
-
-  Future<void> _generateSmartInsights() async {
-    if (!_smartInsightsEnabled) return;
-    
-    try {
-      final insights = await _insightsService.generateDailyInsights(
-        _currentUserProfile,
-        todayProgress,
-      );
-      
-      setState(() {
-        smartInsights = insights;
-      });
-    } catch (e) {
-      print('Error generating insights: $e');
-      setState(() {
-        smartInsights = ["💪 Keep going! You're doing great today!"];
-      });
-    }
-  }
-
-  void _loadUpcomingEvents() {
-    if (!_upcomingEventsEnabled) return;
-    
-    try {
-      final events = _scheduleService.generateDailySchedule(_currentUserProfile);
-      
-      setState(() {
-        upcomingEvents = events;
-      });
-    } catch (e) {
-      print('Error loading events: $e');
     }
   }
 
@@ -367,9 +322,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                     ),
                   ),
                 ),
-
-              
-              
               
               if (widget.userProfile.hasPeriods == true)
                 SliverToBoxAdapter(
@@ -381,24 +333,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                         _loadTodayProgress();
                       },
                     ),
-                  ),
-                ),
-
-              // Smart Insights
-              if (_smartInsightsEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildSmartInsights(),
-                  ),
-                ),
-              
-              // Upcoming Events
-              if (_upcomingEventsEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildUpcomingEvents(),
                   ),
                 ),
               
@@ -538,20 +472,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                 },
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _QuickActionButton(
-                icon: Icons.fitness_center,
-                label: 'Start Workout',
-                color: Colors.orange,
-                onTap: () {
-                  // TODO: Implement workout start
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Workout feature coming soon!')),
-                  );
-                },
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -574,146 +494,8 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                 },
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _QuickActionButton(
-                icon: Icons.chat,
-                label: 'AI Coach',
-                color: Colors.purple,
-                onTap: () {
-                  widget.onTabChange?.call(1);
-                },
-              ),
-            ),
           ],
         ),
-      ],
-    );
-  }
-
-  Widget _buildSmartInsights() {
-    if (smartInsights.isEmpty) return const SizedBox.shrink();
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade50, Colors.purple.shade50],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.lightbulb, color: Colors.amber, size: 24),
-              const SizedBox(width: 8),
-              const Text(
-                'Smart Insights',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...smartInsights.map((insight) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.arrow_right, size: 20),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    insight,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-          )).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpcomingEvents() {
-    if (upcomingEvents.isEmpty) return const SizedBox.shrink();
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Coming Up Today',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ...upcomingEvents.map((event) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  event['icon'] as IconData,
-                  color: Colors.blue,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      event['title'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      DateFormat('h:mm a').format(event['time']),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  // TODO: Handle event action
-                },
-                child: const Text('View'),
-              ),
-            ],
-          ),
-        )).toList(),
       ],
     );
   }
