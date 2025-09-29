@@ -360,6 +360,41 @@ class ApiService {
     }
   }
 
+  Future<bool> checkAndResetDailyContext(String userId) async {
+    try {
+      // Check if context needs reset
+      final checkResponse = await http.get(
+        Uri.parse('$baseUrl/chat/context/check/$userId'),
+        headers: headers,
+      );
+      
+      if (checkResponse.statusCode == 200) {
+        final checkData = jsonDecode(checkResponse.body);
+        
+        if (checkData['needs_reset'] == true) {
+          print('[ApiService] 📅 New day detected, resetting context...');
+          
+          // Trigger daily reset
+          final resetResponse = await http.post(
+            Uri.parse('$baseUrl/chat/context/daily-reset/$userId'),
+            headers: headers,
+          );
+          
+          if (resetResponse.statusCode == 200) {
+            print('[ApiService] ✅ Daily context reset complete');
+            return true;
+          }
+        } else {
+          print('[ApiService] 📊 Context is current for today');
+        }
+      }
+      return false;
+    } catch (e) {
+      print('[ApiService] ❌ Daily context check error: $e');
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>> getUserFramework(String userId) async {
     try {
       print('[ApiService] Getting user framework for: $userId');

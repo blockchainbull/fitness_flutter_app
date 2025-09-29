@@ -8,6 +8,7 @@ import 'package:user_onboarding/features/chat/screens/chat_page.dart';
 import 'package:user_onboarding/features/profile/screens/profile_page.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
+import 'package:user_onboarding/data/services/api_service.dart';
 
 class HomePage extends StatefulWidget {
   final UserProfile userProfile;
@@ -31,6 +32,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _ensureDailyContext();
     _pageController = PageController(initialPage: 0);
     _currentUserProfile = widget.userProfile;
     
@@ -64,6 +66,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _ensureDailyContext() async {
+    try {
+      // This ensures context is fresh for the day
+      await ApiService().checkAndResetDailyContext(widget.userProfile.id!);
+    } catch (e) {
+      print('[HomePage] Daily context check failed: $e');
+    }
   }
 
   void _onTabTapped(int index) {

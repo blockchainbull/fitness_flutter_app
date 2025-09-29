@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/chat_service.dart';
-import 'dart:convert';
 import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
 
 class ChatPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -37,6 +35,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _checkAndResetDailyContext();
     _loadChatHistory();
     _loadChatContext();
   }
@@ -50,6 +49,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       Future.delayed(const Duration(milliseconds: 300), () {
         _scrollToBottom();
       });
+    }
+  }
+
+  Future<void> _checkAndResetDailyContext() async {
+    try {
+      await ApiService().checkAndResetDailyContext(widget.userProfile.id!);
+    } catch (e) {
+      print('[ChatPage] Daily context check error: $e');
     }
   }
 
@@ -249,23 +256,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _scrollToBottom();
   }
 
-  Future<void> _clearChatHistory() async {
-    try {
-      await _apiService.clearChatHistory(widget.userProfile.id!);
-      setState(() {
-        _messages.clear();
-      });
-      _showContextAwareWelcome();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chat history cleared')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to clear chat history')),
-      );
-    }
-  }
-
   void _addWelcomeMessage() {
     final userName = widget.userProfile.name.isNotEmpty ? widget.userProfile.name : 'there';
     final goal = widget.userProfile.primaryGoal.isNotEmpty ? widget.userProfile.primaryGoal : 'your health goals';
@@ -307,25 +297,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         );
       }
     });
-  }
-
-  String _generateFallbackResponse(String userMessage) {
-    final message = userMessage.toLowerCase();
-    final userName = widget.userProfile.name.isNotEmpty ? widget.userProfile.name : 'there';
-    
-    if (message.contains('dinner') || message.contains('food') || message.contains('eat')) {
-      return 'Hi $userName! For dinner with your ${widget.userProfile.weightGoal.replaceAll('_', ' ')} goals, I recommend a balanced meal with lean protein like chicken or fish, plenty of vegetables, and complex carbs. Keep portions moderate and stay hydrated!';
-    } else if (message.contains('exercise') || message.contains('workout')) {
-      return 'Based on your ${widget.userProfile.fitnessLevel} fitness level, try mixing cardio with strength training. Start with 30 minutes of activity you enjoy - could be walking, cycling, or bodyweight exercises at home.';
-    } else if (message.contains('progress') || message.contains('how am i doing')) {
-      return 'You\'re doing great by staying engaged with your health journey! Keep logging your activities and meals. Consistency is key to reaching your goals.';
-    } else if (message.contains('weight')) {
-      final current = widget.userProfile.weight;
-      final target = widget.userProfile.targetWeight;
-      return 'Your current weight is ${current}kg and you\'re working toward ${target}kg. Focus on sustainable habits rather than quick fixes - you\'ve got this!';
-    } else {
-      return 'Hi $userName! I\'m here to help with your health journey. You can ask me about meal ideas, workout suggestions, progress tracking, or motivation. What would you like to know?';
-    }
   }
 
   @override
@@ -601,29 +572,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 
-  void _showClearChatDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Chat History'),
-        content: const Text('Are you sure you want to clear all chat history? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _clearChatHistory();
-            },
-            child: const Text('Clear', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showContextInfo() {
     showDialog(
       context: context,
@@ -824,7 +772,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Refresh context when app comes back to foreground
+      _checkAndResetDailyContext();
       _loadChatContext();
     }
   }
