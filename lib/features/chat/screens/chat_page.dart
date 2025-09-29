@@ -35,9 +35,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkAndResetDailyContext();
-    _loadChatHistory();
-    _loadChatContext();
+    ChatService.rebuildContext(widget.userProfile.id!).then((_) {
+      _loadChatHistory();
+      _loadChatContext();
+    });
   }
 
   @override
@@ -49,14 +50,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       Future.delayed(const Duration(milliseconds: 300), () {
         _scrollToBottom();
       });
-    }
-  }
-
-  Future<void> _checkAndResetDailyContext() async {
-    try {
-      await ApiService().checkAndResetDailyContext(widget.userProfile.id!);
-    } catch (e) {
-      print('[ChatPage] Daily context check error: $e');
     }
   }
 
@@ -772,7 +765,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkAndResetDailyContext();
       _loadChatContext();
     }
   }
