@@ -2,12 +2,11 @@
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_history_page.dart';
 import 'package:user_onboarding/features/tracking/widgets/voice_input_widget.dart';
-
-
 
 class EnhancedMealLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -27,8 +26,11 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   // Controllers
   final _multiLineController = TextEditingController();
   final _quantityController = TextEditingController();
+  final _searchController = TextEditingController();
   
   // State
+  DateTime _selectedDate = DateTime.now();
+  CalendarFormat _calendarFormat = CalendarFormat.week;
   String _selectedMealType = 'Lunch';
   bool _isAnalyzing = false;
   Map<String, dynamic>? _nutritionData;
@@ -43,6 +45,13 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   };
   List<Map<String, dynamic>> _todaysMeals = [];
   
+  // Enhanced features state
+  List<Map<String, dynamic>> _mealPresets = [];
+  List<Map<String, dynamic>> _recentMeals = [];
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _showCalendar = false;
+  bool _showRecentMeals = false;
+  bool _showPresets = false;
   
   // Common meal combos for quick selection
   final List<Map<String, dynamic>> _mealCombos = [
@@ -72,54 +81,126 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   void initState() {
     super.initState();
     _loadTodaysMeals();
+    _loadPresets();
+    _loadRecentMeals();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _calculateDailyGoals();
       if (mounted) setState(() {});
     });
     _dailyMealGoal = widget.userProfile.dailyMealsCount ?? 3;
     _setMealTypeByTime();
+    
+    // Add listener for search
+    _searchController.addListener(_onSearchTextChanged);
   }
 
-  Future<void> _loadTodaysMeals() async {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _multiLineController.dispose();
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchTextChanged() {
+    if (_searchController.text.length > 2) {
+      _performSearch(_searchController.text);
+    } else {
+      setState(() {
+        _searchResults = [];
+      });
+    }
+  }
+
+  Future<void> _performSearch(String query) async {
+    final queryLower = query.toLowerCase();
+    
+    // Search in both recent meals and presets
+    final List<Map<String, dynamic>> results = [];
+    
+    // Search recent meals
+    for (final meal in _recentMeals) {
+      final foodItem = meal['food_item']?.toString().toLowerCase() ?? '';
+      if (foodItem.contains(queryLower)) {
+        results.add({...meal, 'type': 'recent'});
+      }
+    }
+    
+    // Search presets
+    for (final preset in _mealPresets) {
+      final presetName = preset['preset_name']?.toString().toLowerCase() ?? '';
+      if (presetName.contains(queryLower)) {
+        results.add({...preset, 'type': 'preset'});
+      }
+    }
+    
+    setState(() {
+      _searchResults = results;
+    });
+  }
+
+  Future<void> _loadPresets() async {
     try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final response = await _apiService.getMealPresets(widget.userProfile.id!);
+      setState(() {
+        _mealPresets = response['presets'] ?? [];
+      });
+    } catch (e) {
+      print('Error loading presets: $e');
+    }
+  }
+
+  Future<void> _loadRecentMeals() async {
+    try {
+      final response = await _apiService.getMealSuggestions(widget.userProfile.id!);
+      setState(() {
+        _recentMeals = response['recent_meals'] ?? [];
+      });
+    } catch (e) {
+      print('Error loading recent meals: $e');
+    }
+  }
+
+  Future<void> _loadMealsForDate(DateTime date) async {
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
       final meals = await _apiService.getMealHistory(
         widget.userProfile.id!,
         date: dateStr,
       );
       
       setState(() {
-        _todaysMeals = meals;
+        if (DateUtils.isSameDay(date, DateTime.now())) {
+          _todaysMeals = meals;
+        }
       });
     } catch (e) {
-      print('Error loading today\'s meals: $e');
+      print('Error loading meals: $e');
     }
+  }
+
+  Future<void> _loadTodaysMeals() async {
+    await _loadMealsForDate(DateTime.now());
   }
 
   void _calculateDailyGoals() {
     try {
-      // Safely get TDEE with default value
       final tdee = (widget.userProfile.formData?['tdee'] ?? 2000).toDouble();
       final weightGoal = widget.userProfile.primaryGoal ?? 'maintain_weight';
       
-      // Calculate daily calorie goal
       if (weightGoal.toLowerCase().contains('lose')) {
-        _dailyCalorieGoal = tdee * 0.82; // 18% deficit
+        _dailyCalorieGoal = tdee * 0.82;
       } else if (weightGoal.toLowerCase().contains('gain')) {
-        _dailyCalorieGoal = tdee * 1.12; // 12% surplus  
+        _dailyCalorieGoal = tdee * 1.12;
       } else {
         _dailyCalorieGoal = tdee;
       }
       
-      // Initialize macro goals map if null
       _macroGoals ??= {};
-      
-      // Calculate macros
       _calculateMacroGoals();
       
     } catch (e) {
       print('Error calculating goals: $e');
-      // Set default values to prevent crashes
       _dailyCalorieGoal = 2000;
       _macroGoals = {
         'protein': 150.0,
@@ -151,7 +232,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         fatPercent = 0.30;
       }
       
-      // Calculate with null safety
       final proteinCalories = _dailyCalorieGoal * proteinPercent;
       final carbCalories = _dailyCalorieGoal * carbPercent;
       final fatCalories = _dailyCalorieGoal * fatPercent;
@@ -163,14 +243,13 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       };
     } catch (e) {
       print('Error calculating macros: $e');
-      // Set defaults
       _macroGoals = {
         'protein': 150.0,
         'carbs': 225.0,
         'fat': 67.0,
       };
     }
-}
+  }
   
   void _setMealTypeByTime() {
     final hour = DateTime.now().hour;
@@ -190,10 +269,24 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Smart Meal Logging'),
+        title: Text(DateUtils.isSameDay(_selectedDate, DateTime.now()) 
+          ? 'Smart Meal Logging' 
+          : 'Log Meals - ${DateFormat('MMM d').format(_selectedDate)}'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: Icon(_showCalendar ? Icons.close : Icons.calendar_month),
+            onPressed: () {
+              setState(() {
+                _showCalendar = !_showCalendar;
+              });
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.bookmark),
+            onPressed: _openPresetsModal,
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: _viewHistory,
@@ -206,8 +299,24 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
+              // Calendar (collapsible)
+              if (_showCalendar) _buildCalendar(),
+              
+              // Date indicator if not today
+              if (!DateUtils.isSameDay(_selectedDate, DateTime.now()))
+                _buildDateIndicator(),
+              
+              // Search bar
+              _buildSearchBar(),
+              
+              // Search results dropdown
+              if (_searchResults.isNotEmpty) _buildSearchResults(),
+              
               // Meal Type Selector
               _buildMealTypeSelector(),
+              
+              // Recent Meals (collapsible section)
+              _buildRecentMealsSection(),
               
               // Entry Mode Toggle
               _buildEntryModeToggle(),
@@ -225,11 +334,264 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
               // Analyze Button
               _buildAnalyzeButton(),
 
+              // Today's Meals
               _buildTodaysMeals(),
               
               // Results
               if (_nutritionData != null) _buildResults(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalendar() {
+    return Container(
+      color: Colors.white,
+      child: TableCalendar(
+        firstDay: DateTime.now().subtract(const Duration(days: 365)),
+        lastDay: DateTime.now(),
+        focusedDay: _selectedDate,
+        calendarFormat: _calendarFormat,
+        selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
+        onDaySelected: (selectedDay, focusedDay) {
+          setState(() {
+            _selectedDate = selectedDay;
+            _showCalendar = false;
+          });
+          _loadMealsForDate(selectedDay);
+        },
+        onFormatChanged: (format) {
+          setState(() {
+            _calendarFormat = format;
+          });
+        },
+        calendarStyle: const CalendarStyle(
+          selectedDecoration: BoxDecoration(
+            color: Colors.green,
+            shape: BoxShape.circle,
+          ),
+          todayDecoration: BoxDecoration(
+            color: Colors.lightGreen,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateIndicator() {
+    return Container(
+      color: Colors.orange.shade100,
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            'Logging meals for ${DateFormat('EEEE, MMMM d').format(_selectedDate)}',
+            style: const TextStyle(color: Colors.orange),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search meals, presets, or enter new food...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {
+                    _searchResults = [];
+                  });
+                },
+              )
+            : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      constraints: const BoxConstraints(maxHeight: 200),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          final item = _searchResults[index];
+          final isPreset = item['type'] == 'preset';
+          
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: isPreset ? Colors.amber.shade100 : Colors.green.shade100,
+              child: Icon(
+                isPreset ? Icons.star : Icons.history,
+                color: isPreset ? Colors.amber : Colors.green,
+              ),
+            ),
+            title: Text(isPreset ? item['preset_name'] : item['food_item']),
+            subtitle: Text(
+              isPreset 
+                ? '${item['total_calories']}cal preset'
+                : '${item['quantity']} • ${item['calories']}cal',
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: Chip(
+              label: Text(isPreset ? 'Preset' : 'Recent', 
+                style: const TextStyle(fontSize: 10)),
+              backgroundColor: isPreset ? Colors.amber.shade100 : Colors.blue.shade100,
+            ),
+            onTap: () {
+              if (isPreset) {
+                _usePreset(item);
+              } else {
+                _quickAddMeal(item);
+              }
+              _searchController.clear();
+              setState(() {
+                _searchResults = [];
+              });
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildRecentMealsSection() {
+    if (_recentMeals.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                _showRecentMeals = !_showRecentMeals;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    _showRecentMeals ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Recent Meals',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_recentMeals.length}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_showRecentMeals) ...[
+            Container(
+              height: 120,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _recentMeals.length,
+                itemBuilder: (context, index) {
+                  final meal = _recentMeals[index];
+                  return _buildRecentMealCard(meal);
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentMealCard(Map<String, dynamic> meal) {
+    return Container(
+      width: 150,
+      margin: const EdgeInsets.only(right: 12),
+      child: Card(
+        child: InkWell(
+          onTap: () => _quickAddMeal(meal),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  meal['food_item'] ?? '',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  meal['quantity'] ?? '',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    const Icon(Icons.local_fire_department, 
+                      size: 16, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${meal['calories']}cal',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -421,7 +783,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
 
   Widget _buildEntryArea() {
     if (_useMultiLineEntry) {
-      // Text description mode
       return Container(
         margin: const EdgeInsets.all(16),
         child: Column(
@@ -477,7 +838,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         ),
       );
     } else {
-      // Individual items mode
       return Container(
         margin: const EdgeInsets.all(16),
         child: Column(
@@ -642,7 +1002,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         'food_item': mealDescription,
         'quantity': quantity,
         'meal_type': _selectedMealType,
-        'meal_date': DateTime.now().toIso8601String(),
+        'meal_date': _selectedDate.toIso8601String(),
       });
 
       setState(() {
@@ -654,19 +1014,17 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         } else {
           _nutritionData = response;
         }
-        
+
         _isAnalyzing = false;
-        
-        // Debug logging to see the structure
-        print('Nutrition Data Structure: ${_nutritionData?.keys.toList()}');
-        print('Calories: ${_nutritionData?['calories']}');
-        print('Protein: ${_nutritionData?['protein_g']} or ${_nutritionData?['protein']}');
-        print('Carbs: ${_nutritionData?['carbs_g']} or ${_nutritionData?['carbs']}');
-        print('Fat: ${_nutritionData?['fat_g']} or ${_nutritionData?['fat']}');
       });
 
       String dataSource = _nutritionData?['data_source'] ?? 'Unknown';
       print('Data source used: $dataSource');
+
+      if (DateUtils.isSameDay(_selectedDate, DateTime.now()) && 
+          (response['success'] == true || _nutritionData != null)) {
+        _showSaveAsPresetDialog(_nutritionData!);
+      }
 
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
@@ -676,6 +1034,8 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           duration: const Duration(seconds: 2),
         ),
       );
+
+      await _loadMealsForDate(_selectedDate);
 
       // Clear the form after successful analysis
       _multiLineController.clear();
@@ -694,6 +1054,300 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     }
   }
 
+  void _usePreset(Map<String, dynamic> preset) {
+    setState(() {
+      _useMultiLineEntry = true;
+      _multiLineController.text = preset['food_items'] ?? preset['preset_name'] ?? '';
+      _selectedMealType = preset['meal_type'] ?? _selectedMealType;
+      
+      // Pre-populate nutrition data if available
+      if (preset['nutrition_data'] != null) {
+        _nutritionData = preset['nutrition_data'];
+      }
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Preset "${preset['preset_name']}" loaded'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _quickAddMeal(Map<String, dynamic> meal) async {
+    setState(() => _isAnalyzing = true);
+    
+    try {
+      // Directly log the meal since we already have the data
+      final response = await _apiService.analyzeMeal({
+        'user_id': widget.userProfile.id,
+        'food_item': meal['food_item'],
+        'quantity': meal['quantity'] ?? '1 serving',
+        'meal_type': _selectedMealType,
+        'meal_date': _selectedDate.toIso8601String(),
+        // Include cached nutrition data if available
+        'cached_nutrition': meal['nutrition_data'],
+      });
+      
+      setState(() {
+        _isAnalyzing = false;
+        if (response['success'] == true) {
+          _nutritionData = response['meal'] ?? response['data'];
+        }
+      });
+      
+      await _loadMealsForDate(_selectedDate);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Meal added successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() => _isAnalyzing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding meal: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _openPresetsModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Saved Presets',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: _mealPresets.isEmpty
+                  ? const Center(
+                      child: Text('No presets saved yet'),
+                    )
+                  : ListView.builder(
+                      controller: scrollController,
+                      itemCount: _mealPresets.length,
+                      itemBuilder: (context, index) {
+                        final preset = _mealPresets[index];
+                        return Card(
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.amber.shade100,
+                              child: const Icon(Icons.star, color: Colors.amber),
+                            ),
+                            title: Text(preset['preset_name'] ?? 'Unnamed Preset'),
+                            subtitle: Text(
+                              '${preset['total_calories']?.round() ?? 0} cal • '
+                              'P: ${preset['protein']?.round() ?? 0}g • '
+                              'C: ${preset['carbs']?.round() ?? 0}g • '
+                              'F: ${preset['fat']?.round() ?? 0}g',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_outline),
+                                  color: Colors.green,
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _usePreset(preset);
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline),
+                                  color: Colors.red,
+                                  onPressed: () => _deletePreset(preset['id']),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deletePreset(String presetId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Preset?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      try {
+        await _apiService.deleteMealPreset(presetId);
+        await _loadPresets();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Preset deleted'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting preset: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showSaveAsPresetDialog(Map<String, dynamic> nutritionData) {
+    final presetNameController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save as Preset?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Save this meal as a preset for quick access later?'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: presetNameController,
+              decoration: const InputDecoration(
+                hintText: 'Preset name (optional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Skip'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _saveAsPreset(nutritionData, presetNameController.text);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveAsPreset(Map<String, dynamic> nutritionData, String presetName) async {
+    try {
+      final foodItem = nutritionData['food_item'] ?? _multiLineController.text;
+      final name = presetName.isNotEmpty ? presetName : foodItem;
+      
+      await _apiService.createPreset({
+        'user_id': widget.userProfile.id,
+        'preset_name': name,
+        'food_items': foodItem,
+        'meal_type': _selectedMealType,
+        'nutrition_data': nutritionData,
+        'total_calories': nutritionData['calories'],
+        'protein': nutritionData['protein'],
+        'carbs': nutritionData['carbs'],
+        'fat': nutritionData['fat'],
+      });
+      
+      await _loadPresets();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Meal saved as preset!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving preset: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _viewHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MealHistoryPage(
+          userProfile: widget.userProfile,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshData() async {
+    await Future.wait([
+      _loadTodaysMeals(),
+      _loadPresets(),
+      _loadRecentMeals(),
+    ]);
+  }
+
+  void _addFoodItem() {
+    if (_multiLineController.text.isNotEmpty) {
+      setState(() {
+        _foodItems.add({
+          'food': _multiLineController.text,
+          'quantity': _quantityController.text.isNotEmpty 
+            ? _quantityController.text 
+            : '1 serving',
+        });
+        _multiLineController.clear();
+        _quantityController.clear();
+      });
+    }
+  }
+
   Widget _buildTodaysMeals() {
     if (_todaysMeals.isEmpty) return const SizedBox.shrink();
     
@@ -702,41 +1356,51 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Today\'s Meals',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Today\'s Meals',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${_todaysMeals.length}/$_dailyMealGoal meals',
+                style: TextStyle(
+                  color: _todaysMeals.length >= _dailyMealGoal 
+                    ? Colors.green 
+                    : Colors.orange,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          // Progress indicators
+          _buildNutritionProgress(),
+          const SizedBox(height: 12),
+          // Meal list
           ..._todaysMeals.map((meal) => Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: _getMealTypeColor(meal['meal_type']).withOpacity(0.2),
+                backgroundColor: Colors.green.shade100,
                 child: Text(
-                  meal['meal_type']?.substring(0, 1).toUpperCase() ?? 'S',
-                  style: TextStyle(
-                    color: _getMealTypeColor(meal['meal_type']),
-                    fontWeight: FontWeight.bold,
-                  ),
+                  meal['meal_type']?.substring(0, 1) ?? 'M',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              title: Text(meal['food_item']),
-              subtitle: Text('${meal['quantity']} • ${meal['calories']} cal'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () => _editMeal(meal),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _confirmDeleteMeal(meal),
-                  ),
-                ],
+              title: Text(meal['food_item'] ?? ''),
+              subtitle: Text(
+                '${meal['calories']?.round() ?? 0} cal • ${meal['quantity'] ?? ''}',
+              ),
+              trailing: Text(
+                meal['logged_at'] != null 
+                  ? DateFormat('h:mm a').format(DateTime.parse(meal['logged_at']))
+                  : '',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
           )).toList(),
@@ -745,105 +1409,45 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
-  Widget _buildResults() {
-    if (_nutritionData == null) return const SizedBox.shrink();
+  Widget _buildNutritionProgress() {
+    // Calculate totals from today's meals
+    double totalCalories = 0;
+    double totalProtein = 0;
+    double totalCarbs = 0;
+    double totalFat = 0;
     
-    final components = _nutritionData!['components'] as List?;
+    for (final meal in _todaysMeals) {
+      totalCalories += (meal['calories'] ?? 0).toDouble();
+      totalProtein += (meal['protein'] ?? 0).toDouble();
+      totalCarbs += (meal['carbs'] ?? 0).toDouble();
+      totalFat += (meal['fat'] ?? 0).toDouble();
+    }
     
     return Column(
       children: [
-        // Nutrition analysis card
-        Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with calories
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Nutrition Analysis',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${(_nutritionData!['calories'] ?? 0).round()} cal',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              
-              // Progress bar
-              const SizedBox(height: 12),
-              _buildCalorieProgress(),
-              
-              // Data source badge
-              if (_nutritionData!['data_source'] != null) ...[
-                const SizedBox(height: 12),
-                _buildDataSourceBadge(),
-              ],
-              
-              // Food components (if multi-food meal)
-              if (components != null && components.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _buildFoodComponents(components),
-              ],
-              
-              // Macro breakdown
-              const SizedBox(height: 16),
-              _buildMacroBreakdown(),
-              
-              // Additional nutrients
-              const SizedBox(height: 12),
-              _buildAdditionalNutrients(),
-              
-              // Health score
-              if (_nutritionData!['healthiness_score'] != null) ...[
-                const SizedBox(height: 16),
-                _buildHealthScore(_nutritionData!['healthiness_score']),
-              ],
-              
-              // Suggestions
-              if (_nutritionData!['suggestions'] != null &&
-                  _nutritionData!['suggestions'].toString().isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _buildSuggestions(),
-              ],
-            ],
-          ),
+        _buildProgressBar('Calories', totalCalories, _dailyCalorieGoal, Colors.orange),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildMacroChip('Protein', totalProtein, _macroGoals['protein']!, Colors.red),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildMacroChip('Carbs', totalCarbs, _macroGoals['carbs']!, Colors.blue),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildMacroChip('Fat', totalFat, _macroGoals['fat']!, Colors.yellow.shade700),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildCalorieProgress() {
-    final calories = (_nutritionData!['calories'] ?? 0).toDouble();
-    final progress = calories / _dailyCalorieGoal;
+  Widget _buildProgressBar(String label, double current, double goal, Color color) {
+    final percentage = (current / goal).clamp(0.0, 1.0);
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -851,228 +1455,49 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Progress towards daily goal',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            Text(
-              '${(progress * 100).round()}%',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: progress > 1.0 ? Colors.orange : Colors.green,
-              ),
-            ),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('${current.round()} / ${goal.round()}'),
           ],
         ),
         const SizedBox(height: 4),
         LinearProgressIndicator(
-          value: progress.clamp(0.0, 1.0),
-          backgroundColor: Colors.grey[200],
-          valueColor: AlwaysStoppedAnimation<Color>(
-            progress > 1.0 ? Colors.orange : Colors.green,
-          ),
+          value: percentage,
+          backgroundColor: Colors.grey.shade200,
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+          minHeight: 8,
         ),
       ],
     );
   }
 
-  Widget _buildMacroBreakdown() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildMacroCard(
-          'Protein',
-          (_nutritionData!['protein_g'] ?? _nutritionData!['protein'] ?? 0).toDouble(),
-          'g',
-          Colors.blue,
-        ),
-        _buildMacroCard(
-          'Carbs',
-          (_nutritionData!['carbs_g'] ?? _nutritionData!['carbs'] ?? 0).toDouble(),
-          'g',
-          Colors.orange,
-        ),
-        _buildMacroCard(
-          'Fat',
-          (_nutritionData!['fat_g'] ?? _nutritionData!['fat'] ?? 0).toDouble(),
-          'g',
-          Colors.purple,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAdditionalNutrients() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildMacroCard(
-          'Fiber',
-          (_nutritionData!['fiber_g'] ?? _nutritionData!['fiber'] ?? 0).toDouble(),
-          'g',
-          Colors.green,
-        ),
-        _buildMacroCard(
-          'Sugar',
-          (_nutritionData!['sugar_g'] ?? _nutritionData!['sugar'] ?? 0).toDouble(),
-          'g',
-          Colors.pink,
-        ),
-        _buildMacroCard(
-          'Sodium',
-          (_nutritionData!['sodium_mg'] ?? _nutritionData!['sodium'] ?? 0).toDouble(),
-          'mg',
-          Colors.grey,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMacroCard(String label, double value, String unit, Color color) {
-    // Calculate percentage of daily goal
-    double goalValue = 0;
-    double percentage = 0;
-    
-    if (_macroGoals != null) {
-      switch (label.toLowerCase()) {
-        case 'protein':
-          goalValue = _macroGoals['protein'] ?? 0;
-          break;
-        case 'carbs':
-          goalValue = _macroGoals['carbs'] ?? 0;
-          break;
-        case 'fat':
-          goalValue = _macroGoals['fat'] ?? 0;
-          break;
-      }
-      
-      if (goalValue > 0) {
-        percentage = (value / goalValue) * 100;
-      }
-    }
-    
-    return Column(
-      children: [
-        Container(
-          width: 60,
-          height: 60,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: color.withOpacity(0.3),
-              width: 2,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              '${value.toStringAsFixed(1)}$unit',
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (percentage > 0) ...[
+  Widget _buildMacroChip(String label, double current, double goal, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
           Text(
-            '${percentage.toStringAsFixed(0)}% of goal',
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: color.withOpacity(0.8),
+            ),
+          ),
+          Text(
+            '${current.round()}g',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            '/ ${goal.round()}g',
             style: TextStyle(
               fontSize: 10,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildHealthScore(dynamic healthinessScore) {
-    final score = (healthinessScore ?? 0).toDouble();
-    final scoreInt = score.round();
-    
-    Color scoreColor;
-    String scoreLabel;
-    IconData scoreIcon;
-    
-    if (scoreInt >= 8) {
-      scoreColor = Colors.green;
-      scoreLabel = 'Excellent';
-      scoreIcon = Icons.sentiment_very_satisfied;
-    } else if (scoreInt >= 6) {
-      scoreColor = Colors.lightGreen;
-      scoreLabel = 'Good';
-      scoreIcon = Icons.sentiment_satisfied;
-    } else if (scoreInt >= 4) {
-      scoreColor = Colors.orange;
-      scoreLabel = 'Needs Improvement';
-      scoreIcon = Icons.sentiment_neutral;
-    } else {
-      scoreColor = Colors.red;
-      scoreLabel = 'Poor';
-      scoreIcon = Icons.sentiment_dissatisfied;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scoreColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scoreColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(scoreIcon, color: scoreColor, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Health Score: $scoreInt/10',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: scoreColor,
-                  ),
-                ),
-                Text(
-                  scoreLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: scoreColor.withOpacity(0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: scoreColor, width: 3),
-            ),
-            child: Center(
-              child: Text(
-                '$scoreInt',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: scoreColor,
-                ),
-              ),
+              color: color.withOpacity(0.6),
             ),
           ),
         ],
@@ -1080,41 +1505,65 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
-  Widget _buildDataSourceBadge() {
-    final dataSource = _nutritionData!['data_source'] ?? 'unknown';
-    final confidenceScore = _nutritionData!['confidence_score'];
+  Widget _buildResults() {
+    if (_nutritionData == null) return const SizedBox.shrink();
     
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _getDataSourceColor(dataSource),
+        color: Colors.green.shade50,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.shade200),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            _getDataSourceIcon(dataSource),
-            size: 16,
-            color: Colors.white,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Source: $dataSource',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          if (confidenceScore != null) ...[
-            const SizedBox(width: 8),
-            Text(
-              '(${(confidenceScore * 100).toInt()}% confidence)',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.white70,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Nutrition Analysis',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
               ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _nutritionData = null;
+                  });
+                },
+              ),
+            ],
+          ),
+          const Divider(),
+          Text(
+            _nutritionData!['food_item'] ?? 'Analyzed Meal',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNutrientInfo('Calories', 
+                '${_nutritionData!['calories']?.round() ?? 0}', 'kcal'),
+              _buildNutrientInfo('Protein', 
+                '${_nutritionData!['protein']?.round() ?? 0}', 'g'),
+              _buildNutrientInfo('Carbs', 
+                '${_nutritionData!['carbs']?.round() ?? 0}', 'g'),
+              _buildNutrientInfo('Fat', 
+                '${_nutritionData!['fat']?.round() ?? 0}', 'g'),
+            ],
+          ),
+          if (_nutritionData!['data_source'] != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Source: ${_nutritionData!['data_source']}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ],
@@ -1122,340 +1571,25 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
-  Widget _buildFoodComponents(List components) {
+  Widget _buildNutrientInfo(String label, String value, String unit) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Food Components:',
-          style: TextStyle(
-            fontSize: 14,
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.grey,
           ),
         ),
-        const SizedBox(height: 8),
-        ...components.map((item) => Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${item['food']} (${item['quantity']})',
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-              Text(
-                '${(item['calories'] ?? 0).round()} cal',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        )).toList(),
-      ],
-    );
-  }
-
-  Widget _buildSuggestions() {
-    final suggestions = _nutritionData!['suggestions'] ?? '';
-    
-    if (suggestions.isEmpty) return const SizedBox.shrink();
-    
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.lightbulb_outline, color: Colors.blue, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              suggestions,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Delete meal with confirmation
-  Future<void> _confirmDeleteMeal(Map<String, dynamic> meal) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Meal'),
-        content: Text('Are you sure you want to delete "${meal['food_item']}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    
-    if (confirmed == true) {
-      await _deleteMeal(meal);
-    }
-  }
-
-  // Delete meal
-  Future<void> _deleteMeal(Map<String, dynamic> meal) async {
-    try {
-      final success = await _apiService.deleteMeal(meal['id'], widget.userProfile.id);
-      
-      if (success) {
-        // Reload meals after deletion
-        await _loadTodaysMeals();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Meal deleted successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        throw Exception('Failed to delete meal');
-      }
-    } catch (e) {
-      print('Error deleting meal: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error deleting meal: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  // Edit meal - opens a dialog or navigates to edit page
-  void _editMeal(Map<String, dynamic> meal) {
-    // Option 1: Show edit dialog
-    showDialog(
-      context: context,
-      builder: (context) => _EditMealDialog(
-        meal: meal,
-        onSave: (updatedMeal) async {
-          await _updateMeal(meal['id'], updatedMeal);
-          await _loadTodaysMeals();
-        },
-      ),
-    );
-  }
-
-  // Update meal
-  Future<void> _updateMeal(String mealId, Map<String, dynamic> updatedData) async {
-    try {
-      await _apiService.updateMeal(mealId, updatedData);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Meal updated successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error updating meal: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating meal: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _refreshData() async {
-    await _loadTodaysMeals();
-  }
-
-  void _addFoodItem() {
-    if (_multiLineController.text.isNotEmpty) {
-      setState(() {
-        _foodItems.add({
-          'food': _multiLineController.text,
-          'quantity': _quantityController.text.isEmpty ? '1 serving' : _quantityController.text,
-        });
-        _multiLineController.clear();
-        _quantityController.clear();
-      });
-    }
-  }
-
-  Color _getMealTypeColor(String? mealType) {
-    switch (mealType?.toLowerCase()) {
-      case 'breakfast':
-        return Colors.orange;
-      case 'lunch':
-        return Colors.green;
-      case 'dinner':
-        return Colors.blue;
-      case 'snack':
-        return Colors.purple;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  Color _getDataSourceColor(String? dataSource) {
-    switch (dataSource?.toLowerCase()) {
-      case 'usda':
-        return Colors.green;
-      case 'multi-food-parser':
-        return Colors.blue;
-      case 'chatgpt':
-      case 'openai':
-        return Colors.purple;
-      case 'manual':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getDataSourceIcon(String? dataSource) {
-    switch (dataSource?.toLowerCase()) {
-      case 'usda':
-        return Icons.verified;
-      case 'multi-food-parser':
-        return Icons.restaurant_menu;
-      case 'chatgpt':
-      case 'openai':
-        return Icons.psychology;
-      case 'manual':
-        return Icons.edit;
-      default:
-        return Icons.info_outline;
-    }
-  }
-
-  void _viewHistory() {
-    // Navigate to meal history page
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MealHistoryPage(userProfile: widget.userProfile),
-      ),
-    );
-  }
-}
-
-class _EditMealDialog extends StatefulWidget {
-  final Map<String, dynamic> meal;
-  final Function(Map<String, dynamic>) onSave;
-  
-  const _EditMealDialog({
-    required this.meal,
-    required this.onSave,
-  });
-  
-  @override
-  State<_EditMealDialog> createState() => _EditMealDialogState();
-}
-
-class _EditMealDialogState extends State<_EditMealDialog> {
-  late TextEditingController _foodController;
-  late TextEditingController _quantityController;
-  String? _selectedMealType;
-  
-  @override
-  void initState() {
-    super.initState();
-    _foodController = TextEditingController(text: widget.meal['food_item']);
-    _quantityController = TextEditingController(text: widget.meal['quantity']);
-    _selectedMealType = widget.meal['meal_type'];
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Edit Meal'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _foodController,
-            decoration: const InputDecoration(
-              labelText: 'Food Item',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _quantityController,
-            decoration: const InputDecoration(
-              labelText: 'Quantity',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: _selectedMealType,
-            decoration: const InputDecoration(
-              labelText: 'Meal Type',
-              border: OutlineInputBorder(),
-            ),
-            items: ['Breakfast', 'Lunch', 'Dinner', 'Snack']
-                .map((type) => DropdownMenuItem(
-                      value: type,
-                      child: Text(type),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedMealType = value;
-              });
-            },
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            widget.onSave({
-              'food_item': _foodController.text,
-              'quantity': _quantityController.text,
-              'meal_type': _selectedMealType,
-            });
-            Navigator.pop(context);
-          },
-          child: const Text('Save'),
+        Text(
+          unit,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
       ],
     );
-  }
-  
-  @override
-  void dispose() {
-    _foodController.dispose();
-    _quantityController.dispose();
-    super.dispose();
   }
 }

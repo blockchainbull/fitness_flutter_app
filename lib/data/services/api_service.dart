@@ -1617,6 +1617,99 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getMealPresets(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/meals/presets/$userId'),
+        headers: headers,
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Failed to load presets');
+    } catch (e) {
+      print('Error getting presets: $e');
+      return {'success': false, 'presets': []};
+    }
+  }
+
+  Future<Map<String, dynamic>> createPreset(Map<String, dynamic> presetData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/meals/presets/create'),
+        headers: headers,
+        body: jsonEncode(presetData),
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Failed to create preset');
+    } catch (e) {
+      print('Error creating preset: $e');
+      return {'success': false};
+    }
+  }
+
+  Future<Map<String, dynamic>> usePreset(String presetId, Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/meals/presets/$presetId/use'),
+        headers: headers,
+        body: jsonEncode(data),
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Failed to use preset');
+    } catch (e) {
+      print('Error using preset: $e');
+      return {'success': false};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMealSuggestions(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/meals/suggestions/$userId'),
+        headers: headers,
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Failed to get suggestions');
+    } catch (e) {
+      print('Error getting suggestions: $e');
+      return {'success': false, 'recent_meals': [], 'presets': []};
+    }
+  }
+
+  Future<bool> deleteMealPreset(String presetId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/meals/presets/$presetId'),
+        headers: headers,
+      );
+      
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        print('✅ Preset deleted successfully');
+        return true;
+      } else if (response.statusCode == 404) {
+        print('⚠️ Preset not found');
+        return false;
+      } else {
+        print('❌ Failed to delete preset: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error deleting preset: $e');
+      return false;
+    }
+  }
+
   // Period Logging Functions
   Future<String> savePeriodEntry(PeriodEntry entry) async {
     try {
