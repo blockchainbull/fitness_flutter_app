@@ -1157,17 +1157,6 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
       
       await PeriodRepository.savePeriodEntry(newPeriod);
       
-      // Update last period date if this is the most recent
-      if (_periodHistory.isEmpty || startDate.isAfter(_periodHistory.first.startDate)) {
-        final updatedProfile = _userProfile!.copyWith(
-          lastPeriodDate: startDate,
-        );
-        await _apiService.updateUserProfile(updatedProfile);
-        setState(() {
-          _userProfile = updatedProfile;
-        });
-      }
-      
       await _loadData();
       
       if (mounted) {
