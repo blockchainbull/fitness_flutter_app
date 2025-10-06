@@ -14,6 +14,7 @@ import 'package:user_onboarding/features/onboarding/screens/dietary_preferences_
 import 'package:user_onboarding/features/onboarding/screens/workout_preferences_page.dart';
 import 'package:user_onboarding/data/managers/user_manager.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 
 class OnboardingFlow extends StatefulWidget {
@@ -656,6 +657,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       }
 
       final userProfile = userProvider.userProfile!;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_set_step_goal_${userProfile.id}', true);
       
       // Close loading indicator
       Navigator.pop(context);
