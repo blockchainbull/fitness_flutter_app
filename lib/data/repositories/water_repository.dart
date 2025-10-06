@@ -4,6 +4,7 @@ import 'package:user_onboarding/data/models/water_entry.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/database_service.dart';
 import 'dart:math';
+import 'package:intl/intl.dart';
 
 class WaterRepository {
   static final Random _random = Random();
@@ -14,19 +15,137 @@ class WaterRepository {
            _random.nextInt(9999).toString().padLeft(4, '0');
   }
 
+  // static Future<String> saveWaterEntry(WaterEntry waterEntry) async {
+  //   try {
+  //     final id = waterEntry.id ?? _generateId();
+      
+  //     if (kIsWeb) {
+  //       // Use API service for web
+  //       final entryId = await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
+  //       print('✅ Water entry saved via API with ID: $entryId');
+  //       return entryId;
+  //     } else {
+  //       // Use direct database connection for mobile with new method
+  //       if (DatabaseService.isInitialized) {
+  //         // Try the complex ON CONFLICT approach first
+  //         await DatabaseService.executeWater(r'''
+  //           INSERT INTO daily_water 
+  //           (id, user_id, date, glasses_consumed, total_ml, target_ml, notes, created_at, updated_at)
+  //           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  //           ON CONFLICT (user_id, (date::date)) 
+  //           DO UPDATE SET 
+  //             glasses_consumed = EXCLUDED.glasses_consumed,
+  //             total_ml = EXCLUDED.total_ml,
+  //             target_ml = EXCLUDED.target_ml,
+  //             notes = EXCLUDED.notes,
+  //             updated_at = CURRENT_TIMESTAMP
+  //         ''', [
+  //           id,
+  //           waterEntry.userId,
+  //           waterEntry.date.toIso8601String(),
+  //           waterEntry.glassesConsumed,
+  //           waterEntry.totalMl,
+  //           waterEntry.targetMl,
+  //           waterEntry.notes,
+  //         ]);
+  //         print('✅ Water entry saved to local database with ID: $id');
+  //         return id;
+  //       } else {
+  //         // Fallback to API if database not available
+  //         final entryId = await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
+  //         print('✅ Water entry saved via API fallback with ID: $entryId');
+  //         return entryId;
+  //       }
+  //     }
+  //   } catch (e) {
+  //     print('❌ Error saving water entry with ON CONFLICT: $e');
+  //     // Try a simpler approach without ON CONFLICT
+  //     return await _saveWaterEntrySimple(waterEntry);
+  //   }
+  // }
+
+  // Fallback method with simpler SQL (check-then-insert/update pattern)
+  // static Future<String> _saveWaterEntrySimple(WaterEntry waterEntry) async {
+  //   final id = waterEntry.id ?? _generateId();
+  //   try {
+  //     if (kIsWeb) {
+  //       return await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
+  //     }
+      
+  //     if (DatabaseService.isInitialized) {
+  //       // Check if entry exists for today
+  //       final today = DateTime.now();
+  //       final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+        
+  //       final existing = await DatabaseService.queryWater(r'''
+  //         SELECT id FROM daily_water 
+  //         WHERE user_id = $1 AND date::date = $2::date
+  //         LIMIT 1
+  //       ''', [waterEntry.userId, todayStr]);
+        
+  //       if (existing.isNotEmpty) {
+  //         // Update existing entry
+  //         await DatabaseService.executeWater(r'''
+  //           UPDATE daily_water 
+  //           SET glasses_consumed = $1, total_ml = $2, target_ml = $3, 
+  //               notes = $4, updated_at = CURRENT_TIMESTAMP
+  //           WHERE user_id = $5 AND date::date = $6::date
+  //         ''', [
+  //           waterEntry.glassesConsumed,
+  //           waterEntry.totalMl,
+  //           waterEntry.targetMl,
+  //           waterEntry.notes,
+  //           waterEntry.userId,
+  //           todayStr,
+  //         ]);
+  //         print('✅ Water entry updated in local database');
+  //         return existing.first['id'].toString();
+  //       } else {
+  //         // Insert new entry
+  //         await DatabaseService.executeWater(r'''
+  //           INSERT INTO daily_water 
+  //           (id, user_id, date, glasses_consumed, total_ml, target_ml, notes, created_at, updated_at)
+  //           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  //         ''', [
+  //           id,
+  //           waterEntry.userId,
+  //           waterEntry.date.toIso8601String(),
+  //           waterEntry.glassesConsumed,
+  //           waterEntry.totalMl,
+  //           waterEntry.targetMl,
+  //           waterEntry.notes,
+  //         ]);
+  //         print('✅ Water entry inserted into local database with ID: $id');
+  //         return id;
+  //       }
+  //     } else {
+  //       // Use API as fallback
+  //       return await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
+  //     }
+  //   } catch (e) {
+  //     print('❌ Error in simple save method: $e');
+  //     // Last resort - try API even on mobile
+  //     try {
+  //       final entryId = await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
+  //       print('✅ Water entry saved via API as last resort with ID: $entryId');
+  //       return entryId;
+  //     } catch (apiError) {
+  //       print('❌ Final fallback to API also failed: $apiError');
+  //       rethrow;
+  //     }
+  //   }
+  // }
+
   static Future<String> saveWaterEntry(WaterEntry waterEntry) async {
     try {
       final id = waterEntry.id ?? _generateId();
       
       if (kIsWeb) {
-        // Use API service for web
         final entryId = await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
         print('✅ Water entry saved via API with ID: $entryId');
         return entryId;
       } else {
-        // Use direct database connection for mobile with new method
         if (DatabaseService.isInitialized) {
-          // Try the complex ON CONFLICT approach first
           await DatabaseService.executeWater(r'''
             INSERT INTO daily_water 
             (id, user_id, date, glasses_consumed, total_ml, target_ml, notes, created_at, updated_at)
@@ -49,97 +168,20 @@ class WaterRepository {
           ]);
           print('✅ Water entry saved to local database with ID: $id');
           return id;
-        } else {
-          // Fallback to API if database not available
-          final entryId = await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
-          print('✅ Water entry saved via API fallback with ID: $entryId');
-          return entryId;
         }
       }
     } catch (e) {
-      print('❌ Error saving water entry with ON CONFLICT: $e');
-      // Try a simpler approach without ON CONFLICT
-      return await _saveWaterEntrySimple(waterEntry);
+      print('❌ Error saving water entry: $e');
+      rethrow;
     }
+    return '';
   }
 
-  // Fallback method with simpler SQL (check-then-insert/update pattern)
-  static Future<String> _saveWaterEntrySimple(WaterEntry waterEntry) async {
-    final id = waterEntry.id ?? _generateId();
-    try {
-      if (kIsWeb) {
-        return await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
-      }
-      
-      if (DatabaseService.isInitialized) {
-        // Check if entry exists for today
-        final today = DateTime.now();
-        final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-        
-        final existing = await DatabaseService.queryWater(r'''
-          SELECT id FROM daily_water 
-          WHERE user_id = $1 AND date::date = $2::date
-          LIMIT 1
-        ''', [waterEntry.userId, todayStr]);
-        
-        if (existing.isNotEmpty) {
-          // Update existing entry
-          await DatabaseService.executeWater(r'''
-            UPDATE daily_water 
-            SET glasses_consumed = $1, total_ml = $2, target_ml = $3, 
-                notes = $4, updated_at = CURRENT_TIMESTAMP
-            WHERE user_id = $5 AND date::date = $6::date
-          ''', [
-            waterEntry.glassesConsumed,
-            waterEntry.totalMl,
-            waterEntry.targetMl,
-            waterEntry.notes,
-            waterEntry.userId,
-            todayStr,
-          ]);
-          print('✅ Water entry updated in local database');
-          return existing.first['id'].toString();
-        } else {
-          // Insert new entry
-          await DatabaseService.executeWater(r'''
-            INSERT INTO daily_water 
-            (id, user_id, date, glasses_consumed, total_ml, target_ml, notes, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-          ''', [
-            id,
-            waterEntry.userId,
-            waterEntry.date.toIso8601String(),
-            waterEntry.glassesConsumed,
-            waterEntry.totalMl,
-            waterEntry.targetMl,
-            waterEntry.notes,
-          ]);
-          print('✅ Water entry inserted into local database with ID: $id');
-          return id;
-        }
-      } else {
-        // Use API as fallback
-        return await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
-      }
-    } catch (e) {
-      print('❌ Error in simple save method: $e');
-      // Last resort - try API even on mobile
-      try {
-        final entryId = await _apiService.saveWaterEntry(waterEntry.copyWith(id: id));
-        print('✅ Water entry saved via API as last resort with ID: $entryId');
-        return entryId;
-      } catch (apiError) {
-        print('❌ Final fallback to API also failed: $apiError');
-        rethrow;
-      }
-    }
-  }
+  
 
   static Future<List<WaterEntry>> getWaterHistory(String userId, {int limit = 30}) async {
     try {
       if (kIsWeb) {
-        // You'll need to create a separate method in ApiService for history
-        // For now, return empty list or implement getWaterHistory in ApiService
         return await _apiService.getWaterHistory(userId, limit: limit);
       } else {
         if (DatabaseService.isInitialized) {
@@ -149,93 +191,51 @@ class WaterRepository {
             ORDER BY date DESC 
             LIMIT $2
           ''', [userId, limit]);
-          
+    
           return results.map((row) => WaterEntry.fromMap(row)).toList();
-        } else {
-          // Fallback to API if database not available
-          return await _apiService.getWaterHistory(userId, limit: limit);
         }
-      }
-    } catch (e) {
-      print('Error getting water history from database: $e');
-      // Fallback to API
-      try {
-        return await _apiService.getWaterHistory(userId, limit: limit);
-      } catch (apiError) {
-        print('Error getting water history from API: $apiError');
         return [];
       }
+    } catch (e) {
+      print('Error getting water history: $e');
+      return [];
     }
   }
 
-  static Future<WaterEntry?> getTodayWaterEntry(String userId) async {
+  static Future<WaterEntry?> getWaterEntryByDate(String userId, DateTime date) async {
     try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      
       if (kIsWeb) {
-        // Get the map from API service
-        final waterData = await _apiService.getTodaysWater(userId);
+        // Use API service for web
+        final waterData = await _apiService.getWaterByDate(userId, dateStr);
         
-        // Check if we have valid data
         if (waterData['success'] == true && waterData['entry'] != null) {
-          // Convert the entry map to WaterEntry object
           return WaterEntry.fromMap(waterData['entry']);
-        } else if (waterData['glasses'] != null && waterData['glasses'] > 0) {
-          // Create WaterEntry from the summary data
-          return WaterEntry(
-            userId: userId,
-            date: DateTime.now(),
-            glassesConsumed: waterData['glasses'],
-            totalMl: waterData['total_ml'],
-            targetMl: waterData['target_ml'],
-          );
         }
         return null;
       } else {
+        // Use direct database for mobile
         if (DatabaseService.isInitialized) {
-          final today = DateTime.now();
-          final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-          
           final results = await DatabaseService.queryWater(r'''
             SELECT * FROM daily_water 
             WHERE user_id = $1 AND date::date = $2::date
             LIMIT 1
-          ''', [userId, todayStr]);
+          ''', [userId, dateStr]);
           
           if (results.isNotEmpty) {
             return WaterEntry.fromMap(results.first);
           }
-          return null;
-        } else {
-          // Fallback to API if database not available
-          final waterData = await _apiService.getTodaysWater(userId);
-          
-          if (waterData['success'] == true && waterData['entry'] != null) {
-            return WaterEntry.fromMap(waterData['entry']);
-          } else if (waterData['glasses'] != null && waterData['glasses'] > 0) {
-            return WaterEntry(
-              userId: userId,
-              date: DateTime.now(),
-              glassesConsumed: waterData['glasses'],
-              totalMl: waterData['total_ml'],
-              targetMl: waterData['target_ml'],
-            );
-          }
-          return null;
         }
+        return null;
       }
     } catch (e) {
-      print('Error getting today\'s water entry from database: $e');
-      // Fallback to API
-      try {
-        final waterData = await _apiService.getTodaysWater(userId);
-        
-        if (waterData['success'] == true && waterData['entry'] != null) {
-          return WaterEntry.fromMap(waterData['entry']);
-        }
-        return null;
-      } catch (apiError) {
-        print('Error getting today\'s water entry from API: $apiError');
-        return null;
-      }
+      print('Error getting water entry by date: $e');
+      return null;
     }
+  }
+
+  static Future<WaterEntry?> getTodayWaterEntry(String userId) async {
+    return getWaterEntryByDate(userId, DateTime.now());
   }
 }

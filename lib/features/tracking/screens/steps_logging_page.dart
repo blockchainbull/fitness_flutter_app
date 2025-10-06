@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/step_entry.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:user_onboarding/data/repositories/step_repository.dart';
 import 'package:user_onboarding/features/home/widgets/daily_step_tracker.dart';
 import 'package:user_onboarding/features/tracking/screens/step_history_page.dart';
@@ -27,6 +28,8 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   final TextEditingController _manualStepsController = TextEditingController();
   final TextEditingController _goalController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
+  CalendarFormat _calendarFormat = CalendarFormat.week;
+  bool _showCalendar = false;
 
   @override
   void initState() {
@@ -45,7 +48,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
 
   Future<void> _checkAndShowGoalModal() async {
     // Load step data first
-    await _loadStepData();
+    await _loadStepDataForDate(_selectedDate);
     
     final prefs = await SharedPreferences.getInstance();
     final hasSetStepGoal = prefs.getBool('has_set_step_goal_${widget.userProfile.id}') ?? false;
@@ -226,53 +229,78 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
     );
   }
 
-  Future<void> _loadStepData() async {
+  Future<void> _loadStepDataForDate(DateTime date) async {
     if (widget.userProfile.id == null) return;
-
+    
     setState(() => _isLoading = true);
-
+    
     try {
-      // Load today's entry
-      final todayEntry = await StepRepository.getTodayStepEntry(widget.userProfile.id!);
-      
-      // Load weekly history
-      final weekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
-      final weeklyData = await StepRepository.getStepEntriesInRange(
+      final entry = await StepRepository.getStepEntryByDate(
         widget.userProfile.id!,
-        weekStart,
-        DateTime.now(),
+        date,
       );
-
-      // Get goal from user profile first, then fallback to history
-      int defaultGoal = (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 10000;
       
-      // If no user profile goal, try to get from today's entry or history
-      if (widget.userProfile.formData['dailyStepGoal'] == null) {
-        if (todayEntry != null) {
-          defaultGoal = todayEntry.goal;
-        } else if (weeklyData.isNotEmpty) {
-          defaultGoal = weeklyData.first.goal;
-        }
-      }
-
+      final stepGoal = widget.userProfile.dailyStepGoal ?? 
+                      (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 
+                      10000;
+      
       setState(() {
-        _todayEntry = todayEntry ?? StepEntry(
+        _selectedDate = date;
+        _todayEntry = entry ?? StepEntry(
           userId: widget.userProfile.id!,
-          date: DateTime.now(),
+          date: date,
           steps: 0,
-          goal: defaultGoal, // Now comes from user profile first
-          caloriesBurned: 0.0,
-          distanceKm: 0.0,
-          activeMinutes: 0,
+          goal: stepGoal,
         );
-        _weeklyHistory = weeklyData;
-        _goalController.text = _todayEntry!.goal.toString();
-        _userStepGoal = defaultGoal;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading step data: $e');
+      print('Error loading step data for date: $e');
+      
       setState(() => _isLoading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.warning, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Failed to load step data: ${e.toString()}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _loadStepDataForDate(date),
+            ),
+          ),
+        );
+      }
+      
+      // Initialize with empty entry on error
+      final stepGoal = widget.userProfile.dailyStepGoal ?? 
+                      (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 
+                      10000;
+      
+      setState(() {
+        _selectedDate = date;
+        _todayEntry = StepEntry(
+          userId: widget.userProfile.id!,
+          date: date,
+          steps: 0,
+          goal: stepGoal,
+        );
+      });
     }
   }
 
@@ -347,77 +375,56 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Steps Tracking'),
+        title: Text(_showCalendar 
+          ? 'Select Date' 
+          : 'Steps - ${DateFormat('MMM d').format(_selectedDate)}'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.analytics),
-            onPressed: () => _showAnalytics(),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'history':
-                  _showHistory();
-                  break;
-                case 'reset':
-                  _showResetDialog();
-                  break;
-              }
+            icon: Icon(_showCalendar ? Icons.close : Icons.calendar_month),
+            onPressed: () {
+              setState(() {
+                _showCalendar = !_showCalendar;
+              });
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'history',
-                child: Row(
-                  children: [
-                    Icon(
-                      color: Colors.black,
-                      Icons.history),
-                    SizedBox(width: 8),
-                    Text('History'),
-                  ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StepHistoryPage(userProfile: widget.userProfile),
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'reset',
-                child: Row(
-                  children: [
-                    Icon(
-                      color: Colors.black,
-                      Icons.refresh),
-                    SizedBox(width: 8),
-                    Text('Reset Today'),
-                  ],
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadStepData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildStepTracker(),
-                    const SizedBox(height: 24),
-                    _buildManualEntry(),
-                    const SizedBox(height: 24),
-                    _buildWeeklyOverview(),
-                    const SizedBox(height: 24),
-                    _buildQuickStats(),
-                    const SizedBox(height: 24),
-                    _buildStepTips(),
-                  ],
-                ),
-              ),
-            ),
+      body: Column(
+        children: [
+          // Calendar (collapsible)
+          if (_showCalendar) _buildCalendar(),
+          
+          // Date indicator if not today
+          if (!DateUtils.isSameDay(_selectedDate, DateTime.now()))
+            _buildDateIndicator(),
+          
+          // Rest of your existing UI
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        // Your existing widgets
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -509,6 +516,62 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCalendar() {
+    return Container(
+      color: Colors.white,
+      child: TableCalendar(
+        firstDay: DateTime.now().subtract(const Duration(days: 365)),
+        lastDay: DateTime.now(),
+        focusedDay: _selectedDate,
+        calendarFormat: _calendarFormat,
+        selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
+        onDaySelected: (selectedDay, focusedDay) {
+          setState(() {
+            _selectedDate = selectedDay;
+            _showCalendar = false;
+          });
+          _loadStepDataForDate(selectedDay);
+        },
+        onFormatChanged: (format) {
+          setState(() {
+            _calendarFormat = format;
+          });
+        },
+        calendarStyle: CalendarStyle(
+          todayDecoration: BoxDecoration(
+            color: Colors.green.shade300.withOpacity(0.3),
+            shape: BoxShape.circle,
+          ),
+          selectedDecoration: BoxDecoration(
+            color: Colors.green.shade700,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDateIndicator() {
+    if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      color: Colors.green.shade50,
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.green.shade700, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            'Viewing steps for ${DateFormat('EEEE, MMM d').format(_selectedDate)}',
+            style: TextStyle(color: Colors.green.shade700),
+          ),
+        ],
       ),
     );
   }

@@ -29,6 +29,48 @@ class SupplementRepository {
     }
   }
 
+  static Future<Map<String, bool>> getSupplementStatusByDate(
+    String userId, 
+    DateTime date
+  ) async {
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      
+      if (kIsWeb) {
+        return await _apiService.getSupplementStatusByDate(userId, dateStr);
+      } else {
+        print('⚠️ Mobile database support not implemented yet');
+        return {};
+      }
+    } catch (e) {
+      print('❌ Error getting supplement status by date: $e');
+      return {};
+    }
+  }
+
+  // NEW: Get supplement history for date range
+  static Future<List<Map<String, dynamic>>> getSupplementHistoryInRange(
+    String userId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      if (kIsWeb) {
+        return await _apiService.getSupplementHistoryInRange(
+          userId, 
+          startDate, 
+          endDate
+        );
+      } else {
+        print('⚠️ Mobile database support not implemented yet');
+        return [];
+      }
+    } catch (e) {
+      print('❌ Error getting supplement history: $e');
+      return [];
+    }
+  }
+
   // Save supplement preferences
   static Future<void> saveSupplementPreferences(
     String userId, 
@@ -36,16 +78,13 @@ class SupplementRepository {
   ) async {
     try {
       if (kIsWeb) {
-        // Use API service for web
         await _apiService.saveSupplementPreferences(userId, supplements);
         print('✅ Saved ${supplements.length} supplement preferences via API');
       } else {
-        // For mobile, we'll implement direct database later
         print('⚠️ Mobile database support not implemented yet');
       }
     } catch (e) {
       print('❌ Error saving supplement preferences: $e');
-      // Don't rethrow - let the app continue with local storage
     }
   }
 

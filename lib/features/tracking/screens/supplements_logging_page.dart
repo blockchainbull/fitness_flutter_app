@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:user_onboarding/data/repositories/supplement_repository.dart';
 import 'package:user_onboarding/features/tracking/screens/supplement_history_page.dart';
 import 'package:intl/intl.dart';
@@ -34,6 +35,11 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
   late String _supplementPreferenceKey;
   late String _todaysStatusKey;
   String _todaysDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  DateTime _selectedDate = DateTime.now();
+  CalendarFormat _calendarFormat = CalendarFormat.week;
+  bool _showCalendar = false;
+
+  String get _formattedDate => DateFormat('yyyy-MM-dd').format(_selectedDate);
 
   String _generateId() {
     return DateTime.now().millisecondsSinceEpoch.toString() + 
@@ -465,6 +471,55 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     }
   }
 
+  Future<void> _loadSupplementsForDate(DateTime date) async {
+    if (widget.userProfile.id == null) return;
+    
+    setState(() {
+      _selectedDate = date;
+      _todaysDate = DateFormat('yyyy-MM-dd').format(date);
+      _todaysStatusKey = 'supplement_status_${widget.userProfile.id}_$_todaysDate';
+      _isLoading = true;
+    });
+    
+    try {
+      await _loadTodaysStatus();
+      
+      setState(() => _isLoading = false);
+    } catch (e) {
+      print('Error loading supplements for date: $e');
+      
+      setState(() => _isLoading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.warning, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Failed to load supplement data: ${e.toString()}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _loadSupplementsForDate(date),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _loadUserSupplements() async {
   try {
     print('📋 Loading user supplements for user ID: ${widget.userProfile.id}');
@@ -549,22 +604,23 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
   }
 
   Future<void> _loadTodaysStatus() async {
+    if (widget.userProfile.id == null) return;
+    
     try {
-      print('📅 Loading today\'s status...');
+      // Try to get status from API
+      final statusFromApi = await SupplementRepository.getSupplementStatusByDate(
+        widget.userProfile.id!,
+        _selectedDate,
+      );
       
-      // Try to load from database first
-      final dbStatus = await SupplementRepository.getTodaysSupplementStatus(widget.userProfile.id!);
-      
-      if (dbStatus.isNotEmpty) {
-        print('✅ Loaded status from database: ${dbStatus.length} items');
+      if (statusFromApi.isNotEmpty) {
         setState(() {
-          _todaysTaken = dbStatus;
-          _isLoading = false;
+          _todaysTaken = Map<String, bool>.from(statusFromApi);
         });
         
-        // Also save to local storage for offline access
+        // Save to local storage
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_todaysStatusKey, jsonEncode(dbStatus));
+        await prefs.setString(_todaysStatusKey, json.encode(_todaysTaken));
         return;
       }
       
@@ -572,32 +628,39 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       final prefs = await SharedPreferences.getInstance();
       final statusJson = prefs.getString(_todaysStatusKey);
       
-      if (statusJson != null && statusJson.isNotEmpty) {
-        final Map<String, dynamic> statusMap = jsonDecode(statusJson);
-        print('📱 Loaded status from local storage: ${statusMap.length} items');
+      if (statusJson != null) {
         setState(() {
-          _todaysTaken = statusMap.cast<String, bool>();
-          _isLoading = false;
+          _todaysTaken = Map<String, bool>.from(json.decode(statusJson));
         });
       } else {
-        print('📝 Creating new status for today...');
-        // Initialize today's status for all user supplements
-        final todaysStatus = <String, bool>{};
-        for (var supplement in _userSupplements) {
-          todaysStatus[supplement['name'] as String] = false;
-        }
-        await prefs.setString(_todaysStatusKey, jsonEncode(todaysStatus));
+        // Initialize empty status for all supplements
         setState(() {
-          _todaysTaken = todaysStatus;
-          _isLoading = false;
+          _todaysTaken = {
+            for (var supplement in _userSupplements)
+              supplement['name'] as String: false
+          };
         });
       }
     } catch (e) {
-      print('❌ Error loading today\'s status: $e');
+      print('Error loading today\'s supplement status: $e');
+      
+      // Initialize empty status on error
       setState(() {
-        _todaysTaken = {};
-        _isLoading = false;
+        _todaysTaken = {
+          for (var supplement in _userSupplements)
+            supplement['name'] as String: false
+        };
       });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load supplement status: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -665,7 +728,6 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       );
     }
 
-    // Check if supplements are disabled
     if (!_hasSetupSupplements && _userSupplements.isEmpty) {
       return Scaffold(
         appBar: AppBar(
@@ -688,10 +750,20 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Supplements'),
+        title: Text(_showCalendar 
+          ? 'Select Date' 
+          : 'Supplements - ${DateFormat('MMM d').format(_selectedDate)}'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: Icon(_showCalendar ? Icons.close : Icons.calendar_month),
+            onPressed: () {
+              setState(() {
+                _showCalendar = !_showCalendar;
+              });
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {
@@ -713,29 +785,29 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       ),
       body: Column(
         children: [
+          // Calendar (collapsible)
+          if (_showCalendar) _buildCalendar(),
+          
+          // Date indicator if not today
+          if (!DateUtils.isSameDay(_selectedDate, DateTime.now()))
+            _buildDateIndicator(),
+          
           Expanded(
             child: _userSupplements.isEmpty
                 ? _buildEmptyState()
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                : RefreshIndicator(
+                    onRefresh: () => _loadSupplementsForDate(_selectedDate),
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
                       children: [
                         _buildTodaysSummary(takenCount, totalCount),
                         const SizedBox(height: 20),
                         _buildSupplementsList(),
-                        const SizedBox(height: 20),
-                        _buildQuickActions(),
                       ],
                     ),
                   ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddSupplementDialog,
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -770,6 +842,61 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
               backgroundColor: Colors.teal,
               foregroundColor: Colors.white,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+   Widget _buildCalendar() {
+    return Container(
+      color: Colors.white,
+      child: TableCalendar(
+        firstDay: DateTime.now().subtract(const Duration(days: 365)),
+        lastDay: DateTime.now(),
+        focusedDay: _selectedDate,
+        calendarFormat: _calendarFormat,
+        selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
+        onDaySelected: (selectedDay, focusedDay) {
+          setState(() {
+            _showCalendar = false;
+          });
+          _loadSupplementsForDate(selectedDay);
+        },
+        onFormatChanged: (format) {
+          setState(() {
+            _calendarFormat = format;
+          });
+        },
+        calendarStyle: CalendarStyle(
+          todayDecoration: BoxDecoration(
+            color: Colors.teal.withOpacity(0.3),
+            shape: BoxShape.circle,
+          ),
+          selectedDecoration: const BoxDecoration(
+            color: Colors.teal,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDateIndicator() {
+    if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      color: Colors.teal.shade50,
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.teal, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            'Viewing supplements for ${DateFormat('EEEE, MMM d').format(_selectedDate)}',
+            style: const TextStyle(color: Colors.teal),
           ),
         ],
       ),
@@ -1177,38 +1304,101 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
   }
 
   Future<void> _toggleSupplement(String supplementName) async {
-    final wasTaken = _todaysTaken[supplementName] ?? false;
-    final nowTaken = !wasTaken;
+    if (widget.userProfile.id == null) return;
     
+    final currentStatus = _todaysTaken[supplementName] ?? false;
+    final newStatus = !currentStatus;
+    
+    // Optimistically update UI
     setState(() {
-      _todaysTaken[supplementName] = nowTaken;
+      _todaysTaken[supplementName] = newStatus;
     });
     
-    // Save daily status locally
-    await _saveTodaysStatus();
-    
-    // ALSO save individual key for report screen compatibility
-    final prefs = await SharedPreferences.getInstance();
-    final dateStr = _todaysDate; // Use _todaysDate which is already a string
-    final supplementKey = 'supplement_${supplementName}_$dateStr';
-    await prefs.setBool(supplementKey, nowTaken);
-    print('Saved individual key: $supplementKey = $nowTaken');
-    
-    // Save historical record to database
-    await _saveToDatabase(supplementName, nowTaken); // No need to pass date
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            nowTaken 
-              ? '$supplementName marked as taken!'
-              : '$supplementName unmarked',
-          ),
-          backgroundColor: nowTaken ? Colors.green : Colors.orange,
-          duration: const Duration(seconds: 1),
-        ),
+    try {
+      // Find supplement details
+      final supplement = _userSupplements.firstWhere(
+        (s) => s['name'] == supplementName,
+        orElse: () => {},
       );
+      
+      // Save to API/database
+      await SupplementRepository.logSupplementIntake(
+        userId: widget.userProfile.id!,
+        date: _todaysDate,
+        supplementName: supplementName,
+        taken: newStatus,
+        dosage: supplement['dosage'],
+        timeTaken: newStatus ? DateFormat('HH:mm').format(DateTime.now()) : null,
+      );
+      
+      // Save to local storage
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_todaysStatusKey, json.encode(_todaysTaken));
+      
+      // Show success feedback
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  newStatus ? Icons.check_circle : Icons.cancel,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  newStatus 
+                    ? '$supplementName marked as taken ✓' 
+                    : '$supplementName unmarked',
+                ),
+              ],
+            ),
+            backgroundColor: newStatus ? Colors.green : Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error toggling supplement: $e');
+      
+      // Revert optimistic update on error
+      setState(() {
+        _todaysTaken[supplementName] = currentStatus;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Failed to update supplement: ${e.toString()}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _toggleSupplement(supplementName),
+            ),
+          ),
+        );
+      }
     }
   }
 

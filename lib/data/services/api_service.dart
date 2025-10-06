@@ -911,6 +911,48 @@ class ApiService {
     }
   }
 
+  Future<Map<String, bool>> getSupplementStatusByDate(String userId, String date) async {
+    try {
+      final url = Uri.parse('$baseUrl/supplements/$userId/status?date=$date');
+      final response = await http.get(url, headers: headers);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['status'] != null) {
+          return Map<String, bool>.from(data['status']);
+        }
+      }
+      return {};
+    } catch (e) {
+      print('Error getting supplement status by date: $e');
+      return {};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSupplementHistoryInRange(
+    String userId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      final start = DateFormat('yyyy-MM-dd').format(startDate);
+      final end = DateFormat('yyyy-MM-dd').format(endDate);
+      final url = Uri.parse('$baseUrl/supplements/$userId/history?start=$start&end=$end');
+      final response = await http.get(url, headers: headers);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['history'] != null) {
+          return List<Map<String, dynamic>>.from(data['history']);
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Error getting supplement history: $e');
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getSupplementPreferences(String userId) async {
     try {
       print('[ApiService] Getting supplement preferences for user: $userId');
@@ -1185,6 +1227,21 @@ class ApiService {
         'target_ml': 2000.0,
         'entry': null,
       };
+    }
+  }
+
+  Future<Map<String, dynamic>> getWaterByDate(String userId, String date) async {
+    try {
+      final url = Uri.parse('$baseUrl/water/$userId?date=$date');
+      final response = await http.get(url, headers: headers);
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return {'success': false};
+    } catch (e) {
+      print('Error getting water by date: $e');
+      return {'success': false};
     }
   }
 
@@ -2151,49 +2208,46 @@ class ApiService {
     }
   }
 
-  Future<List<StepEntry>> getStepsInRange(String userId, DateTime startDate, DateTime endDate) async {
+  Future<StepEntry?> getStepsByDate(String userId, String date) async {
     try {
-      print('[ApiService] Getting steps in range for user: $userId');
+      final url = Uri.parse('$baseUrl/steps/$userId?date=$date');
+      final response = await http.get(url, headers: headers);
       
-      final response = await http.get(
-        Uri.parse('$baseUrl/steps/$userId/range?start_date=${startDate.toIso8601String()}&end_date=${endDate.toIso8601String()}'),
-        headers: headers,
-      );
-
-      print('[ApiService] Steps range response status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
-        final dynamic responseData = jsonDecode(response.body);
-        
-        // Handle if response is directly a List
-        if (responseData is List) {
-          return responseData
-              .where((item) => item is Map<String, dynamic>)
-              .map<StepEntry>((item) => StepEntry.fromMap(item as Map<String, dynamic>))
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['entry'] != null) {
+          return StepEntry.fromMap(data['entry']);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error getting steps by date: $e');
+      return null;
+    }
+  }
+
+  Future<List<StepEntry>> getStepsInRange(
+    String userId, 
+    DateTime startDate, 
+    DateTime endDate
+  ) async {
+    try {
+      final start = DateFormat('yyyy-MM-dd').format(startDate);
+      final end = DateFormat('yyyy-MM-dd').format(endDate);
+      final url = Uri.parse('$baseUrl/steps/$userId/range?start=$start&end=$end');
+      final response = await http.get(url, headers: headers);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['entries'] != null) {
+          return (data['entries'] as List)
+              .map((e) => StepEntry.fromMap(e))
               .toList();
         }
-        
-        // Handle if response is a Map with 'entries' field
-        if (responseData is Map<String, dynamic>) {
-          final Map<String, dynamic> data = responseData;
-          
-          if (data['entries'] != null && data['entries'] is List) {
-            final List<dynamic> entries = data['entries'] as List<dynamic>;
-            
-            return entries
-                .where((item) => item is Map<String, dynamic>)
-                .map<StepEntry>((item) => StepEntry.fromMap(item as Map<String, dynamic>))
-                .toList();
-          }
-        }
-        
-        return [];
-      } else {
-        print('[ApiService] Steps range HTTP Error ${response.statusCode}: ${response.body}');
-        return [];
       }
+      return [];
     } catch (e) {
-      print('[ApiService] Steps range error: $e');
+      print('Error getting steps in range: $e');
       return [];
     }
   }

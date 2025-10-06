@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
 import 'package:user_onboarding/data/repositories/water_repository.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:user_onboarding/features/tracking/screens/water_history_page.dart';
 import 'package:intl/intl.dart';
 
@@ -21,6 +22,9 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
   bool _isLoading = true;
   bool _isSaving = false;
   int _dailyGoal = 8; 
+  DateTime _selectedDate = DateTime.now();
+  CalendarFormat _calendarFormat = CalendarFormat.week;
+  bool _showCalendar = false;
 
   // Constants for calculations
   static const double mlPerGlass = 250.0; // 250ml per glass
@@ -30,20 +34,25 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
   void initState() {
     super.initState();
     _dailyGoal = widget.userProfile.waterIntakeGlasses ?? 8;
-    _loadTodayEntry();
+    _loadWaterForDate(_selectedDate);
   }
 
-  Future<void> _loadTodayEntry() async {
+  Future<void> _loadWaterForDate(DateTime date) async {
     if (widget.userProfile.id == null) return;
     
     setState(() => _isLoading = true);
     
     try {
-      final entry = await WaterRepository.getTodayWaterEntry(widget.userProfile.id!);
+      final entry = await WaterRepository.getWaterEntryByDate(
+        widget.userProfile.id!, 
+        date
+      );
+      
       setState(() {
+        _selectedDate = date;
         _todayEntry = entry ?? WaterEntry(
           userId: widget.userProfile.id!,
-          date: DateTime.now(),
+          date: date,
           glassesConsumed: 0,
           totalMl: 0.0,
           targetMl: defaultTarget,
@@ -51,16 +60,48 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading today\'s water entry: $e');
+      print('Error loading water data for date: $e');
+      
+      setState(() => _isLoading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.warning, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Failed to load water data: ${e.toString()}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _loadWaterForDate(date),
+            ),
+          ),
+        );
+      }
+      
+      // Initialize with empty entry on error
       setState(() {
+        _selectedDate = date;
         _todayEntry = WaterEntry(
           userId: widget.userProfile.id!,
-          date: DateTime.now(),
+          date: date,
           glassesConsumed: 0,
           totalMl: 0.0,
           targetMl: defaultTarget,
         );
-        _isLoading = false;
       });
     }
   }
@@ -157,47 +198,63 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Water Tracking'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => WaterHistoryPage(userProfile: widget.userProfile),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-      onRefresh: _refreshData,
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                children: [
-                  _buildTodayHeader(),
-                  const SizedBox(height: 20),
-                  _buildWaterProgress(),
-                  const SizedBox(height: 30),
-                  _buildWaterControls(),
-                  const SizedBox(height: 30),
-                  _buildWaterTips(),
-                ],
-              ),
+    Widget build(BuildContext context) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(_showCalendar 
+            ? 'Select Date' 
+            : 'Water Tracking - ${DateFormat('MMM d').format(_selectedDate)}'),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: Icon(_showCalendar ? Icons.close : Icons.calendar_month),
+              onPressed: () {
+                setState(() {
+                  _showCalendar = !_showCalendar;
+                });
+              },
             ),
-      )
-    );
-  }
+            IconButton(
+              icon: const Icon(Icons.history),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WaterHistoryPage(userProfile: widget.userProfile),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: () => _loadWaterForDate(_selectedDate),
+          child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    // Calendar (collapsible)
+                    if (_showCalendar) _buildCalendar(),
+                    
+                    // Date indicator if not today
+                    if (!DateUtils.isSameDay(_selectedDate, DateTime.now()))
+                      _buildDateIndicator(),
+                    
+                    // Existing widgets
+                    _buildWaterProgress(),
+                    const SizedBox(height: 30),
+                    _buildWaterControls(),
+                    const SizedBox(height: 30),
+                    _buildWaterTips(),
+                  ],
+                ),
+              ),
+        ),
+      );
+    }
 
   Widget _buildTodayHeader() {
     final today = DateTime.now();
@@ -219,6 +276,62 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCalendar() {
+    return Container(
+      color: Colors.white,
+      child: TableCalendar(
+        firstDay: DateTime.now().subtract(const Duration(days: 365)),
+        lastDay: DateTime.now(),
+        focusedDay: _selectedDate,
+        calendarFormat: _calendarFormat,
+        selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
+        onDaySelected: (selectedDay, focusedDay) {
+          setState(() {
+            _selectedDate = selectedDay;
+            _showCalendar = false;
+          });
+          _loadWaterForDate(selectedDay);
+        },
+        onFormatChanged: (format) {
+          setState(() {
+            _calendarFormat = format;
+          });
+        },
+        calendarStyle: CalendarStyle(
+          todayDecoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.3),
+            shape: BoxShape.circle,
+          ),
+          selectedDecoration: const BoxDecoration(
+            color: Colors.blue,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateIndicator() {
+    if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      color: Colors.blue.shade50,
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.blue, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            'Viewing water intake for ${DateFormat('EEEE, MMM d').format(_selectedDate)}',
+            style: const TextStyle(color: Colors.blue),
+          ),
+        ],
       ),
     );
   }
@@ -427,8 +540,43 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
       ),
     );
   }
-  Future<void> _refreshData() async {
-    await _loadTodayEntry();
-}
 
+  Future<void> _refreshData() async {
+    try {
+      await _loadWaterForDate(_selectedDate);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                const Text('Water data refreshed successfully'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error refreshing water data: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh data: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
 }
