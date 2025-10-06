@@ -1378,10 +1378,8 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             ],
           ),
           const SizedBox(height: 12),
-          // Progress indicators
           _buildNutritionProgress(),
           const SizedBox(height: 12),
-          // Meal list
           ..._todaysMeals.map((meal) => Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
@@ -1393,14 +1391,62 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                 ),
               ),
               title: Text(meal['food_item'] ?? ''),
-              subtitle: Text(
-                '${meal['calories']?.round() ?? 0} cal • ${meal['quantity'] ?? ''}',
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${meal['calories']?.round() ?? 0} cal • ${meal['quantity'] ?? ''}',
+                  ),
+                  Text(
+                    'P: ${(meal['protein_g'] ?? meal['protein'] ?? 0).round()}g • '
+                    'C: ${(meal['carbs_g'] ?? meal['carbs'] ?? 0).round()}g • '
+                    'F: ${(meal['fat_g'] ?? meal['fat'] ?? 0).round()}g',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+                ],
               ),
-              trailing: Text(
-                meal['logged_at'] != null 
-                  ? DateFormat('h:mm a').format(DateTime.parse(meal['logged_at']))
-                  : '',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    meal['logged_at'] != null 
+                      ? DateFormat('h:mm a').format(DateTime.parse(meal['logged_at']))
+                      : '',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _editMeal(meal);
+                      } else if (value == 'delete') {
+                        _deleteMeal(meal['id']);
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 8),
+                            Text('Edit'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, color: Colors.red, size: 20),
+                            SizedBox(width: 8),
+                            Text('Delete', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           )).toList(),
@@ -1418,9 +1464,9 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     
     for (final meal in _todaysMeals) {
       totalCalories += (meal['calories'] ?? 0).toDouble();
-      totalProtein += (meal['protein'] ?? 0).toDouble();
-      totalCarbs += (meal['carbs'] ?? 0).toDouble();
-      totalFat += (meal['fat'] ?? 0).toDouble();
+      totalProtein += (meal['protein_g'] ?? meal['protein'] ?? 0).toDouble();
+      totalCarbs += (meal['carbs_g'] ?? meal['carbs'] ?? 0).toDouble();
+      totalFat += (meal['fat_g'] ?? meal['fat'] ?? 0).toDouble();
     }
     
     return Column(
@@ -1552,11 +1598,11 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
               _buildNutrientInfo('Calories', 
                 '${_nutritionData!['calories']?.round() ?? 0}', 'kcal'),
               _buildNutrientInfo('Protein', 
-                '${_nutritionData!['protein']?.round() ?? 0}', 'g'),
+                '${(_nutritionData!['protein_g'] ?? _nutritionData!['protein'] ?? 0).round()}', 'g'),
               _buildNutrientInfo('Carbs', 
-                '${_nutritionData!['carbs']?.round() ?? 0}', 'g'),
+                '${(_nutritionData!['carbs_g'] ?? _nutritionData!['carbs'] ?? 0).round()}', 'g'),
               _buildNutrientInfo('Fat', 
-                '${_nutritionData!['fat']?.round() ?? 0}', 'g'),
+                '${(_nutritionData!['fat_g'] ?? _nutritionData!['fat'] ?? 0).round()}', 'g'),
             ],
           ),
           if (_nutritionData!['data_source'] != null) ...[
@@ -1592,4 +1638,68 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       ],
     );
   }
+
+  void _editMeal(Map<String, dynamic> meal) {
+    setState(() {
+      _useMultiLineEntry = true;
+      _multiLineController.text = meal['food_item'] ?? '';
+      _selectedMealType = meal['meal_type'] ?? _selectedMealType;
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Meal loaded for editing. Make changes and analyze again.'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+    
+    // Scroll to top
+    Scrollable.ensureVisible(
+      context,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Future<void> _deleteMeal(String mealId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Meal?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      try {
+        await _apiService.deleteMeal(mealId,widget.userProfile.id);
+        await _loadMealsForDate(_selectedDate);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meal deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting meal: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
 }
