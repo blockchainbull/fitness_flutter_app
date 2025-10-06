@@ -90,6 +90,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         print('🔍 Local setup found, loading existing supplements');
         await _loadUserSupplements();
         await _loadTodaysStatus();
+        setState(() => _isLoading = false);
         return;
       }
       
@@ -135,11 +136,13 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         }
       } catch (dbError) {
         print('⚠️ Database check failed: $dbError');
-        // Continue to show setup dialog
+        // ✅ ADD THIS: Set loading to false even on error
+        setState(() => _isLoading = false);
       }
       
       // If we get here, no setup found anywhere - show dialog
       print('🔍 No setup found anywhere, showing first time setup dialog');
+      setState(() => _isLoading = false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showFirstTimeSetupDialog();
       });
@@ -521,17 +524,15 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
   }
 
   Future<void> _loadUserSupplements() async {
-  try {
-    print('📋 Loading user supplements for user ID: ${widget.userProfile.id}');
-    
-    // First, try to load from database
-    final dbPreferences = await SupplementRepository.getSupplementPreferences(widget.userProfile.id!);
-    print('📋 Received ${dbPreferences.length} preferences from repository');
+    try {
+      print('📋 Loading user supplements for user ID: ${widget.userProfile.id}');
       
+      final dbPreferences = await SupplementRepository.getSupplementPreferences(widget.userProfile.id!);
+      print('📋 Received ${dbPreferences.length} preferences from repository');
+        
       if (dbPreferences.isNotEmpty) {
         print('✅ Loaded ${dbPreferences.length} supplements from database');
         
-        // Convert database format to local format
         final supplements = dbPreferences.map((pref) {
           return {
             'id': pref['id'] ?? _generateId(),
@@ -540,14 +541,12 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
             'frequency': pref['frequency'] ?? 'Daily',
             'preferred_time': pref['preferred_time'] ?? '9:00 AM',
             'notes': pref['notes'] ?? '',
-            // Add local UI fields with defaults
             'color': _getSupplementColor(pref['supplement_name']).value,
             'icon': _getSupplementIcon(pref['supplement_name']).codePoint,
             'created_at': pref['created_at'] ?? DateTime.now().toIso8601String(),
           };
         }).toList();
         
-        // Save to local storage for offline access
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_supplementPreferenceKey + '_list', jsonEncode(supplements));
         await prefs.setBool(_supplementPreferenceKey, true);
@@ -555,6 +554,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         setState(() {
           _userSupplements = supplements;
           _hasSetupSupplements = true;
+          _isLoading = false;
         });
         
         print('💾 Synced ${supplements.length} supplements to local storage');
@@ -563,7 +563,6 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       
       print('📱 No database preferences found, checking local storage...');
       
-      // Fallback to local storage if database is empty
       final prefs = await SharedPreferences.getInstance();
       final supplementsJson = prefs.getString(_supplementPreferenceKey + '_list');
       
@@ -572,6 +571,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         setState(() {
           _userSupplements = supplementsList.cast<Map<String, dynamic>>();
           _hasSetupSupplements = true;
+          _isLoading = false; 
         });
         print('📱 Loaded ${_userSupplements.length} supplements from local storage');
       } else {
@@ -579,12 +579,12 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         setState(() {
           _hasSetupSupplements = false;
           _userSupplements = [];
+          _isLoading = false;
         });
       }
     } catch (e) {
       print('❌ Error in _loadUserSupplements: $e');
       
-      // Fallback to local storage on error
       try {
         final prefs = await SharedPreferences.getInstance();
         final supplementsJson = prefs.getString(_supplementPreferenceKey + '_list');
@@ -594,11 +594,15 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
           setState(() {
             _userSupplements = supplementsList.cast<Map<String, dynamic>>();
             _hasSetupSupplements = true;
+            _isLoading = false;  
           });
           print('📱 Fallback: Loaded ${_userSupplements.length} supplements from local storage');
+        } else {
+          setState(() => _isLoading = false); 
         }
       } catch (localError) {
         print('❌ Failed to load from local storage too: $localError');
+        setState(() => _isLoading = false); 
       }
     }
   }
