@@ -185,64 +185,91 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
 
   void _calculateDailyGoals() {
     try {
-      final tdee = (widget.userProfile.formData?['tdee'] ?? 2000).toDouble();
+      final tdee = (widget.userProfile.formData?['tdee'] ?? widget.userProfile.tdee ?? 2000).toDouble();
       final weightGoal = widget.userProfile.primaryGoal ?? 'maintain_weight';
+      final currentWeight = widget.userProfile.weight ?? 70.0;
+      final activityLevel = widget.userProfile.activityLevel ?? 'moderately_active';
       
-      if (weightGoal.toLowerCase().contains('lose')) {
-        _dailyCalorieGoal = tdee * 0.82;
-      } else if (weightGoal.toLowerCase().contains('gain')) {
-        _dailyCalorieGoal = tdee * 1.12;
-      } else {
-        _dailyCalorieGoal = tdee;
+      // Match the logic from daily_meal_card.dart
+      double calorieAdjustment = 0;
+      Map<String, double> macroPercentages = {};
+      
+      switch (weightGoal.toLowerCase()) {
+        case 'lose_weight':
+        case 'weight_loss':
+          calorieAdjustment = -500;
+          macroPercentages = {
+            'protein': 0.35,
+            'carbs': 0.40,
+            'fat': 0.25,
+          };
+          break;
+          
+        case 'gain_muscle':
+        case 'muscle_gain':
+        case 'recomposition':
+        case 'lose_fat':
+          calorieAdjustment = weightGoal.contains('gain') ? 200 : -200;
+          macroPercentages = {
+            'protein': 0.40,
+            'carbs': 0.35,
+            'fat': 0.25,
+          };
+          break;
+          
+        case 'gain_weight':
+        case 'weight_gain':
+        case 'bulk':
+          calorieAdjustment = 400;
+          macroPercentages = {
+            'protein': 0.25,
+            'carbs': 0.45,
+            'fat': 0.30,
+          };
+          break;
+          
+        case 'maintain_weight':
+        case 'maintenance':
+        default:
+          calorieAdjustment = 0;
+          macroPercentages = {
+            'protein': 0.30,
+            'carbs': 0.40,
+            'fat': 0.30,
+          };
+          break;
       }
       
-      _macroGoals ??= {};
-      _calculateMacroGoals();
+      // Adjust for activity level
+      if (activityLevel == 'very_active' || activityLevel == 'extremely_active') {
+        macroPercentages['carbs'] = (macroPercentages['carbs'] ?? 0.40) + 0.05;
+        macroPercentages['fat'] = (macroPercentages['fat'] ?? 0.30) - 0.05;
+      }
+      
+      // Calculate daily calorie goal
+      _dailyCalorieGoal = tdee + calorieAdjustment;
+      
+      // Calculate macro grams from percentages
+      _macroGoals = {
+        'protein': (_dailyCalorieGoal * macroPercentages['protein']!) / 4,
+        'carbs': (_dailyCalorieGoal * macroPercentages['carbs']!) / 4,
+        'fat': (_dailyCalorieGoal * macroPercentages['fat']!) / 9,
+      };
+      
+      // Ensure minimum protein intake
+      double minProtein = currentWeight * 0.8;
+      if (_macroGoals['protein']! < minProtein) {
+        _macroGoals['protein'] = minProtein;
+      }
+      
+      // For muscle gain/recomp, increase protein
+      if (weightGoal.contains('muscle') || weightGoal == 'recomposition') {
+        _macroGoals['protein'] = currentWeight * 2.2;
+      }
       
     } catch (e) {
       print('Error calculating goals: $e');
       _dailyCalorieGoal = 2000;
-      _macroGoals = {
-        'protein': 150.0,
-        'carbs': 225.0,
-        'fat': 67.0,
-      };
-    }
-  }
-  
-  void _calculateMacroGoals() {
-    try {
-      final weightGoal = widget.userProfile.primaryGoal ?? 'maintain_weight';
-      
-      double proteinPercent;
-      double carbPercent;
-      double fatPercent;
-      
-      if (weightGoal.toLowerCase().contains('lose')) {
-        proteinPercent = 0.30;
-        carbPercent = 0.35;
-        fatPercent = 0.35;
-      } else if (weightGoal.toLowerCase().contains('gain')) {
-        proteinPercent = 0.25;
-        carbPercent = 0.50;
-        fatPercent = 0.25;
-      } else {
-        proteinPercent = 0.25;
-        carbPercent = 0.45;
-        fatPercent = 0.30;
-      }
-      
-      final proteinCalories = _dailyCalorieGoal * proteinPercent;
-      final carbCalories = _dailyCalorieGoal * carbPercent;
-      final fatCalories = _dailyCalorieGoal * fatPercent;
-      
-      _macroGoals = {
-        'protein': proteinCalories / 4,
-        'carbs': carbCalories / 4,
-        'fat': fatCalories / 9,
-      };
-    } catch (e) {
-      print('Error calculating macros: $e');
       _macroGoals = {
         'protein': 150.0,
         'carbs': 225.0,
