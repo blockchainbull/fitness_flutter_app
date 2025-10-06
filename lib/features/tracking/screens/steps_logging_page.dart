@@ -49,11 +49,10 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   Future<void> _checkAndShowGoalModal() async {
     await _loadStepDataForDate(_selectedDate);
     
-    final prefs = await SharedPreferences.getInstance();
-    final hasSetStepGoal = prefs.getBool('has_set_step_goal_${widget.userProfile.id}') ?? false;
+    // Check if goal exists in profile
+    final hasGoalInProfile = widget.userProfile.formData['dailyStepGoal'] != null;
     
-    // Show modal only if user hasn't set goal before
-    if (!hasSetStepGoal && mounted) {
+    if (!hasGoalInProfile && mounted) {
       await _showStepGoalSetupModal();
     }
   }
