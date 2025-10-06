@@ -350,14 +350,24 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
           if (!DateUtils.isSameDay(_selectedDate, DateTime.now()))
             _buildDateIndicator(),
           
-          // Rest of your existing UI
+          // Main content
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Your existing widgets
+                        _buildStepTracker(),
+                        const SizedBox(height: 16),
+                        _buildManualEntry(),
+                        const SizedBox(height: 16),
+                        _buildQuickStats(),
+                        const SizedBox(height: 16),
+                        _buildWeeklyOverview(),
+                        const SizedBox(height: 16),
+                        _buildStepTips(),
                       ],
                     ),
                   ),
