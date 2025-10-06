@@ -134,7 +134,7 @@ class ApiService {
       print('[ApiService] Sending update with ${requestBody.keys.length} fields');
       
       final response = await http.put(
-        Uri.parse('$baseUrl/users/update-user/${userProfile.id}'),
+        Uri.parse('$baseUrl/users/${userProfile.id}'),
         headers: headers,
         body: jsonEncode(requestBody),
       );
