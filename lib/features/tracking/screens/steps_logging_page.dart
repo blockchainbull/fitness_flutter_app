@@ -58,7 +58,6 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   }
 
   Future<void> _showStepGoalSetupModal() async {
-    // Get current goal from user profile formData, today's entry, or fallback to default
     final currentGoal = (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 
                       _todayEntry?.goal ?? 
                       10000;
@@ -72,78 +71,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          title: Column(
-            children: [
-              Icon(
-                Icons.flag,
-                size: 48,
-                color: Theme.of(context).primaryColor,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Set Your Daily Step Goal',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'How many steps would you like to walk each day?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: goalSetupController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-                decoration: InputDecoration(
-                  hintText: '10000',
-                  suffixText: 'steps',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Recommended: 10,000 steps per day',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.blue[700],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          // ... (your existing AlertDialog code)
           actions: [
             TextButton(
               onPressed: () async {
@@ -155,14 +83,16 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                 });
                 
                 try {
-                  // Import ApiService at the top of the file
                   final apiService = ApiService();
                   
-                  // Create updated user profile with step goal in formData
+                  // ✅ Update both dailyStepGoal field AND formData
                   final updatedFormData = Map<String, dynamic>.from(widget.userProfile.formData);
                   updatedFormData['dailyStepGoal'] = goal;
                   
-                  final updatedProfile = widget.userProfile.copyWith(formData: updatedFormData);
+                  final updatedProfile = widget.userProfile.copyWith(
+                    dailyStepGoal: goal,  // ✅ Update the actual field
+                    formData: updatedFormData,
+                  );
                   
                   // Update user profile via API
                   await apiService.updateUserProfile(updatedProfile);
@@ -183,7 +113,6 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                   if (mounted) {
                     Navigator.of(context).pop();
                     
-                    // Show success message
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('✓ Step goal saved successfully'),
