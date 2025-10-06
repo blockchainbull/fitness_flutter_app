@@ -122217,9 +122217,7 @@ return A.i(A.cR(),$async$u1)
 case 3:p=b
 o=q.a.c
 o=A.fH(J.x(p.a,"has_set_step_goal_"+o.a))
-if(o!==!0)o=q.c!=null
-else o=!1
-s=o?4:5
+s=o!==!0&&q.c!=null?4:5
 break
 case 4:s=6
 return A.i(q.Fe(),$async$u1)

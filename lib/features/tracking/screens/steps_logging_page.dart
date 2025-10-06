@@ -47,16 +47,13 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   }
 
   Future<void> _checkAndShowGoalModal() async {
-    // Load step data first
     await _loadStepDataForDate(_selectedDate);
     
     final prefs = await SharedPreferences.getInstance();
     final hasSetStepGoal = prefs.getBool('has_set_step_goal_${widget.userProfile.id}') ?? false;
     
-    // Show modal only if:
-    // 1. User hasn't set goal before
-    // 2. No weekly history exists (new user)
-    if (!hasSetStepGoal && _weeklyHistory.isEmpty && mounted) {
+    // Show modal only if user hasn't set goal before
+    if (!hasSetStepGoal && mounted) {
       await _showStepGoalSetupModal();
     }
   }
