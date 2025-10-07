@@ -134,6 +134,9 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
         setState(() {
           _weightHistory = history;
         });
+        
+        // ✅ Also refresh user profile to get updated weight
+        await _refreshUserProfile();
       }
     } catch (e) {
       print('Error loading weight history: $e');
@@ -1501,13 +1504,36 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
         await _dataManager.deleteWeightEntry(entry.id!);
       }
       
-      // Reload the history
+      // Reload the history first
       await _loadWeightHistory();
+      
+      // ✅ FIX: Update user's profile weight after deletion
+      if (_currentUserProfile != null) {
+        double newWeight;
+        
+        if (_weightHistory.isNotEmpty) {
+          // Set to the most recent remaining weight entry
+          newWeight = _weightHistory.first.weight;
+        } else {
+          // If no entries remain, revert to starting weight
+          newWeight = widget.userProfile.startingWeight ?? widget.userProfile.weight ?? 0;
+        }
+        
+        // Update the profile
+        final updatedProfile = _currentUserProfile!.copyWith(weight: newWeight);
+        
+        // Use Provider to update
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.updateProfile(updatedProfile);
+        
+        // Also update via DataManager to ensure persistence
+        await _dataManager.updateUserWeight(_currentUserProfile!.id, newWeight);
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Weight entry deleted'),
+            content: Text('Weight entry deleted successfully'),
             backgroundColor: Colors.green,
           ),
         );
@@ -1652,32 +1678,33 @@ class WeightHistoryPage extends StatelessWidget {
    );
  }
 
- Future<void> _deleteEntry(BuildContext context, WeightEntry entry) async {
-   try {
-     if (entry.id != null) {
-       await DataManager().deleteWeightEntry(entry.id!);
-     }
-     
-     onEntryDeleted();
-     
-     if (context.mounted) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         const SnackBar(
-           content: Text('Weight entry deleted'),
-           backgroundColor: Colors.green,
-         ),
-       );
-     }
-   } catch (e) {
-     print('Error deleting weight entry: $e');
-     if (context.mounted) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-           content: Text('Failed to delete entry: $e'),
-           backgroundColor: Colors.red,
-         ),
-       );
-     }
-   }
- }
+  Future<void> _deleteEntry(BuildContext context, WeightEntry entry) async {
+    try {
+      if (entry.id != null) {
+        await DataManager().deleteWeightEntry(entry.id!);
+      }
+      
+      // Call the callback to refresh the parent page
+      onEntryDeleted();
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Weight entry deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error deleting weight entry: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete entry: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 }
