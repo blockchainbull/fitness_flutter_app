@@ -21,7 +21,7 @@ import 'package:user_onboarding/features/home/widgets/compact_exercise_tracker.d
 import 'package:user_onboarding/features/home/widgets/compact_sleep_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/compact_supplements_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/compact_period_tracker.dart';
-
+import 'package:user_onboarding/features/home/widgets/weekly_stats_card.dart';
 
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
@@ -336,6 +336,12 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   ),
                 ),
               
+              WeeklyStatsCard(
+                userId: widget.userProfile.id!,
+                userProfile: widget.userProfile,
+              ),
+              const SizedBox(height: 16),
+
               // Quick Actions
               if (_quickActionsEnabled)
                 SliverToBoxAdapter(

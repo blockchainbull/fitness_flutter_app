@@ -9,6 +9,7 @@ import 'package:user_onboarding/features/tracking/screens/period_logging_page.da
 import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
+import 'package:user_onboarding/features/reports/screens/weekly_summary_screen.dart';
 
 class ActivityDrawer extends StatelessWidget {
   final UserProfile userProfile;
@@ -96,6 +97,15 @@ class ActivityDrawer extends StatelessWidget {
                     Colors.pink,
                     () => _navigateToPage(context, PeriodCalendarPage()),
                   ),
+
+                _buildActivityTile(
+                  context,
+                  'Weekly Summary',
+                  'View your weekly progress and insights',
+                  Icons.calendar_view_week,
+                  Colors.deepPurple,
+                  () => _navigateToPage(context, WeeklySummaryScreen(userProfile: userProfile)),
+                ),
                 
                 const Divider(),
                 

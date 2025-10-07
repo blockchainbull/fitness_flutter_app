@@ -447,6 +447,95 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getWeeklyContext(
+    String userId, {
+    String? date,
+  }) async {
+    try {
+      final queryParams = date != null ? '?date=$date' : '';
+      final response = await http.get(
+        Uri.parse('$baseUrl/weekly/context/$userId$queryParams'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to get weekly context');
+      }
+    } catch (e) {
+      print('[ApiService] Get weekly context error: $e');
+      rethrow;
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> getRecentWeeks(
+    String userId, {
+    int weeks = 4,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/weekly/recent/$userId?weeks=$weeks'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['weeks'] ?? []);
+      } else {
+        throw Exception('Failed to get recent weeks');
+      }
+    } catch (e) {
+      print('[ApiService] Get recent weeks error: $e');
+      return [];
+    }
+  }
+  
+  Future<Map<String, dynamic>> rebuildWeeklyContext(
+    String userId, {
+    String? date,
+  }) async {
+    try {
+      final body = date != null ? {'date': date} : {};
+      final response = await http.post(
+        Uri.parse('$baseUrl/weekly/rebuild/$userId'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to rebuild weekly context');
+      }
+    } catch (e) {
+      print('[ApiService] Rebuild weekly context error: $e');
+      rethrow;
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> getWeeklySummaries(
+    String userId, {
+    int weeks = 12,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/weekly/summary/$userId?weeks=$weeks'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['summaries'] ?? []);
+      } else {
+        throw Exception('Failed to get weekly summaries');
+      }
+    } catch (e) {
+      print('[ApiService] Get weekly summaries error: $e');
+      return [];
+    }
+  }
+
   // Save weight entry
   Future<String> saveWeightEntry(WeightEntry weightEntry) async {
     try {
