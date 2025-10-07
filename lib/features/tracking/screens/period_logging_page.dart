@@ -249,6 +249,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     Color? backgroundColor = Colors.transparent;
     Color? textColor = Colors.grey.shade800;
     Color? borderColor = Colors.grey.shade300;
+    double borderWidth = 1;
     
     // Only color the days that are actually period/fertile days
     if (isPeriod) {
@@ -260,11 +261,15 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     } else if (isFertile) {
       backgroundColor = Colors.purple.shade100;
       textColor = Colors.purple.shade900;
-    }
+    } else {
+      backgroundColor = Colors.green.shade50;
+      textColor = Colors.grey.shade800;
+  }
     
     // Today gets a blue border
     if (isToday) {
       borderColor = Colors.blue.shade600;
+      borderWidth = 2.5;
     }
     
     // Selected day gets special treatment
@@ -282,7 +287,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: borderColor,
-            width: isToday ? 2 : 1,
+            width: borderWidth,
           ),
         ),
         child: Center(
