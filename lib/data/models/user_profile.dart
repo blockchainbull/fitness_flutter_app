@@ -1,6 +1,5 @@
 // lib/data/models/user_profile.dart
 
-
 class UserProfile {
   final String id;
   final String name;
@@ -150,12 +149,8 @@ class UserProfile {
       age: map['age'] ?? 0,
       height: map['height']?.toDouble() ?? 0.0,
       weight: map['weight']?.toDouble() ?? 0.0,
-      startingWeight: map['starting_weight']?.toDouble(),
-      startingWeightDate: map['starting_weight_date'] != null 
-          ? DateTime.parse(map['starting_weight_date']) 
-          : (map['startingWeightDate'] != null 
-              ? DateTime.parse(map['startingWeightDate']) 
-              : null),
+      startingWeight: map['starting_weight'] != null ? double.tryParse(map['starting_weight'].toString()) : null,
+      startingWeightDate: map['starting_weight_date'] != null ? DateTime.tryParse(map['starting_weight_date'].toString()) : null,  
 
       activityLevel: map['activity_level'] ?? map['activityLevel'] ?? '',
 
