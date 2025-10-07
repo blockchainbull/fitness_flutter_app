@@ -170,9 +170,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       );
       
       setState(() {
-        if (DateUtils.isSameDay(date, DateTime.now())) {
-          _todaysMeals = meals;
-        }
+        _todaysMeals = meals;
       });
     } catch (e) {
       print('Error loading meals: $e');
@@ -1354,7 +1352,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
 
   Future<void> _refreshData() async {
     await Future.wait([
-      _loadTodaysMeals(),
+      _loadMealsForDate(_selectedDate),
       _loadPresets(),
       _loadRecentMeals(),
     ]);
@@ -1378,6 +1376,35 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   Widget _buildTodaysMeals() {
     if (_todaysMeals.isEmpty) return const SizedBox.shrink();
     
+    final isToday = DateUtils.isSameDay(_selectedDate, DateTime.now());
+    final dateLabel = isToday ? 'Today\'s Meals' : 'Meals for ${DateFormat('MMM d').format(_selectedDate)}';
+    
+    if (_todaysMeals.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.restaurant_menu, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(
+              'No meals logged for ${isToday ? "today" : DateFormat('MMM d').format(_selectedDate)}',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Use the form above to log a meal',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      );
+    }
+    
     return Container(
       margin: const EdgeInsets.all(16),
       child: Column(
@@ -1386,22 +1413,31 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Today\'s Meals',
-                style: TextStyle(
+              Text(
+                dateLabel,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                '${_todaysMeals.length}/$_dailyMealGoal meals',
-                style: TextStyle(
-                  color: _todaysMeals.length >= _dailyMealGoal 
-                    ? Colors.green 
-                    : Colors.orange,
-                  fontWeight: FontWeight.bold,
+              if (isToday)
+                Text(
+                  '${_todaysMeals.length}/$_dailyMealGoal meals',
+                  style: TextStyle(
+                    color: _todaysMeals.length >= _dailyMealGoal 
+                      ? Colors.green 
+                      : Colors.orange,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              else
+                Text(
+                  '${_todaysMeals.length} meals',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
