@@ -4,6 +4,7 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/chat_service.dart';
 import 'package:intl/intl.dart';
+import 'package:user_onboarding/features/reports/screens/weekly_summary_screen.dart';
 
 class ChatPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -31,6 +32,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   int _contextVersion = 1;
   bool _isLoadingContext = false;
 
+  bool _hasWeeklyContext = false;
+  int _weeksAnalyzed = 0;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +42,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     ChatService.rebuildContext(widget.userProfile.id!).then((_) {
       _loadChatHistory();
       _loadChatContext();
+      _checkWeeklyContext();
+
+      // Scroll to bottom after everything is loaded
+      Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
     });
   }
 
@@ -82,6 +94,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           _messages.sort((a, b) => 
             (a['timestamp'] as DateTime).compareTo(b['timestamp'] as DateTime)
           );
+        });
+        
+        // ADD THIS: Scroll to bottom after messages are loaded and rendered
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+          }
+        });
+        
+        // Additional delayed scroll to ensure it works
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+          }
         });
       }
     } catch (e) {
@@ -130,6 +156,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _checkWeeklyContext() async {
+    try {
+      final recentWeeks = await _apiService.getRecentWeeks(
+        widget.userProfile.id!,
+        weeks: 4,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _hasWeeklyContext = recentWeeks.isNotEmpty;
+          _weeksAnalyzed = recentWeeks.length;
+        });
+      }
+    } catch (e) {
+      print('Error checking weekly context: $e');
     }
   }
 
@@ -323,6 +367,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         foregroundColor: Colors.black,
         elevation: 1,
         actions: [
+          if (_hasWeeklyContext)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Chip(
+                label: Text(
+                  '$_weeksAnalyzed weeks',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                backgroundColor: Colors.purple.withOpacity(0.1),
+                avatar: const Icon(Icons.insights, size: 16, color: Colors.purple),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () async {
@@ -389,6 +445,42 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
             ),
           
+          if (_hasWeeklyContext)
+            Container(
+              color: Colors.purple.withOpacity(0.05),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 16,
+                    color: Colors.purple,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'AI has access to $_weeksAnalyzed weeks of your health data for personalized insights',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WeeklySummaryScreen(
+                            userProfile: widget.userProfile,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('View'),
+                  ),
+                ],
+              ),
+            ),
+
+
           // Quick actions bar
           _buildQuickActions(),
           
