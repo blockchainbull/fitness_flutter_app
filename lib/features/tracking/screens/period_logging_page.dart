@@ -540,49 +540,6 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
                     
                     const SizedBox(height: 16),
                   ],
-                  
-                  // Period details continue as before...
-                  if (periodEntry != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Period Details',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          if (periodEntry.flowIntensity != null)
-                            _buildDetailItem(
-                              Icons.water_drop,
-                              'Flow',
-                              periodEntry.flowIntensity!,
-                              const Color(0xFFE91E63),
-                            ),
-                          
-                          if (periodEntry.symptoms != null && periodEntry.symptoms!.isNotEmpty)
-                            _buildDetailItem(
-                              Icons.warning_amber_rounded,
-                              'Symptoms',
-                              periodEntry.symptoms!.join(', '),
-                              Colors.orange,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  
                   // Cycle insights
                   if (_periodHistory.isNotEmpty) ...[
                     const SizedBox(height: 20),
