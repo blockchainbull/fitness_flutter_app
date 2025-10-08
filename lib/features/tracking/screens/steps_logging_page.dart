@@ -23,10 +23,9 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   StepEntry? _todayEntry;
   List<StepEntry> _weeklyHistory = [];
   bool _isLoading = true;
-  int _userStepGoal = 10000; // Default goal
+  int _userStepGoal = 10000;
   
   final TextEditingController _manualStepsController = TextEditingController();
-  final TextEditingController _goalController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.week;
   bool _showCalendar = false;
@@ -35,14 +34,12 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   void initState() {
     super.initState();
     _userStepGoal = (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 10000;
-    _goalController.text = _userStepGoal.toString();
     _checkAndShowGoalModal();
   }
 
   @override
   void dispose() {
     _manualStepsController.dispose();
-    _goalController.dispose();
     super.dispose();
   }
 
@@ -93,7 +90,6 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                 
                 setState(() {
                   _userStepGoal = goal;
-                  _goalController.text = goal.toString();
                 });
                 
                 try {
@@ -247,7 +243,6 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
     if (_todayEntry == null) return;
 
     final steps = int.tryParse(_manualStepsController.text);
-    final goal = int.tryParse(_goalController.text);
 
     if (steps == null || steps < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -262,7 +257,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
     try {
       final updatedEntry = _todayEntry!.copyWith(
         steps: steps,
-        goal: goal ?? _todayEntry!.goal,
+        // Keep the existing goal, don't change it
         caloriesBurned: _calculateCalories(steps),
         distanceKm: _calculateDistance(steps),
         activeMinutes: _calculateActiveMinutes(steps),
@@ -420,48 +415,48 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
               ],
             ),
             const SizedBox(height: 16),
+            TextField(
+              controller: _manualStepsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Steps',
+                hintText: 'Enter step count',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.directions_walk),
+              ),
+            ),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   flex: 2,
-                  child: TextField(
-                    controller: _manualStepsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Steps',
-                      hintText: 'Enter step count',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.directions_walk),
+                  child: ElevatedButton.icon(
+                    onPressed: _saveManualEntry,
+                    icon: const Icon(Icons.save),
+                    label: const Text('Save Steps'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _goalController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Goal',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.flag),
+                if (DateUtils.isSameDay(_selectedDate, DateTime.now())) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _showResetDialog,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Reset'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _saveManualEntry,
-                icon: const Icon(Icons.save),
-                label: const Text('Save Steps'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
             ),
           ],
         ),
@@ -532,12 +527,22 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'This Week',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'This Week',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.analytics_outlined, color: Colors.blue),
+                  onPressed: _showAnalytics,
+                  tooltip: 'View Analytics',
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             if (_weeklyHistory.isEmpty)
@@ -814,15 +819,6 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _showHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StepHistoryPage(userProfile: widget.userProfile),
       ),
     );
   }

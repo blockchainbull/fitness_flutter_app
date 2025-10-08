@@ -1,4 +1,6 @@
 // lib/features/tracking/screens/water_logging_page.dart
+
+// lib/features/tracking/screens/water_logging_page.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
@@ -117,8 +119,9 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Water intake saved successfully!'),
+            content: Text('✓ Water intake saved successfully'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
           ),
         );
       }
@@ -127,7 +130,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving water intake: $e'),
+            content: Text('Error saving: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -137,19 +140,21 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
     }
   }
 
-  void _addGlass() {
-    if (_todayEntry == null) return;
+  Future<void> _addGlasses(int count) async {
+    if (_todayEntry == null || _isSaving) return;
     
     setState(() {
       _todayEntry = _todayEntry!.copyWith(
-        glassesConsumed: _todayEntry!.glassesConsumed + 1,
-        totalMl: (_todayEntry!.glassesConsumed + 1) * mlPerGlass,
+        glassesConsumed: _todayEntry!.glassesConsumed + count,
+        totalMl: (_todayEntry!.glassesConsumed + count) * mlPerGlass,
         updatedAt: DateTime.now(),
       );
     });
     
-    _saveWaterEntry();
+    await _saveWaterEntry();
   }
+
+  void _addGlass() => _addGlasses(1);
 
   void _removeGlass() {
     if (_todayEntry == null || _todayEntry!.glassesConsumed <= 0) return;
@@ -165,12 +170,68 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
     _saveWaterEntry();
   }
 
+  void _fillRemaining() {
+    if (_todayEntry == null) return;
+    
+    final remaining = _dailyGoal - _todayEntry!.glassesConsumed;
+    if (remaining > 0) {
+      _addGlasses(remaining);
+    }
+  }
+
+  void _showCustomAmountDialog() {
+    final controller = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('Enter Custom Amount'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Number of glasses',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.water_drop),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final count = int.tryParse(controller.text);
+              if (count != null && count > 0) {
+                Navigator.pop(context);
+                _addGlasses(count);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _resetDaily() {
     if (_todayEntry == null) return;
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         title: const Text('Reset Daily Water'),
         content: const Text('Are you sure you want to reset today\'s water intake to 0?'),
         actions: [
@@ -178,7 +239,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               setState(() {
@@ -190,6 +251,10 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
               });
               _saveWaterEntry();
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Reset'),
           ),
         ],
@@ -234,6 +299,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
                     // Calendar (collapsible)
@@ -245,9 +311,11 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
                     
                     // Existing widgets
                     _buildWaterProgress(),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 20),
+                    _buildQuickActions(),
+                    const SizedBox(height: 20),
                     _buildWaterControls(),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 20),
                     _buildWaterTips(),
                   ],
                 ),
@@ -256,33 +324,9 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
       );
     }
 
-  Widget _buildTodayHeader() {
-    final today = DateTime.now();
-    final dateStr = DateFormat('EEEE, MMM d').format(today);
-    
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Icon(Icons.calendar_today, color: Colors.blue),
-            const SizedBox(width: 8),
-            Text(
-              dateStr,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildCalendar() {
-    return Container(
-      color: Colors.white,
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
       child: TableCalendar(
         firstDay: DateTime.now().subtract(const Duration(days: 365)),
         lastDay: DateTime.now(),
@@ -321,8 +365,12 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
     }
     
     return Container(
-      color: Colors.blue.shade50,
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
         children: [
           const Icon(Icons.info_outline, color: Colors.blue, size: 20),
@@ -374,15 +422,15 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
                         Icon(
                           Icons.water_drop,
                           size: 40,
-                          color: Colors.blue,
+                          color: progress >= 1.0 ? Colors.green : Colors.blue,
                         ),
                         const SizedBox(height: 8),
                         Text(
                           '${_todayEntry!.glassesConsumed}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                            color: progress >= 1.0 ? Colors.green : Colors.blue,
                           ),
                         ),
                         const Text(
@@ -416,6 +464,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
               style: TextStyle(
                 fontSize: 14,
                 color: progress >= 1.0 ? Colors.green : Colors.grey[600],
+                fontWeight: progress >= 1.0 ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
             
@@ -430,7 +479,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
                     'Goal achieved! 🎉',
                     style: TextStyle(
                       color: Colors.green,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -442,14 +491,136 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
     );
   }
 
+  Widget _buildQuickActions() {
+    final remaining = _dailyGoal - (_todayEntry?.glassesConsumed ?? 0);
+    final isGoalReached = remaining <= 0;
+    
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Quick Add',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Quick add buttons grid
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _QuickAddButton(
+                  label: '+2',
+                  subtitle: 'glasses',
+                  onTap: () => _addGlasses(2),
+                  color: Colors.blue,
+                ),
+                _QuickAddButton(
+                  label: '+3',
+                  subtitle: 'glasses',
+                  onTap: () => _addGlasses(3),
+                  color: Colors.blue,
+                ),
+                _QuickAddButton(
+                  label: '+4',
+                  subtitle: 'glasses',
+                  onTap: () => _addGlasses(4),
+                  color: Colors.blue,
+                ),
+                _QuickAddButton(
+                  label: '+5',
+                  subtitle: 'glasses',
+                  onTap: () => _addGlasses(5),
+                  color: Colors.blue,
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Fill remaining or achievement banner
+            if (!isGoalReached) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _fillRemaining,
+                  icon: const Icon(Icons.water_drop),
+                  label: Text('Fill remaining ($remaining glasses)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ] else ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Goal Achieved! 🎉',
+                      style: TextStyle(
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
+            const SizedBox(height: 12),
+            
+            // Custom amount button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isSaving ? null : _showCustomAmountDialog,
+                icon: const Icon(Icons.edit),
+                label: const Text('Custom amount'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildWaterControls() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Quick Actions',
+              'Manual Controls',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -458,50 +629,64 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
             const SizedBox(height: 16),
             
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 // Remove Glass Button
-                ElevatedButton.icon(
-                  onPressed: _todayEntry?.glassesConsumed != null && _todayEntry!.glassesConsumed > 0 
-                      ? _removeGlass 
-                      : null,
-                  icon: const Icon(Icons.remove),
-                  label: const Text('Remove Glass'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade100,
-                    foregroundColor: Colors.red.shade700,
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _todayEntry?.glassesConsumed != null && _todayEntry!.glassesConsumed > 0 
+                        ? _removeGlass 
+                        : null,
+                    icon: const Icon(Icons.remove),
+                    label: const Text('Remove'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ),
                 
+                const SizedBox(width: 12),
+                
                 // Add Glass Button
-                ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _addGlass,
-                  icon: _isSaving 
-                      ? const SizedBox(
-                          width: 16, 
-                          height: 16, 
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.add),
-                  label: Text(_isSaving ? 'Saving...' : 'Add Glass'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade100,
-                    foregroundColor: Colors.blue.shade700,
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _addGlass,
+                    icon: _isSaving 
+                        ? const SizedBox(
+                            width: 16, 
+                            height: 16, 
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.add),
+                    label: Text(_isSaving ? 'Saving...' : 'Add Glass'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Reset Button
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _resetDaily,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Reset'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orange,
+                      side: const BorderSide(color: Colors.orange),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ),
               ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Reset Button
-            OutlinedButton.icon(
-              onPressed: _resetDaily,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Reset Today'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.orange,
-              ),
             ),
           ],
         ),
@@ -530,53 +715,75 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
               ],
             ),
             const SizedBox(height: 12),
-            const Text('• Drink a glass of water when you wake up'),
-            const Text('• Set reminders every 2 hours'),
-            const Text('• Eat water-rich foods like fruits and vegetables'),
-            const Text('• Monitor urine color for hydration levels'),
-            const Text('• Drink more during exercise and hot weather'),
+            const Text('• Drink a glass of water when you wake up', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 4),
+            const Text('• Set reminders every 2 hours', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 4),
+            const Text('• Eat water-rich foods like fruits and vegetables', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 4),
+            const Text('• Monitor urine color for hydration levels', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 4),
+            const Text('• Drink more during exercise and hot weather', style: TextStyle(fontSize: 14)),
           ],
         ),
       ),
     );
   }
+}
 
-  Future<void> _refreshData() async {
-    try {
-      await _loadWaterForDate(_selectedDate);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                const Text('Water data refreshed successfully'),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            duration: const Duration(seconds: 2),
+// Quick Add Button Widget
+class _QuickAddButton extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Color color;
+
+  const _QuickAddButton({
+    Key? key,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+    required this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 75,
+        height: 75,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color.withOpacity(0.3),
+            width: 1.5,
           ),
-        );
-      }
-    } catch (e) {
-      print('Error refreshing water data: $e');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to refresh data: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: color.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
