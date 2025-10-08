@@ -375,12 +375,16 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   Widget _buildStepTracker() {
     if (_todayEntry == null) return const SizedBox();
 
+    // Dynamically set the title based on selected date
+    final isToday = DateUtils.isSameDay(_selectedDate, DateTime.now());
+    final title = isToday ? 'Today\'s Progress' : '${DateFormat('MMM d').format(_selectedDate)} Progress';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Today\'s Progress',
-          style: TextStyle(
+        Text(
+          title,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
@@ -537,11 +541,6 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.analytics_outlined, color: Colors.blue),
-                  onPressed: _showAnalytics,
-                  tooltip: 'View Analytics',
-                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -648,15 +647,19 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   Widget _buildQuickStats() {
     if (_todayEntry == null) return const SizedBox();
 
+    // Dynamically set the title based on selected date
+    final isToday = DateUtils.isSameDay(_selectedDate, DateTime.now());
+    final title = isToday ? 'Today\'s Details' : '${DateFormat('MMM d').format(_selectedDate)} Details';
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Today\'s Details',
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -768,58 +771,6 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
           ),
         ),
       ],
-    );
-  }
-
-  void _showAnalytics() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.5,
-        builder: (context, scrollController) => Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Text(
-                'Steps Analytics',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  children: [
-                    if (_todayEntry != null) ...[
-                      ListTile(
-                        leading: const Icon(Icons.today, color: Colors.blue),
-                        title: const Text('Today\'s Progress'),
-                        subtitle: Text('${_todayEntry!.steps} / ${_todayEntry!.goal} steps'),
-                        trailing: Text('${((_todayEntry!.steps / _todayEntry!.goal) * 100).toInt()}%'),
-                      ),
-                      const Divider(),
-                    ],
-                    if (_weeklyHistory.isNotEmpty) ...[
-                      ListTile(
-                        leading: const Icon(Icons.calendar_today, color: Colors.green),
-                        title: const Text('Weekly Average'),
-                        subtitle: Text('${(_weeklyHistory.fold(0, (sum, e) => sum + e.steps) / 7).round()} steps/day'),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.trending_up, color: Colors.orange),
-                        title: const Text('Best Day This Week'),
-                        subtitle: Text('${_weeklyHistory.reduce((a, b) => a.steps > b.steps ? a : b).steps} steps'),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
