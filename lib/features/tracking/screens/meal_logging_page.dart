@@ -112,6 +112,16 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     }
   }
 
+  bool _hasMealTypeLogged(String mealType) {
+    if (mealType.toLowerCase() == 'snack') {
+      return false; // Allow multiple snacks
+    }
+    
+    return _todaysMeals.any((meal) => 
+      meal['meal_type']?.toLowerCase() == mealType.toLowerCase()
+    );
+  }
+
   Future<void> _performSearch(String query) async {
     final queryLower = query.toLowerCase();
     
@@ -179,6 +189,79 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
 
   Future<void> _loadTodaysMeals() async {
     await _loadMealsForDate(DateTime.now());
+  }
+
+  Future<bool> _confirmDuplicateMealType(String mealType) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            const SizedBox(width: 12),
+            const Expanded(child: Text('Duplicate Meal Type')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You have already logged a $mealType today.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Are you sure you want to log another $mealType?',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You can log multiple Snacks without this warning.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text(
+              'Yes, Log Anyway',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   void _calculateDailyGoals() {
@@ -1127,6 +1210,16 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       return;
     }
 
+    // ADDED: Check for duplicate meal type (only for today's meals)
+    if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
+      if (_hasMealTypeLogged(_selectedMealType)) {
+        final confirmed = await _confirmDuplicateMealType(_selectedMealType);
+        if (!confirmed) {
+          return; // User cancelled, don't proceed
+        }
+      }
+    }
+
     setState(() => _isAnalyzing = true);
 
     try {
@@ -1578,7 +1671,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   }
 
   Future<void> _logPresetDirectly(Map<String, dynamic> preset) async {
-    // Show confirmation bottom sheet
+    // Show confirmation bottom sheet with duplicate check
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1589,6 +1682,9 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         final protein = _extractDouble(preset, ['total_protein_g', 'protein_g', 'protein']);
         final carbs = _extractDouble(preset, ['total_carbs_g', 'carbs_g', 'carbs']);
         final fat = _extractDouble(preset, ['total_fat_g', 'fat_g', 'fat']);
+        
+        // Check if meal type already logged
+        final hasDuplicate = _hasMealTypeLogged(_selectedMealType);
         
         return Container(
           padding: const EdgeInsets.all(20),
@@ -1610,6 +1706,36 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                 'F: ${fat.round()}g',
                 style: TextStyle(color: Colors.grey[600]),
               ),
+              
+              // ADDED: Warning for duplicate meal type
+              if (hasDuplicate && DateUtils.isSameDay(_selectedDate, DateTime.now())) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, 
+                        color: Colors.orange.shade700, size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'You already logged $_selectedMealType today',
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              
               const SizedBox(height: 24),
               
               // Meal Type Selector
@@ -1622,8 +1748,21 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                 spacing: 8,
                 children: ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) {
                   final isSelected = _selectedMealType == type;
+                  final typeLogged = _hasMealTypeLogged(type);
+                  
                   return ChoiceChip(
-                    label: Text(type),
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(type),
+                        if (typeLogged && type.toLowerCase() != 'snack') ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.check_circle, 
+                            size: 16, 
+                            color: isSelected ? Colors.white : Colors.orange),
+                        ],
+                      ],
+                    ),
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() {
@@ -1635,6 +1774,9 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                       });
                     },
                     selectedColor: Colors.green,
+                    backgroundColor: typeLogged && type.toLowerCase() != 'snack' 
+                      ? Colors.orange.shade50 
+                      : null,
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : Colors.black,
                     ),
@@ -1654,7 +1796,9 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                     style: const TextStyle(fontSize: 16, color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: hasDuplicate && DateUtils.isSameDay(_selectedDate, DateTime.now())
+                      ? Colors.orange
+                      : Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
