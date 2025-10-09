@@ -6,7 +6,6 @@ import 'package:user_onboarding/data/models/sleep_entry.dart';
 import 'package:user_onboarding/data/repositories/sleep_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/features/tracking/screens/sleep_history_page.dart';
-import 'package:user_onboarding/data/services/database_service.dart';
 
 class SleepLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -318,7 +317,6 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
           if (_existingEntry != null)
             _buildEditingNotice(),
           _buildDefaultsInfo(),
-          _buildDatabaseStatus(),
           const SizedBox(height: 20),
           _buildTimeInputs(),
           const SizedBox(height: 20),
@@ -647,32 +645,6 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
     );
   }
 
-  Widget _buildDatabaseStatus() {
-    return Card(
-      color: DatabaseService.isAvailable ? Colors.green.shade50 : Colors.orange.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
-          children: [
-            Icon(
-              DatabaseService.isAvailable ? Icons.cloud_done : Icons.cloud_off,
-              color: DatabaseService.isAvailable ? Colors.green : Colors.orange,
-              size: 16,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              DatabaseService.isAvailable ? 'Synced to cloud' : 'Offline mode',
-              style: TextStyle(
-                fontSize: 12,
-                color: DatabaseService.isAvailable ? Colors.green.shade700 : Colors.orange.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSummaryRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -866,7 +838,6 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
 
     setState(() => _isLoading = false);
   }
-
 
   String _getQualityLabel(double score) {
     if (score >= 0.9) return 'Excellent';
