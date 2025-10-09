@@ -179,16 +179,36 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                       (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 
                       10000;
       
-      setState(() {
-        _selectedDate = date;
-        _todayEntry = entry ?? StepEntry(
+      StepEntry loadedEntry;
+      if (entry != null) {
+        // Recalculate metrics if they're 0 or missing
+        if (entry.steps > 0 && (entry.caloriesBurned == 0 || entry.distanceKm == 0)) {
+          loadedEntry = entry.copyWith(
+            caloriesBurned: _calculateCalories(entry.steps),
+            distanceKm: _calculateDistance(entry.steps),
+            activeMinutes: _calculateActiveMinutes(entry.steps),
+          );
+        } else {
+          loadedEntry = entry;
+        }
+      } else {
+        loadedEntry = StepEntry(
           userId: widget.userProfile.id!,
           date: date,
           steps: 0,
           goal: stepGoal,
         );
+      }
+      
+      setState(() {
+        _selectedDate = date;
+        _todayEntry = loadedEntry;
         _isLoading = false;
       });
+      
+      // Load weekly history as well
+      await _loadWeeklyHistory();
+      
     } catch (e) {
       print('Error loading step data for date: $e');
       
@@ -236,6 +256,43 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
           goal: stepGoal,
         );
       });
+    }
+  }
+
+  Future<void> _loadWeeklyHistory() async {
+    if (widget.userProfile.id == null) return;
+    
+    try {
+      final now = DateTime.now();
+      final List<StepEntry> history = [];
+      
+      // Load last 7 days of data
+      for (int i = 6; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final entry = await StepRepository.getStepEntryByDate(
+          widget.userProfile.id!,
+          date,
+        );
+        
+        if (entry != null) {
+          // Recalculate metrics if missing
+          if (entry.steps > 0 && (entry.caloriesBurned == 0 || entry.distanceKm == 0)) {
+            history.add(entry.copyWith(
+              caloriesBurned: _calculateCalories(entry.steps),
+              distanceKm: _calculateDistance(entry.steps),
+              activeMinutes: _calculateActiveMinutes(entry.steps),
+            ));
+          } else {
+            history.add(entry);
+          }
+        }
+      }
+      
+      setState(() {
+        _weeklyHistory = history;
+      });
+    } catch (e) {
+      print('Error loading weekly history: $e');
     }
   }
 
