@@ -642,7 +642,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
           
           final heightPercent = maxSteps > 0 ? (entry.steps / maxSteps) : 0.0;
           final isToday = DateUtils.isSameDay(date, DateTime.now());
-          final isMaxDay = entry.steps == maxSteps && maxSteps > 0; // Check if this is the max day
+          final isMaxDay = entry.steps == maxSteps && maxSteps > 0;
           
           return Column(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -651,7 +651,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                 entry.steps.toString(),
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: isMaxDay ? FontWeight.bold : FontWeight.normal, // Bold if max
+                  fontWeight: isMaxDay ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
               const SizedBox(height: 4),
@@ -659,12 +659,13 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                 width: 25,
                 height: 80 * heightPercent.clamp(0.1, 1.0),
                 decoration: BoxDecoration(
-                  color: isToday 
-                      ? Colors.green.shade700 
-                      : entry.steps >= entry.goal
-                          ? Colors.green.shade400
-                          : Colors.grey.shade300,
+                  color: entry.steps >= entry.goal
+                      ? (isMaxDay ? Colors.green.shade700 : Colors.green.shade400)
+                      : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(4),
+                  border: isToday 
+                      ? Border.all(color: Colors.green.shade700, width: 2.5)
+                      : null,
                 ),
               ),
               const SizedBox(height: 4),
@@ -672,7 +673,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                 DateFormat('E').format(date),
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: isMaxDay ? FontWeight.bold : FontWeight.normal, // Bold if max
+                  fontWeight: isMaxDay ? FontWeight.bold : FontWeight.normal,
                   color: isToday ? Colors.green.shade700 : Colors.grey,
                 ),
               ),
