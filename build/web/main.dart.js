@@ -122334,31 +122334,40 @@ q=A.a8(new A.a2(q,new A.aJa(this),p),p.i("ao.E"))
 B.b.R(r,q)
 return A.W(s,A.H(r,B.u,B.e,B.d,0,B.j),B.l,s,s,s,s,s,s,B.bA,s,s,s,s)},
 uU(a){return this.aAB(a)},
-aAB(a0){var s=0,r=A.v(t.H),q=1,p=[],o=this,n,m,l,k,j,i,h,g,f,e,d,c,b,a
-var $async$uU=A.q(function(a1,a2){if(a1===1){p.push(a2)
-s=q}while(true)switch(s){case 0:c=new A.ce(B.aw,$.af())
-b=o.c
-b.toString
+aAB(a2){var s=0,r=A.v(t.H),q=1,p=[],o=this,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1
+var $async$uU=A.q(function(a3,a4){if(a3===1){p.push(a4)
+s=q}while(true)switch(s){case 0:a=new A.ce(B.aw,$.af())
+a0=o.c
+a0.toString
 s=4
-return A.i(A.d3(null,null,!0,null,new A.aJS(c,a0),b,null,!0,!0,t.y),$async$uU)
-case 4:s=a2===!0?2:3
+return A.i(A.d3(null,null,!0,null,new A.aJS(a,a2),a0,null,!0,!0,t.y),$async$uU)
+case 4:s=a4===!0?2:3
 break
-case 2:l=c.a.a
-n=l.length!==0?l:J.l(a0,"food_item")
+case 2:l=a.a.a
+n=l.length!==0?l:J.l(a2,"food_item")
 q=6
-b=o.a.c
-k=J.ak(a0)
-j=k.h(a0,"food_item")
-i=k.h(a0,"meal_type")
-h=k.h(a0,"calories")
-g=k.h(a0,"protein_g")
-if(g==null)g=k.h(a0,"protein")
-f=k.h(a0,"carbs_g")
-if(f==null)f=k.h(a0,"carbs")
-e=k.h(a0,"fat_g")
-k=e==null?k.h(a0,"fat"):e
+a0=o.a.c
+k=J.ak(a2)
+j=k.h(a2,"food_item")
+i=k.h(a2,"meal_type")
+h=k.h(a2,"calories")
+g=k.h(a2,"protein_g")
+if(g==null)g=k.h(a2,"protein")
+if(g==null)g=0
+f=k.h(a2,"carbs_g")
+if(f==null)f=k.h(a2,"carbs")
+if(f==null)f=0
+e=k.h(a2,"fat_g")
+if(e==null)e=k.h(a2,"fat")
+if(e==null)e=0
+d=k.h(a2,"fiber_g")
+if(d==null)d=0
+c=k.h(a2,"sugar_g")
+if(c==null)c=0
+k=k.h(a2,"sodium_mg")
+if(k==null)k=0
 s=9
-return A.i(o.d.zY(A.Q(["user_id",b.a,"preset_name",n,"food_items",j,"meal_type",i,"nutrition_data",a0,"total_calories",h,"protein",g,"carbs",f,"fat",k],t.N,t.z)),$async$uU)
+return A.i(o.d.zY(A.Q(["user_id",a0.a,"preset_name",n,"food_items",j,"meal_type",i,"nutrition_data",a2,"total_calories",h,"total_protein_g",g,"total_carbs_g",f,"total_fat_g",e,"total_fiber_g",d,"total_sugar_g",c,"total_sodium_mg",k],t.N,t.z)),$async$uU)
 case 9:s=10
 return A.i(o.oE(),$async$uU)
 case 10:o.c.M(t.q).f.aV(B.H2)
@@ -122366,8 +122375,8 @@ q=1
 s=8
 break
 case 6:q=5
-a=p.pop()
-m=A.L(a)
+a1=p.pop()
+m=A.L(a1)
 o.c.M(t.q).f.aV(A.cE(null,null,null,B.I,null,B.o,null,A.h("Error saving preset: "+A.f(m),null,null,null,null,null,null,null,null),null,B.X,null,null,null,null,null,null,null,null,null))
 s=8
 break
@@ -122494,15 +122503,33 @@ aCk(a){var s=null,r=$.af(),q=this.c
 q.toString
 A.d3(s,s,!0,s,new A.aJV(this,new A.ce(B.aw,r),a),q,s,!0,!0,t.z)},
 yT(a,b){return this.aAA(a,b)},
-aAA(a,b){var s=0,r=A.v(t.H),q=1,p=[],o=this,n,m,l,k,j,i,h
-var $async$yT=A.q(function(c,d){if(c===1){p.push(d)
+aAA(a1,a2){var s=0,r=A.v(t.H),q=1,p=[],o=this,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0
+var $async$yT=A.q(function(a3,a4){if(a3===1){p.push(a4)
 s=q}while(true)switch(s){case 0:q=3
-k=J.ak(a)
-j=k.h(a,"food_item")
+k=J.ak(a1)
+j=k.h(a1,"food_item")
 n=j==null?o.e.a.a:j
-m=b.length!==0?b:n
+m=a2.length!==0?a2:n
+i=o.a.c
+h=o.y
+g=k.h(a1,"calories")
+f=k.h(a1,"protein_g")
+if(f==null)f=k.h(a1,"protein")
+if(f==null)f=0
+e=k.h(a1,"carbs_g")
+if(e==null)e=k.h(a1,"carbs")
+if(e==null)e=0
+d=k.h(a1,"fat_g")
+if(d==null)d=k.h(a1,"fat")
+if(d==null)d=0
+c=k.h(a1,"fiber_g")
+if(c==null)c=0
+b=k.h(a1,"sugar_g")
+if(b==null)b=0
+k=k.h(a1,"sodium_mg")
+if(k==null)k=0
 s=6
-return A.i(o.d.zY(A.Q(["user_id",o.a.c.a,"preset_name",m,"food_items",n,"meal_type",o.y,"nutrition_data",a,"total_calories",k.h(a,"calories"),"protein",k.h(a,"protein"),"carbs",k.h(a,"carbs"),"fat",k.h(a,"fat")],t.N,t.z)),$async$yT)
+return A.i(o.d.zY(A.Q(["user_id",i.a,"preset_name",m,"food_items",n,"meal_type",h,"nutrition_data",a1,"total_calories",g,"total_protein_g",f,"total_carbs_g",e,"total_fat_g",d,"total_fiber_g",c,"total_sugar_g",b,"total_sodium_mg",k],t.N,t.z)),$async$yT)
 case 6:s=7
 return A.i(o.oE(),$async$yT)
 case 7:o.c.M(t.q).f.aV(B.H2)
@@ -122510,8 +122537,8 @@ q=1
 s=5
 break
 case 3:q=2
-h=p.pop()
-l=A.L(h)
+a0=p.pop()
+l=A.L(a0)
 o.c.M(t.q).f.aV(A.cE(null,null,null,B.I,null,B.o,null,A.h("Error saving preset: "+A.f(l),null,null,null,null,null,null,null,null),null,B.X,null,null,null,null,null,null,null,null,null))
 s=5
 break

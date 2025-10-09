@@ -1047,9 +1047,12 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           'meal_type': meal['meal_type'],
           'nutrition_data': meal,
           'total_calories': meal['calories'],
-          'protein': meal['protein_g'] ?? meal['protein'],
-          'carbs': meal['carbs_g'] ?? meal['carbs'],
-          'fat': meal['fat_g'] ?? meal['fat'],
+          'total_protein_g': meal['protein_g'] ?? meal['protein'] ?? 0,  
+          'total_carbs_g': meal['carbs_g'] ?? meal['carbs'] ?? 0,        
+          'total_fat_g': meal['fat_g'] ?? meal['fat'] ?? 0,              
+          'total_fiber_g': meal['fiber_g'] ?? 0,                         
+          'total_sugar_g': meal['sugar_g'] ?? 0,                         
+          'total_sodium_mg': meal['sodium_mg'] ?? 0,
         });
         
         await _loadPresets();
@@ -1392,9 +1395,12 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         'meal_type': _selectedMealType,
         'nutrition_data': nutritionData,
         'total_calories': nutritionData['calories'],
-        'protein': nutritionData['protein'],
-        'carbs': nutritionData['carbs'],
-        'fat': nutritionData['fat'],
+        'total_protein_g': nutritionData['protein_g'] ?? nutritionData['protein'] ?? 0,  
+        'total_carbs_g': nutritionData['carbs_g'] ?? nutritionData['carbs'] ?? 0,        
+        'total_fat_g': nutritionData['fat_g'] ?? nutritionData['fat'] ?? 0,              
+        'total_fiber_g': nutritionData['fiber_g'] ?? 0,                                  
+        'total_sugar_g': nutritionData['sugar_g'] ?? 0,                                  
+        'total_sodium_mg': nutritionData['sodium_mg'] ?? 0, 
       });
       
       await _loadPresets();
