@@ -999,6 +999,78 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
+  Future<void> _saveLoggedMealAsPreset(Map<String, dynamic> meal) async {
+    final presetNameController = TextEditingController();
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save as Preset'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Give this preset a memorable name:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: presetNameController,
+              decoration: InputDecoration(
+                hintText: meal['food_item'],
+                border: const OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      final presetName = presetNameController.text.isNotEmpty 
+        ? presetNameController.text 
+        : meal['food_item'];
+      
+      try {
+        await _apiService.createPreset({
+          'user_id': widget.userProfile.id,
+          'preset_name': presetName,
+          'food_items': meal['food_item'],
+          'meal_type': meal['meal_type'],
+          'nutrition_data': meal,
+          'total_calories': meal['calories'],
+          'protein': meal['protein_g'] ?? meal['protein'],
+          'carbs': meal['carbs_g'] ?? meal['carbs'],
+          'fat': meal['fat_g'] ?? meal['fat'],
+        });
+        
+        await _loadPresets();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meal saved as preset!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving preset: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _analyzeMeal() async {
     if (widget.userProfile.id == null || widget.userProfile.id!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1050,8 +1122,8 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       String dataSource = _nutritionData?['data_source'] ?? 'Unknown';
       print('Data source used: $dataSource');
 
-      if (DateUtils.isSameDay(_selectedDate, DateTime.now()) && 
-          (response['success'] == true || _nutritionData != null)) {
+      // CHANGED: Always show preset dialog after successful analysis, regardless of date
+      if (response['success'] == true || _nutritionData != null) {
         _showSaveAsPresetDialog(_nutritionData!);
       }
 
@@ -1484,13 +1556,25 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
                     onSelected: (value) {
-                      if (value == 'edit') {
+                      if (value == 'preset') {
+                        _saveLoggedMealAsPreset(meal); 
+                      } else if (value == 'edit') {
                         _editMeal(meal);
                       } else if (value == 'delete') {
                         _deleteMeal(meal['id']);
                       }
                     },
                     itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem(
+                        value: 'preset',
+                        child: Row(
+                          children: [
+                            Icon(Icons.bookmark_add, size: 20, color: Colors.amber),
+                            SizedBox(width: 8),
+                            Text('Save as Preset'),
+                          ],
+                        ),
+                      ),
                       const PopupMenuItem(
                         value: 'edit',
                         child: Row(
