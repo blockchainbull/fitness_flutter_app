@@ -1203,8 +1203,23 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   void _usePreset(Map<String, dynamic> preset) {
     setState(() {
       _useMultiLineEntry = true;
+      // FIXED: Use food_items instead of preset_name
       _multiLineController.text = preset['food_items'] ?? preset['preset_name'] ?? '';
       _selectedMealType = preset['meal_type'] ?? _selectedMealType;
+      
+      // Pre-populate nutrition data if available
+      if (preset['nutrition_data'] != null) {
+        _nutritionData = preset['nutrition_data'];
+      }
+    });
+    
+    // Scroll to the text field
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     });
     
     ScaffoldMessenger.of(context).showSnackBar(
