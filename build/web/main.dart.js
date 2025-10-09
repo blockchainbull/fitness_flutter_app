@@ -123936,38 +123936,36 @@ A.aSZ.prototype={
 $0(){return this.a.r=this.b},
 $S:0}
 A.aT2.prototype={
-$2(a,b){var s,r,q,p,o,n=null,m=this.a,l=J.p(m.e,b),k=l.e,j=k>0?B.c.cp(l.d/k,0,1):0,i=l.d,h=i>=k,g=l.c,f=A.ig(g,new A.a6(Date.now(),0,!1))
-g=A.b7("EEEE, MMM dd",n).aJ(g)
-s=f?B.A:B.O
-r=t.p
-s=A.a([A.h(g,n,n,n,n,A.Q(n,n,f?B.bf:n,n,n,n,n,n,n,n,n,16,n,n,s,n,n,!0,n,n,n,n,n,n,n,n),n,n,n)],r)
-if(f)s.push(B.ael)
-g=A.J(s,B.v,B.e,B.d,0,B.j)
-s=A.a([],r)
-if(h)s.push(B.Tw)
+$2(a,b){var s,r,q,p,o,n,m,l=null,k=this.a,j=J.p(k.e,b),i=j.e,h=i>0?B.c.cp(j.d/i,0,1):0,g=j.d,f=g>=i,e=j.c,d=A.ig(e,new A.a6(Date.now(),0,!1)),c=j.f
+if(!(c>0)){s=k.a.c
+c=g*0.04*(s.w/70)}r=j.r
+r=r>0?r:g*0.00078
+q=j.w
+q=q>0?q:B.c.L(g/100)
+e=A.b7("EEEE, MMM dd",l).aJ(e)
+s=d?B.A:B.O
+p=t.p
+s=A.a([A.h(e,l,l,l,l,A.Q(l,l,d?B.bf:l,l,l,l,l,l,l,l,l,16,l,l,s,l,l,!0,l,l,l,l,l,l,l,l),l,l,l)],p)
+if(d)s.push(B.ael)
+e=A.J(s,B.v,B.e,B.d,0,B.j)
+s=A.a([],p)
+if(f)s.push(B.Tw)
 s.push(B.H)
-q=l.x
-p=A.h(q.toUpperCase(),n,n,n,n,n,n,n,n)
-q=q==="health_app"
-o=q?B.fs:B.fr
-s.push(A.tH(n,o,n,p,A.Q(n,n,q?B.bC:B.d9,n,n,n,n,n,n,n,n,10,n,n,n,n,n,!0,n,n,n,n,n,n,n,n),n,n,n))
-g=A.K(A.a([g,A.K(s,B.f,B.e,B.d,0,n,n)],r),B.f,B.ab,B.d,0,n,n)
-s=h?B.p:B.F
-s=A.fH(B.aQ,n,n,j,new A.dA(s,t.E))
-k=A.J(A.a([A.h(B.m.T(i,0)+" steps",n,n,n,n,B.d2,n,n,n),A.h("Goal: "+B.m.T(k,0),n,n,n,n,A.Q(n,n,B.y,n,n,n,n,n,n,n,n,14,n,n,n,n,n,!0,n,n,n,n,n,n,n,n),n,n,n)],r),B.v,B.e,B.d,0,B.j)
-i=B.c.bw(j*100)
-k=A.a([g,B.B,s,B.R,A.K(A.a([k,A.h(""+i+"%",n,n,n,n,A.Q(n,n,h?B.p:B.F,n,n,n,n,n,n,n,n,18,n,n,B.A,n,n,!0,n,n,n,n,n,n,n,n),n,n,n)],r),B.f,B.ab,B.d,0,n,n)],r)
-i=l.f
-g=i>0
-if(g||l.r>0){s=A.a([],r)
-if(g)s.push(m.Oe("Calories",B.c.T(i,0),B.fC,B.F))
-i=l.r
-if(i>0)s.push(m.Oe("Distance",B.c.T(i,2)+" km",B.vJ,B.r))
-i=l.w
-if(i>0)s.push(m.Oe("Active Min",""+i,B.j2,B.a6))
-B.b.S(k,A.a([B.R,A.K(s,B.f,B.cE,B.d,0,n,n)],r))}m=l.y
-if(m!=null)B.b.S(k,A.a([B.C,A.h("Last synced: "+A.b7("MMM dd, HH:mm",n).aJ(m),n,n,n,n,A.Q(n,n,B.bU,n,n,n,n,n,n,n,n,11,n,n,n,n,n,!0,n,n,n,n,n,n,n,n),n,n,n)],r))
-return A.ca(new A.a7(B.z,A.J(k,B.v,B.e,B.d,0,B.j),n),n,n,B.dU,n)},
+o=j.x
+n=A.h(o.toUpperCase(),l,l,l,l,l,l,l,l)
+o=o==="health_app"
+m=o?B.fs:B.fr
+s.push(A.tH(l,m,l,n,A.Q(l,l,o?B.bC:B.d9,l,l,l,l,l,l,l,l,10,l,l,l,l,l,!0,l,l,l,l,l,l,l,l),l,l,l))
+e=A.K(A.a([e,A.K(s,B.f,B.e,B.d,0,l,l)],p),B.f,B.ab,B.d,0,l,l)
+s=f?B.p:B.F
+s=A.fH(B.aQ,l,l,h,new A.dA(s,t.E))
+i=A.J(A.a([A.h(B.m.T(g,0)+" steps",l,l,l,l,B.d2,l,l,l),A.h("Goal: "+B.m.T(i,0),l,l,l,l,A.Q(l,l,B.y,l,l,l,l,l,l,l,l,14,l,l,l,l,l,!0,l,l,l,l,l,l,l,l),l,l,l)],p),B.v,B.e,B.d,0,B.j)
+o=B.c.bw(h*100)
+i=A.a([e,B.B,s,B.R,A.K(A.a([i,A.h(""+o+"%",l,l,l,l,A.Q(l,l,f?B.p:B.F,l,l,l,l,l,l,l,l,18,l,l,B.A,l,l,!0,l,l,l,l,l,l,l,l),l,l,l)],p),B.f,B.ab,B.d,0,l,l)],p)
+if(g>0)B.b.S(i,A.a([B.R,A.K(A.a([k.Oe("Calories",B.c.T(c,0),B.fC,B.F),k.Oe("Distance",B.c.T(r,2)+" km",B.vJ,B.r),k.Oe("Active Min",""+q,B.j2,B.a6)],p),B.f,B.cE,B.d,0,l,l)],p))
+k=j.y
+if(k!=null)B.b.S(i,A.a([B.C,A.h("Last synced: "+A.b7("MMM dd, HH:mm",l).aJ(k),l,l,l,l,A.Q(l,l,B.bU,l,l,l,l,l,l,l,l,11,l,l,l,l,l,!0,l,l,l,l,l,l,l,l),l,l,l)],p))
+return A.ca(new A.a7(B.z,A.J(i,B.v,B.e,B.d,0,B.j),l),l,l,B.dU,l)},
 $S:27}
 A.nb.prototype={
 X(){var s=A.a([],t.OP)

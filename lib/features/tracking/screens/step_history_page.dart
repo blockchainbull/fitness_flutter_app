@@ -216,6 +216,17 @@ class _StepHistoryPageState extends State<StepHistoryPage> {
     final isGoalAchieved = entry.steps >= entry.goal;
     final isToday = DateUtils.isSameDay(entry.date, DateTime.now());
     
+    // Calculate stats if missing (for older entries)
+    final calories = entry.caloriesBurned > 0 
+        ? entry.caloriesBurned 
+        : _calculateCalories(entry.steps);
+    final distance = entry.distanceKm > 0 
+        ? entry.distanceKm 
+        : _calculateDistance(entry.steps);
+    final activeMinutes = entry.activeMinutes > 0 
+        ? entry.activeMinutes 
+        : _calculateActiveMinutes(entry.steps);
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -319,32 +330,30 @@ class _StepHistoryPageState extends State<StepHistoryPage> {
               ],
             ),
             
-            if (entry.caloriesBurned > 0 || entry.distanceKm > 0) ...[
+            // Always show stats (calculate if missing)
+            if (entry.steps > 0) ...[
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  if (entry.caloriesBurned > 0)
-                    _buildStatItem(
-                      'Calories',
-                      '${entry.caloriesBurned.toStringAsFixed(0)}',
-                      Icons.local_fire_department,
-                      Colors.orange,
-                    ),
-                  if (entry.distanceKm > 0)
-                    _buildStatItem(
-                      'Distance',
-                      '${entry.distanceKm.toStringAsFixed(2)} km',
-                      Icons.straighten,
-                      Colors.blue,
-                    ),
-                  if (entry.activeMinutes > 0)
-                    _buildStatItem(
-                      'Active Min',
-                      '${entry.activeMinutes}',
-                      Icons.timer,
-                      Colors.purple,
-                    ),
+                  _buildStatItem(
+                    'Calories',
+                    '${calories.toStringAsFixed(0)}',
+                    Icons.local_fire_department,
+                    Colors.orange,
+                  ),
+                  _buildStatItem(
+                    'Distance',
+                    '${distance.toStringAsFixed(2)} km',
+                    Icons.straighten,
+                    Colors.blue,
+                  ),
+                  _buildStatItem(
+                    'Active Min',
+                    '${activeMinutes}',
+                    Icons.timer,
+                    Colors.purple,
+                  ),
                 ],
               ),
             ],
@@ -387,4 +396,21 @@ class _StepHistoryPageState extends State<StepHistoryPage> {
       ],
     );
   }
+
+  double _calculateCalories(int steps) {
+    // Use default weight of 70kg if user weight not available
+    final userWeight = widget.userProfile.weight ?? 70;
+    return steps * 0.04 * (userWeight / 70);
+  }
+
+  double _calculateDistance(int steps) {
+    // Average step length: 0.78 meters
+    return steps * 0.00078; // km
+  }
+
+  int _calculateActiveMinutes(int steps) {
+    // Rough estimation: 100 steps = 1 minute of activity
+    return (steps / 100).round();
+  }
+
 }
