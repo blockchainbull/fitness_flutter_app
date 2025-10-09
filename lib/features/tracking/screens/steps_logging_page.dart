@@ -642,6 +642,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
           
           final heightPercent = maxSteps > 0 ? (entry.steps / maxSteps) : 0.0;
           final isToday = DateUtils.isSameDay(date, DateTime.now());
+          final isMaxDay = entry.steps == maxSteps && maxSteps > 0; // Check if this is the max day
           
           return Column(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -650,7 +651,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                 entry.steps.toString(),
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: isMaxDay ? FontWeight.bold : FontWeight.normal, // Bold if max
                 ),
               ),
               const SizedBox(height: 4),
@@ -671,7 +672,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                 DateFormat('E').format(date),
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: isMaxDay ? FontWeight.bold : FontWeight.normal, // Bold if max
                   color: isToday ? Colors.green.shade700 : Colors.grey,
                 ),
               ),
