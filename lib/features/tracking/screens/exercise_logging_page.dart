@@ -41,6 +41,10 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   // Progressive overload tracking
   Map<String, List<Map<String, dynamic>>> _progressHistory = {};
 
+  // NEW: Track logged exercises for selected date
+  List<Map<String, dynamic>> _exercisesForSelectedDate = [];
+  Map<String, List<Map<String, dynamic>>> _exercisesByMuscleGroup = {};
+
   // Enhanced muscle groups with more exercises
   final Map<String, List<Exercise>> _muscleGroupExercises = {
     'Chest': [
@@ -164,12 +168,42 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
       
       // Load progressive overload data
       await _loadProgressHistory();
+
+      // NEW: Load exercises for selected date
+      _loadExercisesForSelectedDate();
       
     } catch (e) {
       print('Error loading exercise data: $e');
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  // NEW: Load exercises for the selected date
+  void _loadExercisesForSelectedDate() {
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    
+    setState(() {
+      _exercisesForSelectedDate = _exerciseHistory.where((exercise) {
+        final exerciseDateStr = exercise['exercise_date'].toString().substring(0, 10);
+        return exerciseDateStr == selectedDateStr;
+      }).toList();
+
+      // Group by muscle group
+      _exercisesByMuscleGroup = {};
+      for (final exercise in _exercisesForSelectedDate) {
+        final muscleGroup = _capitalizeFirst(exercise['muscle_group'] ?? '');
+        if (!_exercisesByMuscleGroup.containsKey(muscleGroup)) {
+          _exercisesByMuscleGroup[muscleGroup] = [];
+        }
+        _exercisesByMuscleGroup[muscleGroup]!.add(exercise);
+      }
+    });
+  }
+
+  String _capitalizeFirst(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1).toLowerCase();
   }
 
   Future<void> _loadCustomExercises() async {
@@ -212,7 +246,7 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
           sets: exercise['sets'] ?? 0,
           reps: exercise['reps'] ?? 0,
           weight: exercise['weight_kg']?.toDouble() ?? 0.0,
-          duration: duration,  // USE the calculated duration here
+          duration: duration,
           distance: exercise['distance_km']?.toDouble() ?? 0.0,
           frequency: 1,
           lastPerformed: DateTime.parse(exercise['exercise_date']),
@@ -224,7 +258,7 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
           sets: ((current.sets + (exercise['sets'] ?? 0)) / 2).round(),
           reps: ((current.reps + (exercise['reps'] ?? 0)) / 2).round(),
           weight: (current.weight + (exercise['weight_kg']?.toDouble() ?? 0.0)) / 2,
-          duration: ((current.duration + duration) / 2).round(),  // USE calculated duration here too
+          duration: ((current.duration + duration) / 2).round(),
           distance: (current.distance + (exercise['distance_km']?.toDouble() ?? 0.0)) / 2,
           frequency: current.frequency + 1,
           lastPerformed: DateTime.parse(exercise['exercise_date']),
@@ -297,7 +331,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          // Wrap in try-catch to prevent exceptions
           try {
             await _refreshData();
           } catch (e) {
@@ -340,14 +373,12 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     String? exerciseName,
   }) {
     if (exerciseType == 'cardio') {
-      return 0; // Let user input actual duration
+      return 0;
     }
     
-    // Time calculations
-    const timePerRep = 3; // seconds
-    var restBetweenSets = 60; // seconds
+    const timePerRep = 3;
+    var restBetweenSets = 60;
     
-    // Heavy exercises need more rest
     final heavyExercises = ['squat', 'deadlift', 'bench press', 'leg press'];
     if (exerciseName != null && 
         heavyExercises.any((e) => exerciseName.toLowerCase().contains(e))) {
@@ -356,7 +387,7 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     
     final totalRepTime = sets * reps * timePerRep;
     final totalRestTime = sets > 1 ? (sets - 1) * restBetweenSets : 0;
-    const setupTime = 30; // seconds
+    const setupTime = 30;
     
     final totalSeconds = totalRepTime + totalRestTime + setupTime;
     return (totalSeconds / 60).roundToDouble();
@@ -392,16 +423,54 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
           ),
           const SizedBox(height: 16),
           
-          // Quick date picker
+          // Quick date picker with indicator
           Card(
             child: ListTile(
-              leading: const Icon(Icons.calendar_today, color: Colors.orange),
-              title: const Text('Workout Date'),
+              leading: Icon(
+                Icons.calendar_today, 
+                color: _exercisesForSelectedDate.isNotEmpty ? Colors.green : Colors.orange
+              ),
+              title: Row(
+                children: [
+                  const Text('Workout Date'),
+                  const SizedBox(width: 8),
+                  // NEW: Badge showing if exercises are logged
+                  if (_exercisesForSelectedDate.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle, size: 14, color: Colors.green.shade700),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_exercisesForSelectedDate.length} logged',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
               subtitle: Text(DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate)),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _selectDate(context),
             ),
           ),
+          
+          // NEW: Show logged exercises for selected date
+          if (_exercisesForSelectedDate.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildLoggedExercisesSummary(),
+          ],
           
           const SizedBox(height: 24),
           
@@ -425,9 +494,109 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     );
   }
 
+  // NEW: Widget to show logged exercises summary
+  Widget _buildLoggedExercisesSummary() {
+    final totalCalories = _exercisesForSelectedDate.fold<double>(
+      0.0, 
+      (sum, ex) => sum + ((ex['calories_burned'] ?? 0) as num).toDouble()
+    );
+
+    return Card(
+      color: Colors.green.shade50,
+      elevation: 2,
+      child: ExpansionTile(
+        leading: Icon(Icons.check_circle, color: Colors.green.shade700),
+        title: Text(
+          'Exercises Logged for ${DateFormat('MMM d').format(_selectedDate)}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '${_exercisesForSelectedDate.length} exercises • ${totalCalories.toInt()} calories',
+          style: TextStyle(color: Colors.green.shade700),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: _exercisesByMuscleGroup.entries.map((entry) {
+                final muscleGroup = entry.key;
+                final exercises = entry.value;
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _getMuscleGroupIcon(muscleGroup),
+                            size: 20,
+                            color: Colors.orange,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            muscleGroup,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ...exercises.map((ex) => Padding(
+                      padding: const EdgeInsets.only(left: 28, bottom: 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.fiber_manual_record, size: 8),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${ex['exercise_name']}${_getExerciseDetails(ex)}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                    const SizedBox(height: 8),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW: Helper to format exercise details
+  String _getExerciseDetails(Map<String, dynamic> exercise) {
+    final type = exercise['exercise_type'];
+    if (type == 'cardio') {
+      final duration = exercise['duration_minutes'] ?? 0;
+      final distance = exercise['distance_km'] ?? 0.0;
+      if (distance > 0) {
+        return ' • ${duration}min, ${distance.toStringAsFixed(1)}km';
+      }
+      return ' • ${duration}min';
+    } else {
+      final sets = exercise['sets'] ?? 0;
+      final reps = exercise['reps'] ?? 0;
+      final weight = exercise['weight_kg'] ?? 0.0;
+      if (weight > 0) {
+        return ' • ${sets}×${reps} @ ${weight.toStringAsFixed(1)}kg';
+      }
+      return ' • ${sets}×${reps}';
+    }
+  }
+
   Widget _buildMuscleGroupCard(String muscleGroup) {
     final isSelected = _selectedMuscleGroup == muscleGroup;
     final recentWorkouts = _getRecentWorkoutsForMuscleGroup(muscleGroup);
+    // NEW: Check if this muscle group has exercises logged for selected date
+    final hasExercisesToday = _exercisesByMuscleGroup.containsKey(muscleGroup);
     
     return Card(
       elevation: isSelected ? 8 : 2,
@@ -435,52 +604,74 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
       child: InkWell(
         onTap: () => _selectMuscleGroup(muscleGroup),
         borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                _getMuscleGroupIcon(muscleGroup),
-                size: 40,
-                color: isSelected ? Colors.orange : Colors.grey.shade600,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                muscleGroup,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.orange : Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${_muscleGroupExercises[muscleGroup]!.length} exercises',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              if (recentWorkouts > 0)
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(10),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _getMuscleGroupIcon(muscleGroup),
+                    size: 40,
+                    color: isSelected ? Colors.orange : Colors.grey.shade600,
                   ),
-                  child: Text(
-                    '$recentWorkouts this week',
+                  const SizedBox(height: 8),
+                  Text(
+                    muscleGroup,
                     style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.green.shade800,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.orange : Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_muscleGroupExercises[muscleGroup]!.length} exercises',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
                     ),
                   ),
+                  if (recentWorkouts > 0)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$recentWorkouts this week',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // NEW: Checkmark badge if exercises logged for selected date
+            if (hasExercisesToday)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -542,11 +733,46 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     final lastPerformed = defaults?.lastPerformed;
     final frequency = defaults?.frequency ?? 0;
     
+    // NEW: Check if this exercise is already logged for the selected date
+    final isLoggedToday = _exercisesForSelectedDate.any(
+      (ex) => ex['exercise_name'] == exercise.name
+    );
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: isSelected ? 4 : 1,
+      // NEW: Add visual indicator if already logged
+      color: isLoggedToday ? Colors.green.shade50 : null,
       child: CheckboxListTile(
-        title: Text(exercise.name),
+        title: Row(
+          children: [
+            Expanded(child: Text(exercise.name)),
+            // NEW: Show checkmark if already logged
+            if (isLoggedToday)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check, color: Colors.white, size: 12),
+                    SizedBox(width: 4),
+                    Text(
+                      'Logged',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -555,6 +781,31 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
                 ? 'Cardio • ${exercise.calorieRate.toInt()} cal/min'
                 : 'Strength • ${exercise.calorieRate} cal/rep',
             ),
+            // NEW: Show logged data for today if exists
+            if (isLoggedToday) ...[
+              const SizedBox(height: 4),
+              Builder(
+                builder: (context) {
+                  final loggedExercise = _exercisesForSelectedDate.firstWhere(
+                    (ex) => ex['exercise_name'] == exercise.name
+                  );
+                  return Row(
+                    children: [
+                      Icon(Icons.today, size: 14, color: Colors.green.shade700),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Today: ${_getExerciseDetails(loggedExercise)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
             if (defaults != null) ...[
               const SizedBox(height: 4),
               Row(
@@ -569,7 +820,7 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
                   ),
                 ],
               ),
-              if (exercise.type == 'strength' && defaults.weight > 0)
+              if (exercise.type == 'strength' && defaults.weight > 0 && !isLoggedToday)
                 Row(
                   children: [
                     Icon(Icons.fitness_center, size: 14, color: Colors.grey.shade600),
@@ -594,9 +845,11 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
           });
         },
         activeColor: Colors.orange,
-        secondary: frequency > 5 
-          ? Icon(Icons.star, color: Colors.orange.shade700, size: 20)
-          : null,
+        secondary: isLoggedToday
+          ? Icon(Icons.check_circle, color: Colors.green.shade700, size: 20)
+          : (frequency > 5 
+              ? Icon(Icons.star, color: Colors.orange.shade700, size: 20)
+              : null),
       ),
     );
   }
@@ -1128,6 +1381,8 @@ double _calculateTotalCalories() {
    if (picked != null && picked != _selectedDate) {
      setState(() {
        _selectedDate = picked;
+       // NEW: Reload exercises for the new date
+       _loadExercisesForSelectedDate();
      });
    }
  }
@@ -1140,10 +1395,10 @@ double _calculateTotalCalories() {
          title: const Text('Add Custom Exercise'),
          content: TextField(
            controller: _customExerciseController,
-           decoration: InputDecoration(
+           decoration: const InputDecoration(
              labelText: 'Exercise Name',
              hintText: 'e.g., Cable Flies, Kettlebell Swings',
-             border: const OutlineInputBorder(),
+             border: OutlineInputBorder(),
            ),
            autofocus: true,
            textCapitalization: TextCapitalization.words,
@@ -1294,6 +1549,8 @@ double _calculateTotalCalories() {
       }
       
       if (mounted) {
+        // NEW: Reload data to update indicators
+        await _loadExerciseData();
         _showWorkoutSummary(exercises);
       }
     } catch (e) {
