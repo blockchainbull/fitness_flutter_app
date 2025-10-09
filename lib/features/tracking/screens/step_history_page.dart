@@ -34,12 +34,18 @@ class _StepHistoryPageState extends State<StepHistoryPage> {
   }
 
   Future<void> _loadHistory() async {
-    if (widget.userProfile.id == null) return;
+    if (widget.userProfile.id == null) {
+      print('❌ User profile ID is null');
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
+      print('📊 Loading step history for user: ${widget.userProfile.id}');
       final entries = await StepRepository.getAllStepEntries(widget.userProfile.id!);
+      print('✅ Loaded ${entries.length} step entries');
+      
       entries.sort((a, b) => b.date.compareTo(a.date)); // Sort by date descending
       
       setState(() {
@@ -47,9 +53,20 @@ class _StepHistoryPageState extends State<StepHistoryPage> {
         _filteredEntries = entries;
         _isLoading = false;
       });
+      
+      print('📋 Filtered entries: ${_filteredEntries.length}');
     } catch (e) {
-      print('Error loading step history: $e');
+      print('❌ Error loading step history: $e');
       setState(() => _isLoading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load history: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
