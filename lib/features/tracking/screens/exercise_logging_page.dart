@@ -41,9 +41,13 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   // Progressive overload tracking
   Map<String, List<Map<String, dynamic>>> _progressHistory = {};
 
-  // NEW: Track logged exercises for selected date
+  // Track logged exercises for selected date
   List<Map<String, dynamic>> _exercisesForSelectedDate = [];
   Map<String, List<Map<String, dynamic>>> _exercisesByMuscleGroup = {};
+
+  // Track suggested exercises from last workout
+  List<Map<String, dynamic>> _suggestedExercises = [];
+  bool _showSuggestions = false;
 
   // Enhanced muscle groups with more exercises
   final Map<String, List<Exercise>> _muscleGroupExercises = {
@@ -596,8 +600,10 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   Widget _buildMuscleGroupCard(String muscleGroup) {
     final isSelected = _selectedMuscleGroup == muscleGroup;
     final recentWorkouts = _getRecentWorkoutsForMuscleGroup(muscleGroup);
-    // Check if this muscle group has exercises logged for selected date
     final hasExercisesToday = _exercisesByMuscleGroup.containsKey(muscleGroup);
+    
+    // NEW: Check if has last workout suggestion available
+    final hasLastWorkout = _hasLastWorkoutForMuscleGroup(muscleGroup);
     
     return Card(
       elevation: isSelected ? 8 : 2,
@@ -639,7 +645,35 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    if (recentWorkouts > 0) ...[
+                    // NEW: Show quick log indicator
+                    if (hasLastWorkout && !hasExercisesToday) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.flash_on, 
+                              size: 10, 
+                              color: Colors.blue.shade700
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              'Quick log',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (recentWorkouts > 0) ...[
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1226,10 +1260,13 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
  }
 
  void _selectMuscleGroup(String muscleGroup) {
-   setState(() {
-     _selectedMuscleGroup = muscleGroup;
-   });
- }
+    setState(() {
+      _selectedMuscleGroup = muscleGroup;
+    });
+    
+    // Load suggestions for this muscle group
+    _loadSuggestionsForMuscleGroup(muscleGroup);
+  }
 
  VoidCallback? _getNextButtonAction() {
    switch (_currentStep) {
@@ -1244,18 +1281,254 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
    }
  }
 
- String _getNextButtonText() {
-   switch (_currentStep) {
-     case 0:
-       return 'Continue';
-     case 1:
-       return 'Log Exercises (${_selectedExercises.length})';
-     case 2:
-       return 'Complete Workout';
-     default:
-       return 'Continue';
-   }
- }
+ // Load last workout for selected muscle group
+ void _loadSuggestionsForMuscleGroup(String muscleGroup) {
+    // Get exercises from last workout for this muscle group
+    final muscleGroupExercises = _exerciseHistory.where((ex) {
+      final exMuscleGroup = _capitalizeFirst(ex['muscle_group'] ?? '');
+      return exMuscleGroup == muscleGroup;
+    }).toList();
+
+    if (muscleGroupExercises.isEmpty) {
+      setState(() {
+        _suggestedExercises = [];
+        _showSuggestions = false;
+      });
+      return;
+    }
+
+    // Sort by date to get most recent workout
+    muscleGroupExercises.sort((a, b) {
+      return DateTime.parse(b['exercise_date'])
+          .compareTo(DateTime.parse(a['exercise_date']));
+    });
+
+    // Get the date of last workout
+    final lastWorkoutDate = DateTime.parse(muscleGroupExercises.first['exercise_date']);
+    
+    // Check if it's from a different day (not today)
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final lastWorkoutDateStr = DateFormat('yyyy-MM-dd').format(lastWorkoutDate);
+    
+    if (selectedDateStr == lastWorkoutDateStr) {
+      // Same day, don't show suggestions
+      setState(() {
+        _suggestedExercises = [];
+        _showSuggestions = false;
+      });
+      return;
+    }
+
+    // Group exercises by date and get the last workout session
+    final Map<String, List<Map<String, dynamic>>> exercisesByDate = {};
+    for (final ex in muscleGroupExercises) {
+      final date = ex['exercise_date'].toString().substring(0, 10);
+      if (!exercisesByDate.containsKey(date)) {
+        exercisesByDate[date] = [];
+      }
+      exercisesByDate[date]!.add(ex);
+    }
+
+    // Get the most recent workout session
+    final dates = exercisesByDate.keys.toList()..sort((a, b) => b.compareTo(a));
+    if (dates.isNotEmpty) {
+      final lastWorkoutExercises = exercisesByDate[dates.first]!;
+      
+      setState(() {
+        _suggestedExercises = lastWorkoutExercises;
+        _showSuggestions = true;
+      });
+
+      // Show suggestion dialog
+      _showQuickLogDialog();
+    }
+  }
+
+  // Show dialog to quick log last workout
+  Future<void> _showQuickLogDialog() async {
+    if (_suggestedExercises.isEmpty) return;
+
+    final lastWorkoutDate = DateTime.parse(_suggestedExercises.first['exercise_date']);
+    final daysAgo = _selectedDate.difference(lastWorkoutDate).inDays;
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.flash_on, color: Colors.orange.shade700),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Quick Log',
+                  style: TextStyle(fontSize: 20),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Found your last $_selectedMuscleGroup workout from ${daysAgo == 1 ? "yesterday" : "$daysAgo days ago"}.',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Exercises performed:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                ..._suggestedExercises.map((ex) {
+                  final exerciseName = ex['exercise_name'];
+                  final details = _getExerciseDetails(ex);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, 
+                          size: 16, 
+                          color: Colors.green.shade600
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '$exerciseName$details',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, 
+                        size: 18, 
+                        color: Colors.orange.shade700
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Use these same exercises and values for quick logging?',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Continue with manual selection
+                _goToExerciseSelection();
+              },
+              child: const Text('Choose Manually'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _quickLogLastWorkout();
+              },
+              icon: const Icon(Icons.flash_on, size: 18),
+              label: const Text('Quick Log'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Quick log the suggested exercises
+  void _quickLogLastWorkout() {
+    setState(() {
+      // Set selected exercises
+      _selectedExercises = _suggestedExercises
+          .map((ex) => ex['exercise_name'] as String)
+          .toList();
+
+      // Pre-fill exercise logs with last workout values
+      _exerciseLogs.clear();
+      for (final ex in _suggestedExercises) {
+        final exerciseName = ex['exercise_name'] as String;
+        final exerciseType = ex['exercise_type'] as String? ?? 'strength';
+        
+        if (exerciseType == 'cardio') {
+          _exerciseLogs[exerciseName] = ExerciseLog(
+            duration: ex['duration_minutes'] ?? 0,
+            distance: ex['distance_km']?.toDouble() ?? 0.0,
+          );
+        } else {
+          _exerciseLogs[exerciseName] = ExerciseLog(
+            sets: ex['sets'] ?? 0,
+            reps: ex['reps'] ?? 0,
+            weight: ex['weight_kg']?.toDouble() ?? 0.0,
+          );
+        }
+      }
+
+      // Go directly to logging page
+      _currentStep = 2;
+    });
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.flash_on, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Loaded ${_selectedExercises.length} exercises from last workout',
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+        action: SnackBarAction(
+          label: 'EDIT',
+          textColor: Colors.white,
+          onPressed: () {
+            // User can still edit if needed
+          },
+        ),
+      ),
+    );
+  }
+
+  String _getNextButtonText() {
+    switch (_currentStep) {
+      case 0:
+        return 'Continue';
+      case 1:
+        return 'Log Exercises (${_selectedExercises.length})';
+      case 2:
+        return 'Complete Workout';
+      default:
+        return 'Continue';
+    }
+  }
 
  void _goToExerciseSelection() {
    setState(() {
@@ -1287,6 +1560,25 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
      }
    });
  }
+
+  // Check if muscle group has a previous workout
+  bool _hasLastWorkoutForMuscleGroup(String muscleGroup) {
+    final muscleGroupExercises = _exerciseHistory.where((ex) {
+      final exMuscleGroup = _capitalizeFirst(ex['muscle_group'] ?? '');
+      return exMuscleGroup == muscleGroup;
+    }).toList();
+
+    if (muscleGroupExercises.isEmpty) return false;
+
+    // Check if not logged today
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final hasExercisesToday = muscleGroupExercises.any((ex) {
+      final exerciseDateStr = ex['exercise_date'].toString().substring(0, 10);
+      return exerciseDateStr == selectedDateStr;
+    });
+
+    return !hasExercisesToday && muscleGroupExercises.isNotEmpty;
+  }
 
  bool _canSubmit() {
    for (final exerciseName in _selectedExercises) {
