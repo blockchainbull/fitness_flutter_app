@@ -835,6 +835,10 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                   child: TextField(
                     controller: _multiLineController,
                     maxLines: 4,
+                    onChanged: (value) {
+                      // Add this to trigger UI updates
+                      setState(() {});
+                    },
                     decoration: InputDecoration(
                       hintText: 'e.g., grilled chicken with rice and salad',
                       border: OutlineInputBorder(
