@@ -455,7 +455,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   Widget _buildSearchResults() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      constraints: const BoxConstraints(maxHeight: 200),
+      constraints: const BoxConstraints(maxHeight: 250),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -474,6 +474,11 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           final item = _searchResults[index];
           final isPreset = item['type'] == 'preset';
           
+          // Extract nutrition values properly
+          final calories = isPreset 
+            ? _extractDouble(item, ['total_calories', 'calories'])
+            : _extractDouble(item, ['calories']);
+          
           return ListTile(
             leading: CircleAvatar(
               backgroundColor: isPreset ? Colors.amber.shade100 : Colors.green.shade100,
@@ -485,18 +490,36 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             title: Text(isPreset ? item['preset_name'] : item['food_item']),
             subtitle: Text(
               isPreset 
-                ? '${item['total_calories']}cal preset'
-                : '${item['quantity']} • ${item['calories']}cal',
+                ? '${calories.round()}cal preset'
+                : '${item['quantity']} • ${calories.round()}cal',
               style: const TextStyle(fontSize: 12),
             ),
-            trailing: Chip(
-              label: Text(isPreset ? 'Preset' : 'Recent', 
-                style: const TextStyle(fontSize: 10)),
-              backgroundColor: isPreset ? Colors.amber.shade100 : Colors.blue.shade100,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Quick log button for presets
+                if (isPreset)
+                  IconButton(
+                    icon: const Icon(Icons.add_circle, color: Colors.green),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchResults = []);
+                      _logPresetDirectly(item);
+                    },
+                    tooltip: 'Quick log',
+                  ),
+                Chip(
+                  label: Text(
+                    isPreset ? 'Preset' : 'Recent', 
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  backgroundColor: isPreset ? Colors.amber.shade100 : Colors.blue.shade100,
+                ),
+              ],
             ),
             onTap: () {
               if (isPreset) {
-                _usePreset(item);
+                _logPresetDirectly(item);
               } else {
                 _quickAddMeal(item);
               }
@@ -580,6 +603,8 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   }
 
   Widget _buildRecentMealCard(Map<String, dynamic> meal) {
+    final calories = _extractDouble(meal, ['calories']);
+    
     return Container(
       width: 150,
       margin: const EdgeInsets.only(right: 12),
@@ -610,7 +635,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                       size: 16, color: Colors.orange),
                     const SizedBox(width: 4),
                     Text(
-                      '${meal['calories']}cal',
+                      '${calories.round()}cal',
                       style: const TextStyle(fontSize: 12),
                     ),
                   ],
@@ -1040,19 +1065,14 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         : meal['food_item'];
       
       try {
-        // Debug: Print what we received
-        print('Saving logged meal as preset: $meal');
-        
-        // Extract nutrition values with multiple fallback paths
-        final calories = meal['calories'] ?? 0;
-        final proteinG = meal['protein_g'] ?? meal['protein'] ?? 0;
-        final carbsG = meal['carbs_g'] ?? meal['carbs'] ?? 0;
-        final fatG = meal['fat_g'] ?? meal['fat'] ?? 0;
-        final fiberG = meal['fiber_g'] ?? meal['fiber'] ?? 0;
-        final sugarG = meal['sugar_g'] ?? meal['sugar'] ?? 0;
-        final sodiumMg = meal['sodium_mg'] ?? meal['sodium'] ?? 0;
-        
-        print('Extracted values: protein=$proteinG, carbs=$carbsG, fat=$fatG');
+        // Extract nutrition values with proper fallback
+        final calories = _extractDouble(meal, ['calories']);
+        final proteinG = _extractDouble(meal, ['protein_g', 'protein']);
+        final carbsG = _extractDouble(meal, ['carbs_g', 'carbs']);
+        final fatG = _extractDouble(meal, ['fat_g', 'fat']);
+        final fiberG = _extractDouble(meal, ['fiber_g', 'fiber']);
+        final sugarG = _extractDouble(meal, ['sugar_g', 'sugar']);
+        final sodiumMg = _extractDouble(meal, ['sodium_mg', 'sodium']);
         
         await _apiService.createPreset({
           'user_id': widget.userProfile.id,
@@ -1073,12 +1093,19 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Meal saved as preset!'),
+            content: Row(
+              children: [
+                Icon(Icons.star, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Meal saved as preset!'),
+              ],
+            ),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
       } catch (e) {
-        print('Full error saving logged meal as preset: $e');
+        print('Error saving logged meal as preset: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving preset: $e'),
@@ -1178,17 +1205,21 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       _useMultiLineEntry = true;
       _multiLineController.text = preset['food_items'] ?? preset['preset_name'] ?? '';
       _selectedMealType = preset['meal_type'] ?? _selectedMealType;
-      
-      // Pre-populate nutrition data if available
-      if (preset['nutrition_data'] != null) {
-        _nutritionData = preset['nutrition_data'];
-      }
     });
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Preset "${preset['preset_name']}" loaded'),
-        backgroundColor: Colors.green,
+        content: Row(
+          children: [
+            const Icon(Icons.edit, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('Preset "${preset['preset_name']}" loaded for editing'),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -1277,34 +1308,78 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                       itemCount: _mealPresets.length,
                       itemBuilder: (context, index) {
                         final preset = _mealPresets[index];
+                        
+                        // FIXED: Extract values properly from database
+                        final calories = _extractDouble(preset, ['total_calories', 'calories']);
+                        final protein = _extractDouble(preset, ['total_protein_g', 'protein_g', 'protein']);
+                        final carbs = _extractDouble(preset, ['total_carbs_g', 'carbs_g', 'carbs']);
+                        final fat = _extractDouble(preset, ['total_fat_g', 'fat_g', 'fat']);
+                        
                         return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          elevation: 2,
                           child: ListTile(
+                            contentPadding: const EdgeInsets.all(12),
                             leading: CircleAvatar(
                               backgroundColor: Colors.amber.shade100,
                               child: const Icon(Icons.star, color: Colors.amber),
                             ),
-                            title: Text(preset['preset_name'] ?? 'Unnamed Preset'),
-                            subtitle: Text(
-                              '${preset['total_calories']?.round() ?? 0} cal • '
-                              'P: ${preset['protein']?.round() ?? 0}g • '
-                              'C: ${preset['carbs']?.round() ?? 0}g • '
-                              'F: ${preset['fat']?.round() ?? 0}g',
+                            title: Text(
+                              preset['preset_name'] ?? 'Unnamed Preset',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${calories.round()} cal • '
+                                  'P: ${protein.round()}g • '
+                                  'C: ${carbs.round()}g • '
+                                  'F: ${fat.round()}g',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                if (preset['meal_type'] != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    preset['meal_type'],
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                // Quick Log Button
                                 IconButton(
-                                  icon: const Icon(Icons.add_circle_outline),
+                                  icon: const Icon(Icons.restaurant),
                                   color: Colors.green,
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _logPresetDirectly(preset);
+                                  },
+                                  tooltip: 'Log now',
+                                ),
+                                // Edit Button
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined),
+                                  color: Colors.blue,
                                   onPressed: () {
                                     Navigator.pop(context);
                                     _usePreset(preset);
                                   },
+                                  tooltip: 'Load & edit',
                                 ),
+                                // Delete Button
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline),
                                   color: Colors.red,
                                   onPressed: () => _deletePreset(preset['id']),
+                                  tooltip: 'Delete',
                                 ),
                               ],
                             ),
@@ -1403,19 +1478,14 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       final foodItem = nutritionData['food_item'] ?? _multiLineController.text;
       final name = presetName.isNotEmpty ? presetName : foodItem;
       
-      // Debug: Print what we received
-      print('Saving preset with data: $nutritionData');
-      
-      // Extract nutrition values with multiple fallback paths
-      final calories = nutritionData['calories'] ?? 0;
-      final proteinG = nutritionData['protein_g'] ?? nutritionData['protein'] ?? 0;
-      final carbsG = nutritionData['carbs_g'] ?? nutritionData['carbs'] ?? 0;
-      final fatG = nutritionData['fat_g'] ?? nutritionData['fat'] ?? 0;
-      final fiberG = nutritionData['fiber_g'] ?? nutritionData['fiber'] ?? 0;
-      final sugarG = nutritionData['sugar_g'] ?? nutritionData['sugar'] ?? 0;
-      final sodiumMg = nutritionData['sodium_mg'] ?? nutritionData['sodium'] ?? 0;
-      
-      print('Extracted values: protein=$proteinG, carbs=$carbsG, fat=$fatG');
+      // Extract nutrition values with proper fallback
+      final calories = _extractDouble(nutritionData, ['calories']);
+      final proteinG = _extractDouble(nutritionData, ['protein_g', 'protein']);
+      final carbsG = _extractDouble(nutritionData, ['carbs_g', 'carbs']);
+      final fatG = _extractDouble(nutritionData, ['fat_g', 'fat']);
+      final fiberG = _extractDouble(nutritionData, ['fiber_g', 'fiber']);
+      final sugarG = _extractDouble(nutritionData, ['sugar_g', 'sugar']);
+      final sodiumMg = _extractDouble(nutritionData, ['sodium_mg', 'sodium']);
       
       await _apiService.createPreset({
         'user_id': widget.userProfile.id,
@@ -1436,12 +1506,19 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Meal saved as preset!'),
+          content: Row(
+            children: [
+              Icon(Icons.star, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Meal saved as preset!'),
+            ],
+          ),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
         ),
       );
     } catch (e) {
-      print('Full error saving preset: $e');
+      print('Error saving preset: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error saving preset: $e'),
@@ -1482,6 +1559,149 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         _multiLineController.clear();
         _quantityController.clear();
       });
+    }
+  }
+
+  Future<void> _logPresetDirectly(Map<String, dynamic> preset) async {
+    // Show confirmation bottom sheet
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final calories = _extractDouble(preset, ['total_calories', 'calories']);
+        final protein = _extractDouble(preset, ['total_protein_g', 'protein_g', 'protein']);
+        final carbs = _extractDouble(preset, ['total_carbs_g', 'carbs_g', 'carbs']);
+        final fat = _extractDouble(preset, ['total_fat_g', 'fat_g', 'fat']);
+        
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                preset['preset_name'] ?? 'Preset',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${calories.round()} cal • '
+                'P: ${protein.round()}g • '
+                'C: ${carbs.round()}g • '
+                'F: ${fat.round()}g',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 24),
+              
+              // Meal Type Selector
+              const Text(
+                'Select meal type:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) {
+                  final isSelected = _selectedMealType == type;
+                  return ChoiceChip(
+                    label: Text(type),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedMealType = type;
+                      });
+                      Navigator.pop(context);
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        _logPresetDirectly(preset);
+                      });
+                    },
+                    selectedColor: Colors.green,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+              
+              // Log Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context, true),
+                  icon: const Icon(Icons.restaurant, color: Colors.white),
+                  label: Text(
+                    'Log as $_selectedMealType',
+                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    
+    if (confirmed == true) {
+      setState(() => _isAnalyzing = true);
+      
+      try {
+        final response = await _apiService.usePreset(
+          preset['id'],
+          {
+            'meal_type': _selectedMealType,
+            'meal_date': _selectedDate.toIso8601String(),
+          },
+        );
+        
+        setState(() => _isAnalyzing = false);
+        
+        if (response['success'] == true) {
+          await _loadMealsForDate(_selectedDate);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('${preset['preset_name']} logged as $_selectedMealType!'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _isAnalyzing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging preset: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -1846,6 +2066,20 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
     );
+  }
+
+  double _extractDouble(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      if (data.containsKey(key) && data[key] != null) {
+        final value = data[key];
+        if (value is num) return value.toDouble();
+        if (value is String) {
+          final parsed = double.tryParse(value);
+          if (parsed != null) return parsed;
+        }
+      }
+    }
+    return 0.0;
   }
 
   Future<void> _deleteMeal(String mealId) async {
