@@ -333,25 +333,52 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
             ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          try {
-            await _refreshData();
-          } catch (e) {
-            print('Error refreshing: $e');
-          }
-        },
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _isLoading 
-                ? const Center(child: CircularProgressIndicator())
-                : _buildCurrentStep(),
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () async {
+              try {
+                await _refreshData();
+              } catch (e) {
+                print('Error refreshing: $e');
+              }
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildCurrentStep(),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // Loading overlay
+          if (_isLoading)
+            Container(
+              color: Colors.black54,
+              child: Center(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Logging your workout...',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNavigation(),
     );
@@ -1382,28 +1409,38 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 const SizedBox(height: 8),
-                ..._suggestedExercises.map((ex) {
-                  final exerciseName = ex['exercise_name'];
-                  final details = _getExerciseDetails(ex);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, 
-                          size: 16, 
-                          color: Colors.green.shade600
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    children: _suggestedExercises.map((ex) {
+                      final exerciseName = ex['exercise_name'];
+                      final details = _getExerciseDetails(ex);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, 
+                              size: 16, 
+                              color: Colors.green.shade600
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '$exerciseName$details',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '$exerciseName$details',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
+                      );
+                    }).toList(),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1421,8 +1458,8 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
-                          'Use these same exercises and values for quick logging?',
-                          style: TextStyle(fontSize: 12),
+                          'This will log all these exercises directly to your workout history',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -1443,10 +1480,11 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
+                // Trigger direct logging to database
                 _quickLogLastWorkout();
               },
               icon: const Icon(Icons.flash_on, size: 18),
-              label: const Text('Quick Log'),
+              label: const Text('Quick Log Now'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,
@@ -1458,63 +1496,111 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     );
   }
 
-  // Quick log the suggested exercises
-  void _quickLogLastWorkout() {
-    setState(() {
-      // Set selected exercises
-      _selectedExercises = _suggestedExercises
-          .map((ex) => ex['exercise_name'] as String)
-          .toList();
-
-      // Pre-fill exercise logs with last workout values
-      _exerciseLogs.clear();
+  // Quick log the suggested exercises directly to database
+  Future<void> _quickLogLastWorkout() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final exercises = <Map<String, dynamic>>[];
+      
       for (final ex in _suggestedExercises) {
         final exerciseName = ex['exercise_name'] as String;
         final exerciseType = ex['exercise_type'] as String? ?? 'strength';
         
+        // Calculate calories based on the exercise type
+        final exercise = _getExerciseByName(exerciseName);
+        double calories = 0;
+        
         if (exerciseType == 'cardio') {
-          _exerciseLogs[exerciseName] = ExerciseLog(
-            duration: ex['duration_minutes'] ?? 0,
-            distance: ex['distance_km']?.toDouble() ?? 0.0,
+          final duration = ex['duration_minutes'] ?? 0;
+          calories = exercise.calorieRate * duration.toDouble();
+        } else {
+          final sets = ex['sets'] ?? 0;
+          final reps = ex['reps'] ?? 0;
+          calories = exercise.calorieRate * (sets.toDouble() * reps.toDouble());
+        }
+        
+        // Get duration
+        double duration = 0;
+        if (exerciseType == 'strength') {
+          final sets = ex['sets'] ?? 0;
+          final reps = ex['reps'] ?? 0;
+          duration = calculateExerciseDuration(
+            exerciseType: exerciseType,
+            sets: sets,
+            reps: reps,
+            exerciseName: exerciseName,
           );
         } else {
-          _exerciseLogs[exerciseName] = ExerciseLog(
-            sets: ex['sets'] ?? 0,
-            reps: ex['reps'] ?? 0,
-            weight: ex['weight_kg']?.toDouble() ?? 0.0,
-          );
+          duration = (ex['duration_minutes'] ?? 0).toDouble();
         }
+        
+        // Base exercise data
+        final exerciseData = <String, dynamic>{
+          'user_id': widget.userProfile.id,
+          'exercise_name': exerciseName,
+          'exercise_type': exerciseType,
+          'muscle_group': _selectedMuscleGroup.toLowerCase(),
+          'calories_burned': calories,
+          'exercise_date': _selectedDate.toIso8601String(),
+          'duration_minutes': duration.round(),
+          'notes': 'Quick logged from previous workout',
+        };
+        
+        // Add type-specific data
+        if (exerciseType == 'cardio') {
+          if (ex['duration_minutes'] != null && ex['duration_minutes'] > 0) {
+            exerciseData['duration_minutes'] = ex['duration_minutes'];
+          }
+          if (ex['distance_km'] != null && ex['distance_km'] > 0) {
+            exerciseData['distance_km'] = ex['distance_km'];
+          }
+        } else {
+          // Strength exercise
+          if (ex['sets'] != null && ex['sets'] > 0) {
+            exerciseData['sets'] = ex['sets'];
+          }
+          if (ex['reps'] != null && ex['reps'] > 0) {
+            exerciseData['reps'] = ex['reps'];
+          }
+          if (ex['weight_kg'] != null && ex['weight_kg'] > 0) {
+            exerciseData['weight_kg'] = ex['weight_kg'];
+          }
+        }
+        
+        exercises.add(exerciseData);
       }
-
-      // Go directly to logging page
-      _currentStep = 2;
-    });
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.flash_on, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Loaded ${_selectedExercises.length} exercises from last workout',
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-        action: SnackBarAction(
-          label: 'EDIT',
-          textColor: Colors.white,
-          onPressed: () {
-            // User can still edit if needed
-          },
-        ),
-      ),
-    );
+      
+      print('Quick logging exercises: $exercises'); // Debug print
+      
+      // Submit all exercises to database
+      for (final exerciseData in exercises) {
+        await _apiService.logExercise(exerciseData);
+      }
+      
+      if (mounted) {
+        // Reload data to update indicators
+        await _loadExerciseData();
+        
+        // Show success summary
+        _showQuickLogSuccessSummary(exercises);
+      }
+    } catch (e) {
+      print('Error quick logging workout: $e'); // Debug print
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging workout: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   String _getNextButtonText() {
@@ -1949,6 +2035,117 @@ double _calculateTotalCalories() {
       print('Error in _refreshData: $e');
     }
   }
+
+  // Show success summary after quick log
+  void _showQuickLogSuccessSummary(List<Map<String, dynamic>> exercises) {
+    final totalCalories = exercises.fold<double>(
+      0.0, (sum, ex) => sum + ((ex['calories_burned'] ?? 0) as num).toDouble());
+    
+    final totalVolume = exercises
+        .where((ex) => ex['exercise_type'] == 'strength')
+        .fold<double>(0.0, (sum, ex) {
+          final sets = ((ex['sets'] ?? 0) as num).toDouble();
+          final reps = ((ex['reps'] ?? 0) as num).toDouble();
+          final weight = ((ex['weight_kg'] ?? 0.0) as num).toDouble();
+          return sum + (sets * reps * weight);
+        });
+    
+    final totalCardioMinutes = exercises
+        .where((ex) => ex['exercise_type'] == 'cardio')
+        .fold<int>(0, (sum, ex) => sum + ((ex['duration_minutes'] ?? 0) as num).toInt());
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.flash_on, color: Colors.orange.shade700, size: 28),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Quick Log Complete! 🎉',
+                  style: TextStyle(fontSize: 20),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Successfully logged your $_selectedMuscleGroup workout for ${DateFormat('MMM d').format(_selectedDate)}!',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Column(
+                  children: [
+                    _buildSummaryItem(Icons.fitness_center, '${exercises.length} exercises logged'),
+                    _buildSummaryItem(Icons.local_fire_department, '${totalCalories.toInt()} calories burned'),
+                    if (totalVolume > 0)
+                      _buildSummaryItem(Icons.monitor_weight, '${totalVolume.toStringAsFixed(1)}kg total volume'),
+                    if (totalCardioMinutes > 0)
+                      _buildSummaryItem(Icons.timer, '$totalCardioMinutes minutes cardio'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 18, color: Colors.blue.shade700),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'All exercises logged with values from your last workout',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(true); // Return to previous screen
+              },
+              child: const Text('View History'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(true); // Return to previous screen
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Done'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 }
 
 
