@@ -1040,19 +1040,33 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         : meal['food_item'];
       
       try {
+        // Debug: Print what we received
+        print('Saving logged meal as preset: $meal');
+        
+        // Extract nutrition values with multiple fallback paths
+        final calories = meal['calories'] ?? 0;
+        final proteinG = meal['protein_g'] ?? meal['protein'] ?? 0;
+        final carbsG = meal['carbs_g'] ?? meal['carbs'] ?? 0;
+        final fatG = meal['fat_g'] ?? meal['fat'] ?? 0;
+        final fiberG = meal['fiber_g'] ?? meal['fiber'] ?? 0;
+        final sugarG = meal['sugar_g'] ?? meal['sugar'] ?? 0;
+        final sodiumMg = meal['sodium_mg'] ?? meal['sodium'] ?? 0;
+        
+        print('Extracted values: protein=$proteinG, carbs=$carbsG, fat=$fatG');
+        
         await _apiService.createPreset({
           'user_id': widget.userProfile.id,
           'preset_name': presetName,
           'food_items': meal['food_item'],
           'meal_type': meal['meal_type'],
           'nutrition_data': meal,
-          'total_calories': meal['calories'],
-          'total_protein_g': meal['protein_g'] ?? meal['protein'] ?? 0,  
-          'total_carbs_g': meal['carbs_g'] ?? meal['carbs'] ?? 0,        
-          'total_fat_g': meal['fat_g'] ?? meal['fat'] ?? 0,              
-          'total_fiber_g': meal['fiber_g'] ?? 0,                         
-          'total_sugar_g': meal['sugar_g'] ?? 0,                         
-          'total_sodium_mg': meal['sodium_mg'] ?? 0,
+          'total_calories': calories,
+          'total_protein_g': proteinG,
+          'total_carbs_g': carbsG,
+          'total_fat_g': fatG,
+          'total_fiber_g': fiberG,
+          'total_sugar_g': sugarG,
+          'total_sodium_mg': sodiumMg,
         });
         
         await _loadPresets();
@@ -1064,6 +1078,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           ),
         );
       } catch (e) {
+        print('Full error saving logged meal as preset: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving preset: $e'),
@@ -1388,19 +1403,33 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       final foodItem = nutritionData['food_item'] ?? _multiLineController.text;
       final name = presetName.isNotEmpty ? presetName : foodItem;
       
+      // Debug: Print what we received
+      print('Saving preset with data: $nutritionData');
+      
+      // Extract nutrition values with multiple fallback paths
+      final calories = nutritionData['calories'] ?? 0;
+      final proteinG = nutritionData['protein_g'] ?? nutritionData['protein'] ?? 0;
+      final carbsG = nutritionData['carbs_g'] ?? nutritionData['carbs'] ?? 0;
+      final fatG = nutritionData['fat_g'] ?? nutritionData['fat'] ?? 0;
+      final fiberG = nutritionData['fiber_g'] ?? nutritionData['fiber'] ?? 0;
+      final sugarG = nutritionData['sugar_g'] ?? nutritionData['sugar'] ?? 0;
+      final sodiumMg = nutritionData['sodium_mg'] ?? nutritionData['sodium'] ?? 0;
+      
+      print('Extracted values: protein=$proteinG, carbs=$carbsG, fat=$fatG');
+      
       await _apiService.createPreset({
         'user_id': widget.userProfile.id,
         'preset_name': name,
         'food_items': foodItem,
         'meal_type': _selectedMealType,
         'nutrition_data': nutritionData,
-        'total_calories': nutritionData['calories'],
-        'total_protein_g': nutritionData['protein_g'] ?? nutritionData['protein'] ?? 0,  
-        'total_carbs_g': nutritionData['carbs_g'] ?? nutritionData['carbs'] ?? 0,        
-        'total_fat_g': nutritionData['fat_g'] ?? nutritionData['fat'] ?? 0,              
-        'total_fiber_g': nutritionData['fiber_g'] ?? 0,                                  
-        'total_sugar_g': nutritionData['sugar_g'] ?? 0,                                  
-        'total_sodium_mg': nutritionData['sodium_mg'] ?? 0, 
+        'total_calories': calories,
+        'total_protein_g': proteinG,
+        'total_carbs_g': carbsG,
+        'total_fat_g': fatG,
+        'total_fiber_g': fiberG,
+        'total_sugar_g': sugarG,
+        'total_sodium_mg': sodiumMg,
       });
       
       await _loadPresets();
@@ -1412,6 +1441,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         ),
       );
     } catch (e) {
+      print('Full error saving preset: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error saving preset: $e'),
