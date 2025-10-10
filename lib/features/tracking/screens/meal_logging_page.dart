@@ -1234,13 +1234,13 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             .join(', ');
       }
 
-      // FIXED: Create a realistic time for the selected date
+      // Create a realistic time for the selected date in LOCAL timezone
       DateTime mealDateTime;
       if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
-        // For today: use current time
-        mealDateTime = DateTime.now();
+        // For today: use current LOCAL time
+        mealDateTime = DateTime.now(); 
       } else {
-        // For past dates: use a time based on meal type
+        // For past dates: use a time based on meal type in LOCAL timezone
         int hour;
         switch (_selectedMealType.toLowerCase()) {
           case 'breakfast':
@@ -1259,6 +1259,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             hour = 12;
         }
         
+        // Create datetime in LOCAL timezone
         mealDateTime = DateTime(
           _selectedDate.year,
           _selectedDate.month,
@@ -1266,18 +1267,18 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           hour,
           0,
           0,
-        );
+        ); 
       }
 
-      print('📅 Logging meal for: ${mealDateTime.toLocal()}');
-      print('🌍 Timezone offset: ${DateTime.now().timeZoneOffset.inMinutes} minutes');
+      print('📅 Logging meal for LOCAL time: ${mealDateTime.toLocal()}');
+      print('📅 As ISO string: ${mealDateTime.toIso8601String()}');
 
       final response = await _apiService.analyzeMeal({
         'user_id': widget.userProfile.id,
         'food_item': mealDescription,
         'quantity': quantity,
         'meal_type': _selectedMealType,
-        'meal_date': mealDateTime.toIso8601String(),
+        'meal_date': mealDateTime.toIso8601String(), 
       });
 
       setState(() {
@@ -1324,6 +1325,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     }
   }
 
+
   void _usePreset(Map<String, dynamic> preset) {
     setState(() {
       _useMultiLineEntry = true;
@@ -1367,10 +1369,10 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     setState(() => _isAnalyzing = true);
     
     try {
-      // FIXED: Create realistic time for the selected date
+      // Create realistic time for the selected date in LOCAL timezone
       DateTime mealDateTime;
       if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
-        mealDateTime = DateTime.now();
+        mealDateTime = DateTime.now(); 
       } else {
         int hour;
         switch (_selectedMealType.toLowerCase()) {
@@ -1397,7 +1399,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           hour,
           0,
           0,
-        );
+        ); 
       }
 
       final response = await _apiService.analyzeMeal({
@@ -1405,7 +1407,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         'food_item': meal['food_item'],
         'quantity': meal['quantity'] ?? '1 serving',
         'meal_type': _selectedMealType,
-        'meal_date': mealDateTime.toIso8601String(),
+        'meal_date': mealDateTime.toIso8601String(), 
         'cached_nutrition': meal['nutrition_data'],
       });
       
@@ -1885,11 +1887,13 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       setState(() => _isAnalyzing = true);
       
       try {
-        // Create realistic time for the selected date
+        // Create realistic time for the selected date in LOCAL timezone
         DateTime mealDateTime;
         if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
-          mealDateTime = DateTime.now();
+          // For today: use current LOCAL time
+          mealDateTime = DateTime.now(); 
         } else {
+          // For past dates: use a time based on meal type in LOCAL timezone
           int hour;
           switch (_selectedMealType.toLowerCase()) {
             case 'breakfast':
@@ -1908,6 +1912,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
               hour = 12;
           }
           
+          // Create datetime in LOCAL timezone
           mealDateTime = DateTime(
             _selectedDate.year,
             _selectedDate.month,
@@ -1917,6 +1922,9 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             0,
           );
         }
+
+        print('📅 Logging preset for LOCAL time: ${mealDateTime.toLocal()}');
+        print('📅 As ISO string: ${mealDateTime.toIso8601String()}');
 
         final response = await _apiService.usePreset(
           preset['id'],
