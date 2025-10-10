@@ -1215,7 +1215,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       if (_hasMealTypeLogged(_selectedMealType)) {
         final confirmed = await _confirmDuplicateMealType(_selectedMealType);
         if (!confirmed) {
-          return; // User cancelled, don't proceed
+          return;
         }
       }
     }
@@ -1229,23 +1229,49 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       if (_useMultiLineEntry) {
         mealDescription = _multiLineController.text;
       } else {
-        // Combine individual items
         mealDescription = _foodItems
             .map((item) => '${item['quantity']} ${item['food']}')
             .join(', ');
       }
 
-      // Convert selected date to local date string with time set to current time
-      final DateTime mealDateTime = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        DateTime.now().hour,
-        DateTime.now().minute,
-        DateTime.now().second,
-      );
+      // FIXED: Create a realistic time for the selected date
+      DateTime mealDateTime;
+      if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
+        // For today: use current time
+        mealDateTime = DateTime.now();
+      } else {
+        // For past dates: use a time based on meal type
+        int hour;
+        switch (_selectedMealType.toLowerCase()) {
+          case 'breakfast':
+            hour = 8;
+            break;
+          case 'lunch':
+            hour = 13;
+            break;
+          case 'dinner':
+            hour = 19;
+            break;
+          case 'snack':
+            hour = 15;
+            break;
+          default:
+            hour = 12;
+        }
+        
+        mealDateTime = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          hour,
+          0,
+          0,
+        );
+      }
 
-      // Use the existing analyzeMeal method with Map parameter
+      print('📅 Logging meal for: ${mealDateTime.toLocal()}');
+      print('🌍 Timezone offset: ${DateTime.now().timeZoneOffset.inMinutes} minutes');
+
       final response = await _apiService.analyzeMeal({
         'user_id': widget.userProfile.id,
         'food_item': mealDescription,
@@ -1255,7 +1281,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       });
 
       setState(() {
-        // Handle the response structure properly
         if (response.containsKey('meal')) {
           _nutritionData = response['meal'];
         } else if (response.containsKey('data')) {
@@ -1263,19 +1288,16 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         } else {
           _nutritionData = response;
         }
-
         _isAnalyzing = false;
       });
 
       String dataSource = _nutritionData?['data_source'] ?? 'Unknown';
       print('Data source used: $dataSource');
 
-      // Always show preset dialog after successful analysis, regardless of date
       if (response['success'] == true || _nutritionData != null) {
         _showSaveAsPresetDialog(_nutritionData!);
       }
 
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Meal analyzed successfully! (${_nutritionData?['calories']?.round() ?? 0} calories)'),
@@ -1286,7 +1308,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
 
       await _loadMealsForDate(_selectedDate);
 
-      // Clear the form after successful analysis
       _multiLineController.clear();
       _quantityController.clear();
       _foodItems.clear();
@@ -1346,15 +1367,38 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     setState(() => _isAnalyzing = true);
     
     try {
-      // Create proper datetime for the selected date
-      final DateTime mealDateTime = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        DateTime.now().hour,
-        DateTime.now().minute,
-        DateTime.now().second,
-      );
+      // FIXED: Create realistic time for the selected date
+      DateTime mealDateTime;
+      if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
+        mealDateTime = DateTime.now();
+      } else {
+        int hour;
+        switch (_selectedMealType.toLowerCase()) {
+          case 'breakfast':
+            hour = 8;
+            break;
+          case 'lunch':
+            hour = 13;
+            break;
+          case 'dinner':
+            hour = 19;
+            break;
+          case 'snack':
+            hour = 15;
+            break;
+          default:
+            hour = 12;
+        }
+        
+        mealDateTime = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          hour,
+          0,
+          0,
+        );
+      }
 
       final response = await _apiService.analyzeMeal({
         'user_id': widget.userProfile.id,
@@ -1841,21 +1885,44 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       setState(() => _isAnalyzing = true);
       
       try {
-        // Create proper datetime for the selected date
-        final DateTime mealDateTime = DateTime(
-          _selectedDate.year,
-          _selectedDate.month,
-          _selectedDate.day,
-          DateTime.now().hour,
-          DateTime.now().minute,
-          DateTime.now().second,
-        );
+        // Create realistic time for the selected date
+        DateTime mealDateTime;
+        if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
+          mealDateTime = DateTime.now();
+        } else {
+          int hour;
+          switch (_selectedMealType.toLowerCase()) {
+            case 'breakfast':
+              hour = 8;
+              break;
+            case 'lunch':
+              hour = 13;
+              break;
+            case 'dinner':
+              hour = 19;
+              break;
+            case 'snack':
+              hour = 15;
+              break;
+            default:
+              hour = 12;
+          }
+          
+          mealDateTime = DateTime(
+            _selectedDate.year,
+            _selectedDate.month,
+            _selectedDate.day,
+            hour,
+            0,
+            0,
+          );
+        }
 
         final response = await _apiService.usePreset(
           preset['id'],
           {
             'meal_type': _selectedMealType,
-            'meal_date': mealDateTime.toIso8601String(), // FIXED
+            'meal_date': mealDateTime.toIso8601String(),
           },
         );
         
@@ -1992,8 +2059,9 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                 children: [
                   Text(
                     meal['logged_at'] != null 
-                      ? DateFormat('h:mm a').format(DateTime.parse(meal['logged_at']).toLocal()
-                      )
+                      ? DateFormat('h:mm a').format(
+                          DateTime.parse(meal['logged_at'])
+                        )
                       : '',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
