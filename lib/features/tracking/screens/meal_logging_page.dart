@@ -1234,13 +1234,19 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             .join(', ');
       }
 
-      // Create a realistic time for the selected date in LOCAL timezone
+      // FIXED: Use current time for today, reasonable time for past dates
       DateTime mealDateTime;
-      if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
-        // For today: use current LOCAL time
-        mealDateTime = DateTime.now(); 
+      final now = DateTime.now();
+      
+      // Check if selected date is today
+      if (_selectedDate.year == now.year &&
+          _selectedDate.month == now.month &&
+          _selectedDate.day == now.day) {
+        // It's today - use actual current time
+        mealDateTime = now;
+        print('✅ Using current time for today: $mealDateTime');
       } else {
-        // For past dates: use a time based on meal type in LOCAL timezone
+        // It's a past date - use a reasonable time for the meal type
         int hour;
         switch (_selectedMealType.toLowerCase()) {
           case 'breakfast':
@@ -1259,7 +1265,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             hour = 12;
         }
         
-        // Create datetime in LOCAL timezone
         mealDateTime = DateTime(
           _selectedDate.year,
           _selectedDate.month,
@@ -1267,10 +1272,11 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           hour,
           0,
           0,
-        ); 
+        );
+        print('✅ Using default time for past date: $mealDateTime');
       }
 
-      print('📅 Logging meal for LOCAL time: ${mealDateTime.toLocal()}');
+      print('📅 Logging meal for LOCAL time: $mealDateTime');
       print('📅 As ISO string: ${mealDateTime.toIso8601String()}');
 
       final response = await _apiService.analyzeMeal({
@@ -1278,7 +1284,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         'food_item': mealDescription,
         'quantity': quantity,
         'meal_type': _selectedMealType,
-        'meal_date': mealDateTime.toIso8601String(), 
+        'meal_date': mealDateTime.toIso8601String(),
       });
 
       setState(() {
@@ -1369,11 +1375,19 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     setState(() => _isAnalyzing = true);
     
     try {
-      // Create realistic time for the selected date in LOCAL timezone
+      // FIXED: Use current time for today, reasonable time for past dates
       DateTime mealDateTime;
-      if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
-        mealDateTime = DateTime.now(); 
+      final now = DateTime.now();
+      
+      // Check if selected date is today
+      if (_selectedDate.year == now.year &&
+          _selectedDate.month == now.month &&
+          _selectedDate.day == now.day) {
+        // It's today - use actual current time
+        mealDateTime = now;
+        print('✅ Using current time for today: $mealDateTime');
       } else {
+        // It's a past date - use a reasonable time for the meal type
         int hour;
         switch (_selectedMealType.toLowerCase()) {
           case 'breakfast':
@@ -1399,15 +1413,19 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           hour,
           0,
           0,
-        ); 
+        );
+        print('✅ Using default time for past date: $mealDateTime');
       }
+
+      print('📅 Quick adding meal for LOCAL time: $mealDateTime');
+      print('📅 As ISO string: ${mealDateTime.toIso8601String()}');
 
       final response = await _apiService.analyzeMeal({
         'user_id': widget.userProfile.id,
         'food_item': meal['food_item'],
         'quantity': meal['quantity'] ?? '1 serving',
         'meal_type': _selectedMealType,
-        'meal_date': mealDateTime.toIso8601String(), 
+        'meal_date': mealDateTime.toIso8601String(),
         'cached_nutrition': meal['nutrition_data'],
       });
       
@@ -1887,13 +1905,19 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       setState(() => _isAnalyzing = true);
       
       try {
-        // Create realistic time for the selected date in LOCAL timezone
+        // FIXED: Use current time for today, reasonable time for past dates
         DateTime mealDateTime;
-        if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
-          // For today: use current LOCAL time
-          mealDateTime = DateTime.now(); 
+        final now = DateTime.now();
+        
+        // Check if selected date is today
+        if (_selectedDate.year == now.year &&
+            _selectedDate.month == now.month &&
+            _selectedDate.day == now.day) {
+          // It's today - use actual current time
+          mealDateTime = now;
+          print('✅ Using current time for today: $mealDateTime');
         } else {
-          // For past dates: use a time based on meal type in LOCAL timezone
+          // It's a past date - use a reasonable time for the meal type
           int hour;
           switch (_selectedMealType.toLowerCase()) {
             case 'breakfast':
@@ -1912,7 +1936,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
               hour = 12;
           }
           
-          // Create datetime in LOCAL timezone
           mealDateTime = DateTime(
             _selectedDate.year,
             _selectedDate.month,
@@ -1921,9 +1944,10 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             0,
             0,
           );
+          print('✅ Using default time for past date: $mealDateTime');
         }
 
-        print('📅 Logging preset for LOCAL time: ${mealDateTime.toLocal()}');
+        print('📅 Logging preset for LOCAL time: $mealDateTime');
         print('📅 As ISO string: ${mealDateTime.toIso8601String()}');
 
         final response = await _apiService.usePreset(
