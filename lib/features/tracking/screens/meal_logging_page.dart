@@ -1210,7 +1210,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       return;
     }
 
-    // ADDED: Check for duplicate meal type (only for today's meals)
+    // Check for duplicate meal type (only for today's meals)
     if (DateUtils.isSameDay(_selectedDate, DateTime.now())) {
       if (_hasMealTypeLogged(_selectedMealType)) {
         final confirmed = await _confirmDuplicateMealType(_selectedMealType);
@@ -1235,13 +1235,23 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             .join(', ');
       }
 
+      // Convert selected date to local date string with time set to current time
+      final DateTime mealDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        DateTime.now().hour,
+        DateTime.now().minute,
+        DateTime.now().second,
+      );
+
       // Use the existing analyzeMeal method with Map parameter
       final response = await _apiService.analyzeMeal({
         'user_id': widget.userProfile.id,
         'food_item': mealDescription,
         'quantity': quantity,
         'meal_type': _selectedMealType,
-        'meal_date': _selectedDate.toIso8601String(),
+        'meal_date': mealDateTime.toIso8601String(),
       });
 
       setState(() {
@@ -1260,7 +1270,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       String dataSource = _nutritionData?['data_source'] ?? 'Unknown';
       print('Data source used: $dataSource');
 
-      // CHANGED: Always show preset dialog after successful analysis, regardless of date
+      // Always show preset dialog after successful analysis, regardless of date
       if (response['success'] == true || _nutritionData != null) {
         _showSaveAsPresetDialog(_nutritionData!);
       }
@@ -1336,14 +1346,22 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     setState(() => _isAnalyzing = true);
     
     try {
-      // Directly log the meal since we already have the data
+      // Create proper datetime for the selected date
+      final DateTime mealDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        DateTime.now().hour,
+        DateTime.now().minute,
+        DateTime.now().second,
+      );
+
       final response = await _apiService.analyzeMeal({
         'user_id': widget.userProfile.id,
         'food_item': meal['food_item'],
         'quantity': meal['quantity'] ?? '1 serving',
         'meal_type': _selectedMealType,
-        'meal_date': _selectedDate.toIso8601String(),
-        // Include cached nutrition data if available
+        'meal_date': mealDateTime.toIso8601String(),
         'cached_nutrition': meal['nutrition_data'],
       });
       
@@ -1707,7 +1725,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                 style: TextStyle(color: Colors.grey[600]),
               ),
               
-              // ADDED: Warning for duplicate meal type
+              // Warning for duplicate meal type
               if (hasDuplicate && DateUtils.isSameDay(_selectedDate, DateTime.now())) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -1823,11 +1841,21 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       setState(() => _isAnalyzing = true);
       
       try {
+        // Create proper datetime for the selected date
+        final DateTime mealDateTime = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          DateTime.now().hour,
+          DateTime.now().minute,
+          DateTime.now().second,
+        );
+
         final response = await _apiService.usePreset(
           preset['id'],
           {
             'meal_type': _selectedMealType,
-            'meal_date': _selectedDate.toIso8601String(),
+            'meal_date': mealDateTime.toIso8601String(), // FIXED
           },
         );
         
@@ -1964,7 +1992,8 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                 children: [
                   Text(
                     meal['logged_at'] != null 
-                      ? DateFormat('h:mm a').format(DateTime.parse(meal['logged_at']))
+                      ? DateFormat('h:mm a').format(DateTime.parse(meal['logged_at']).toLocal()
+                      )
                       : '',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
