@@ -667,7 +667,7 @@ class ApiService {
       print('[ApiService] Updating user weight to $newWeight kg');
       
       final response = await http.patch(
-        Uri.parse('http://localhost:8000/api/health/user/$userId/weight'),
+        Uri.parse('$baseUrl/user/$userId/weight'), 
         headers: headers,
         body: jsonEncode({
           'weight': newWeight,
@@ -691,7 +691,7 @@ class ApiService {
       print('[ApiService] Setting starting weight: $startingWeight kg for user: $userId');
       
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/health/user/$userId/set-starting-weight'),
+        Uri.parse('$baseUrl/user/$userId/set-starting-weight'), 
         headers: headers,
         body: jsonEncode({
           'starting_weight': startingWeight,
