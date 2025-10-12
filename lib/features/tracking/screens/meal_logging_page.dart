@@ -1234,7 +1234,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             .join(', ');
       }
 
-      // FIXED: Use current time for today, reasonable time for past dates
+      // FIXED: Same approach as weight logging - use local time then convert to UTC
       DateTime mealDateTime;
       final now = DateTime.now();
       
@@ -1276,15 +1276,19 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         print('✅ Using default time for past date: $mealDateTime');
       }
 
-      print('📅 Logging meal for LOCAL time: $mealDateTime');
-      print('📅 As ISO string: ${mealDateTime.toIso8601String()}');
+      // Convert local time to UTC before sending to backend (same as weight logging)
+      final utcDateTime = mealDateTime.toUtc();
+
+      print('📅 Local time: $mealDateTime');
+      print('📅 UTC time being sent: $utcDateTime');
+      print('📅 As ISO string: ${utcDateTime.toIso8601String()}');
 
       final response = await _apiService.analyzeMeal({
         'user_id': widget.userProfile.id,
         'food_item': mealDescription,
         'quantity': quantity,
         'meal_type': _selectedMealType,
-        'meal_date': mealDateTime.toIso8601String(),
+        'meal_date': utcDateTime.toIso8601String(), // Send UTC time
       });
 
       setState(() {
@@ -1375,7 +1379,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     setState(() => _isAnalyzing = true);
     
     try {
-      // FIXED: Use current time for today, reasonable time for past dates
+      // FIXED: Same approach as weight logging
       DateTime mealDateTime;
       final now = DateTime.now();
       
@@ -1417,15 +1421,18 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
         print('✅ Using default time for past date: $mealDateTime');
       }
 
-      print('📅 Quick adding meal for LOCAL time: $mealDateTime');
-      print('📅 As ISO string: ${mealDateTime.toIso8601String()}');
+      // Convert local time to UTC before sending to backend (same as weight logging)
+      final utcDateTime = mealDateTime.toUtc();
+
+      print('📅 Quick adding meal - Local time: $mealDateTime');
+      print('📅 Quick adding meal - UTC time: $utcDateTime');
 
       final response = await _apiService.analyzeMeal({
         'user_id': widget.userProfile.id,
         'food_item': meal['food_item'],
         'quantity': meal['quantity'] ?? '1 serving',
         'meal_type': _selectedMealType,
-        'meal_date': mealDateTime.toIso8601String(),
+        'meal_date': utcDateTime.toIso8601String(), // Send UTC time
         'cached_nutrition': meal['nutrition_data'],
       });
       
@@ -1905,7 +1912,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       setState(() => _isAnalyzing = true);
       
       try {
-        // FIXED: Use current time for today, reasonable time for past dates
+        // FIXED: Same approach as weight logging
         DateTime mealDateTime;
         final now = DateTime.now();
         
@@ -1947,14 +1954,17 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           print('✅ Using default time for past date: $mealDateTime');
         }
 
-        print('📅 Logging preset for LOCAL time: $mealDateTime');
-        print('📅 As ISO string: ${mealDateTime.toIso8601String()}');
+        // Convert local time to UTC before sending to backend (same as weight logging)
+        final utcDateTime = mealDateTime.toUtc();
+
+        print('📅 Logging preset - Local time: $mealDateTime');
+        print('📅 Logging preset - UTC time: $utcDateTime');
 
         final response = await _apiService.usePreset(
           preset['id'],
           {
             'meal_type': _selectedMealType,
-            'meal_date': mealDateTime.toIso8601String(),
+            'meal_date': utcDateTime.toIso8601String(), // Send UTC time
           },
         );
         

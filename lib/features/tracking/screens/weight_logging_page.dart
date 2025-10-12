@@ -143,69 +143,6 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
     }
   }
 
-  Future<void> _saveWeight() async {
-    if (_weightController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a weight')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      final weight = double.parse(_weightController.text);
-      final entry = WeightEntry(
-        userId: _currentUserProfile?.id ?? widget.userProfile.id ?? '',
-        weight: weight,
-        date: DateTime.now(),
-        notes: _notesController.text.isEmpty ? null : _notesController.text,
-      );
-
-      await _dataManager.saveWeightEntry(entry);
-      
-      // Update the user's current weight in profile
-      if (_currentUserProfile != null) {
-        final updatedProfile = _currentUserProfile!.copyWith(weight: weight);
-        
-        // Use Provider to update
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        await userProvider.updateProfile(updatedProfile);
-      }
-
-      // Clear fields and reload history
-      _weightController.clear();
-      _notesController.clear();
-      await _loadWeightHistory();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Weight saved successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving weight: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
-  }
-
   UserProfile get currentUserProfile => _currentUserProfile ?? widget.userProfile;
   
   double get currentWeight {
