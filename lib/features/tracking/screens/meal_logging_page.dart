@@ -2102,7 +2102,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                   Text(
                     meal['logged_at'] != null 
                       ? DateFormat('h:mm a').format(
-                          DateTime.parse(meal['logged_at'])
+                          DateTime.parse(meal['logged_at']).toLocal()
                         )
                       : '',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
