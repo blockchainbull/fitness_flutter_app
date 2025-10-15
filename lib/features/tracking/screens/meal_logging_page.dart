@@ -122,20 +122,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
-  DateTime _parseAndConvertToLocal(String? dateString) {
-    if (dateString == null || dateString.isEmpty) {
-      return DateTime.now();
-    }
-    
-    try {
-      // Parse UTC datetime and convert to local
-      return DateTime.parse(dateString).toLocal();
-    } catch (e) {
-      print('Error parsing date: $e');
-      return DateTime.now();
-    }
-  }
-
   Future<void> _performSearch(String query) async {
     final queryLower = query.toLowerCase();
     
@@ -2088,7 +2074,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           ..._todaysMeals.map((meal) {
             // Parse UTC time and convert to local for display
             final loggedAt = meal['logged_at'] != null 
-              ? _parseAndConvertToLocal(meal['logged_at']).toLocal()
+              ? DateTime.parse(meal['logged_at']).toLocal()
               : DateTime.now();
             
             return Card(
@@ -2120,7 +2106,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      DateFormat('h:mm a').format(loggedAt), // Now shows local time!
+                      DateFormat('h:mm a').format(loggedAt),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     PopupMenuButton<String>(
