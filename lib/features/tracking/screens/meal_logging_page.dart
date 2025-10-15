@@ -1978,7 +1978,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           preset['id'],
           {
             'meal_type': _selectedMealType,
-            'meal_date': utcDateTime.toIso8601String(), // Send UTC time
+            'meal_date': utcDateTime.toIso8601String(), 
           },
         );
         
@@ -2088,7 +2088,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           ..._todaysMeals.map((meal) {
             // Parse UTC time and convert to local for display
             final loggedAt = meal['logged_at'] != null 
-              ? _parseAndConvertToLocal(meal['logged_at'])
+              ? _parseAndConvertToLocal(meal['logged_at']).toLocal()
               : DateTime.now();
             
             return Card(
