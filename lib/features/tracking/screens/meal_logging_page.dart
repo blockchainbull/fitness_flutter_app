@@ -122,6 +122,20 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
+  DateTime _parseAndConvertToLocal(String? dateString) {
+    if (dateString == null || dateString.isEmpty) {
+      return DateTime.now();
+    }
+    
+    try {
+      // Parse UTC datetime and convert to local
+      return DateTime.parse(dateString).toLocal();
+    } catch (e) {
+      print('Error parsing date: $e');
+      return DateTime.now();
+    }
+  }
+
   Future<void> _performSearch(String query) async {
     final queryLower = query.toLowerCase();
     
@@ -2071,90 +2085,93 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           const SizedBox(height: 12),
           _buildNutritionProgress(),
           const SizedBox(height: 12),
-          ..._todaysMeals.map((meal) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.green.shade100,
-                child: Text(
-                  meal['meal_type']?.substring(0, 1) ?? 'M',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+          ..._todaysMeals.map((meal) {
+            // Parse UTC time and convert to local for display
+            final loggedAt = meal['logged_at'] != null 
+              ? _parseAndConvertToLocal(meal['logged_at'])
+              : DateTime.now();
+            
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.green.shade100,
+                  child: Text(
+                    meal['meal_type']?.substring(0, 1) ?? 'M',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                title: Text(meal['food_item'] ?? ''),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${meal['calories']?.round() ?? 0} cal • ${meal['quantity'] ?? ''}',
+                    ),
+                    Text(
+                      'P: ${(meal['protein_g'] ?? meal['protein'] ?? 0).round()}g • '
+                      'C: ${(meal['carbs_g'] ?? meal['carbs'] ?? 0).round()}g • '
+                      'F: ${(meal['fat_g'] ?? meal['fat'] ?? 0).round()}g',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      DateFormat('h:mm a').format(loggedAt), // Now shows local time!
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) {
+                        if (value == 'preset') {
+                          _saveLoggedMealAsPreset(meal); 
+                        } else if (value == 'edit') {
+                          _editMeal(meal);
+                        } else if (value == 'delete') {
+                          _deleteMeal(meal['id']);
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        const PopupMenuItem(
+                          value: 'preset',
+                          child: Row(
+                            children: [
+                              Icon(Icons.bookmark_add, size: 20, color: Colors.amber),
+                              SizedBox(width: 8),
+                              Text('Save as Preset'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 20),
+                              SizedBox(width: 8),
+                              Text('Edit'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, color: Colors.red, size: 20),
+                              SizedBox(width: 8),
+                              Text('Delete', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              title: Text(meal['food_item'] ?? ''),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${meal['calories']?.round() ?? 0} cal • ${meal['quantity'] ?? ''}',
-                  ),
-                  Text(
-                    'P: ${(meal['protein_g'] ?? meal['protein'] ?? 0).round()}g • '
-                    'C: ${(meal['carbs_g'] ?? meal['carbs'] ?? 0).round()}g • '
-                    'F: ${(meal['fat_g'] ?? meal['fat'] ?? 0).round()}g',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    meal['logged_at'] != null 
-                      ? DateFormat('h:mm a').format(
-                          DateTime.parse(meal['logged_at']).toLocal()
-                        )
-                      : '',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (value) {
-                      if (value == 'preset') {
-                        _saveLoggedMealAsPreset(meal); 
-                      } else if (value == 'edit') {
-                        _editMeal(meal);
-                      } else if (value == 'delete') {
-                        _deleteMeal(meal['id']);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      const PopupMenuItem(
-                        value: 'preset',
-                        child: Row(
-                          children: [
-                            Icon(Icons.bookmark_add, size: 20, color: Colors.amber),
-                            SizedBox(width: 8),
-                            Text('Save as Preset'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 20),
-                            SizedBox(width: 8),
-                            Text('Edit'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, color: Colors.red, size: 20),
-                            SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          )).toList(),
+            );
+          }).toList(),
         ],
       ),
     );

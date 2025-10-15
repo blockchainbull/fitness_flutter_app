@@ -1444,7 +1444,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
       // Reload the history first
       await _loadWeightHistory();
       
-      // ✅ FIX: Update user's profile weight after deletion
+      // Update user's profile weight after deletion
       if (_currentUserProfile != null) {
         double newWeight;
         
