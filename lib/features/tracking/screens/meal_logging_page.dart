@@ -1788,6 +1788,29 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                 ),
               ),
               const SizedBox(height: 8),
+
+              if (preset['food_items'] != null && preset['food_items'].toString().isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    preset['food_items'],
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              
               Text(
                 '${calories.round()} cal • '
                 'P: ${protein.round()}g • '
