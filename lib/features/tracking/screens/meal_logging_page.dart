@@ -136,10 +136,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       final utcTime = DateTime.parse(normalized).toUtc();
       final localTime = utcTime.toLocal();
       
-      print('🕐 UTC from DB: $utcString');
-      print('🕐 Parsed UTC: $utcTime');
-      print('🕐 Local time: $localTime');
-      
       return localTime;
     } catch (e) {
       print('❌ Error parsing time: $e');
