@@ -2119,10 +2119,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           _buildNutritionProgress(),
           const SizedBox(height: 12),
           ..._todaysMeals.map((meal) {
-            // Parse UTC time and convert to local for display
-            final loggedAt = meal['logged_at'] != null 
-              ? DateTime.parse(meal['logged_at'] + (meal['logged_at'].endsWith('Z') ? '' : 'Z')).toLocal()
-              : DateTime.now();
+              final loggedAt = _parseUTCToLocal(meal['logged_at']);
             
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
