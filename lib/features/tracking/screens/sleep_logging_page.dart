@@ -60,17 +60,29 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
         _selectedDate
       );
       if (entry != null) {
+        print('📥 Raw entry data:');
+        print('  Bedtime DateTime: ${entry.bedtime}');
+        print('  WakeTime DateTime: ${entry.wakeTime}');
+        
         setState(() {
           _existingEntry = entry;
           _hasEntryForToday = true;
+          
+          // Parse times with better debugging
           _bedtime = _parseTimeOfDay(entry.bedtime);
           _wakeTime = _parseTimeOfDay(entry.wakeTime);
+          
+          print('  Parsed Bedtime TimeOfDay: $_bedtime');
+          print('  Parsed WakeTime TimeOfDay: $_wakeTime');
+          
           _qualityScore = entry.qualityScore;
           _sleepIssues = List.from(entry.sleepIssues);
           _notesController.text = entry.notes ?? '';
         });
 
         print('✅ Loaded existing entry for ${_selectedDate.toIso8601String().split('T')[0]}');
+        print('  Total hours in entry: ${entry.totalHours}');
+        print('  Calculated total hours: ${_calculateTotalHours()}');
       } else {
         print('📝 No existing entry for ${_selectedDate.toIso8601String().split('T')[0]}');
         setState(() {
@@ -139,7 +151,15 @@ class _SleepLoggingPageState extends State<SleepLoggingPage> {
   }
 
   double _calculateTotalHours() {
-    if (_bedtime == null || _wakeTime == null) return widget.userProfile.sleepHours;
+    // If we have an existing entry, use its stored total hours
+    if (_existingEntry != null) {
+      return _existingEntry!.totalHours;
+    }
+    
+    // Otherwise calculate from the selected times
+    if (_bedtime == null || _wakeTime == null) {
+      return widget.userProfile.sleepHours;
+    }
     
     DateTime bedDateTime = DateTime(
       _selectedDate.year,
