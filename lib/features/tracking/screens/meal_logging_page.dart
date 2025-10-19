@@ -122,6 +122,31 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
     );
   }
 
+  DateTime _parseUTCToLocal(String? utcString) {
+    if (utcString == null) return DateTime.now();
+    
+    try {
+      // Ensure the string has UTC indicator
+      String normalized = utcString.trim();
+      if (!normalized.endsWith('Z') && !normalized.contains('+') && !normalized.contains('UTC')) {
+        normalized += 'Z';
+      }
+      
+      // Parse as UTC and convert to local
+      final utcTime = DateTime.parse(normalized).toUtc();
+      final localTime = utcTime.toLocal();
+      
+      print('🕐 UTC from DB: $utcString');
+      print('🕐 Parsed UTC: $utcTime');
+      print('🕐 Local time: $localTime');
+      
+      return localTime;
+    } catch (e) {
+      print('❌ Error parsing time: $e');
+      return DateTime.now();
+    }
+  }
+
   Future<void> _performSearch(String query) async {
     final queryLower = query.toLowerCase();
     
@@ -1935,7 +1960,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
       setState(() => _isAnalyzing = true);
       
       try {
-        // FIXED: Same approach as weight logging
         DateTime mealDateTime;
         final now = DateTime.now();
         
@@ -2097,7 +2121,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
           ..._todaysMeals.map((meal) {
             // Parse UTC time and convert to local for display
             final loggedAt = meal['logged_at'] != null 
-              ? DateTime.parse(meal['logged_at']).toLocal()
+              ? DateTime.parse(meal['logged_at'] + (meal['logged_at'].endsWith('Z') ? '' : 'Z')).toLocal()
               : DateTime.now();
             
             return Card(
