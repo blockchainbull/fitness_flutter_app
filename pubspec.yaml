@@ -21,16 +21,17 @@ dependencies:
   speech_to_text: ^6.1.1
   postgres: ^2.6.1
   dotenv: ^4.1.0
+  flutter_dotenv: ^5.1.0 
+  supabase_flutter: ^2.0.0  
   table_calendar: ^3.0.9
   #health: ^10.2.0
   #permission_handler: ^11.3.1
   #pedometer: ^4.0.2
   
-  # Use fl_chart instead of charts_flutter to avoid dependency conflicts
   fl_chart: ^0.68.0
 
 flutter:
   uses-material-design: true
   
-#  assets:
-#    - .env
+  assets:
+    - .env
