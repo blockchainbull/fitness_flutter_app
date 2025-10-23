@@ -332,38 +332,47 @@ class _EnhancedExerciseHistoryPageState extends State<EnhancedExerciseHistoryPag
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Summary cards
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.2,
+          // Summary cards - Use Row and Column instead of GridView
+          Row(
             children: [
-              _buildStatCard(
-                'Total Workouts',
-                filteredExercises.length.toString(),
-                Icons.fitness_center,
-                Colors.orange,
+              Expanded(
+                child: _buildStatCard(
+                  'Total Workouts',
+                  filteredExercises.length.toString(),
+                  Icons.fitness_center,
+                  Colors.orange,
+                ),
               ),
-              _buildStatCard(
-                'Total Calories',
-                _calculateTotalCalories(filteredExercises).toInt().toString(),
-                Icons.local_fire_department,
-                Colors.red,
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  'Total Calories',
+                  _calculateTotalCalories(filteredExercises).toInt().toString(),
+                  Icons.local_fire_department,
+                  Colors.red,
+                ),
               ),
-              _buildStatCard(
-                'Avg per Week',
-                _calculateAvgWorkoutsPerWeek(filteredExercises).toStringAsFixed(1),
-                Icons.calendar_today,
-                Colors.blue,
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  'Avg per Week',
+                  _calculateAvgWorkoutsPerWeek(filteredExercises).toStringAsFixed(1),
+                  Icons.calendar_today,
+                  Colors.blue,
+                ),
               ),
-              _buildStatCard(
-                'Most Popular',
-                _getMostFrequentExercise(filteredExercises),
-                Icons.star,
-                Colors.green,
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  'Most Popular',
+                  _getMostFrequentExercise(filteredExercises),
+                  Icons.star,
+                  Colors.green,
+                ),
               ),
             ],
           ),
@@ -605,8 +614,21 @@ class _EnhancedExerciseHistoryPageState extends State<EnhancedExerciseHistoryPag
   }
 
   double _calculateTotalCalories(List<Map<String, dynamic>> exercises) {
-    return exercises.fold(0.0, (sum, ex) => 
-      sum + ((ex['calories_burned'] ?? 0) as num).toDouble());
+    if (exercises.isEmpty) return 0.0;
+    
+    try {
+      return exercises.fold(0.0, (sum, ex) {
+        final calories = ex['calories_burned'];
+        if (calories == null) return sum;
+        if (calories is int) return sum + calories.toDouble();
+        if (calories is double) return sum + calories;
+        if (calories is String) return sum + (double.tryParse(calories) ?? 0.0);
+        return sum;
+      });
+    } catch (e) {
+      print('Error calculating total calories: $e');
+      return 0.0;
+    }
   }
 
   double _calculateDayCalories(List<Map<String, dynamic>> exercises) {
@@ -615,35 +637,47 @@ class _EnhancedExerciseHistoryPageState extends State<EnhancedExerciseHistoryPag
   }
 
   double _calculateAvgWorkoutsPerWeek(List<Map<String, dynamic>> exercises) {
-    if (exercises.isEmpty) return 0;
+    if (exercises.isEmpty) return 0.0;
     
-    final dates = exercises.map((ex) => DateTime.parse(ex['exercise_date'])).toList();
-    final earliest = dates.reduce((a, b) => a.isBefore(b) ? a : b);
-    final latest = dates.reduce((a, b) => a.isAfter(b) ? a : b);
-    
-    final weeks = latest.difference(earliest).inDays / 7;
-    return weeks > 0 ? exercises.length / weeks : exercises.length.toDouble();
+    try {
+      final dates = exercises
+          .map((e) => DateTime.tryParse(e['exercise_date']?.toString() ?? ''))
+          .whereType<DateTime>()
+          .toList();
+      
+      if (dates.isEmpty) return 0.0;
+      
+      dates.sort();
+      final daysDiff = dates.last.difference(dates.first).inDays;
+      final weeks = ((daysDiff / 7).ceil()).clamp(1, 1000);
+      
+      return exercises.length / weeks;
+    } catch (e) {
+      print('Error calculating avg workouts per week: $e');
+      return 0.0;
+    }
   }
 
   String _getMostFrequentExercise(List<Map<String, dynamic>> exercises) {
-    if (exercises.isEmpty) return '-';
+    if (exercises.isEmpty) return 'N/A';
     
-    final counts = <String, int>{};
-    for (final ex in exercises) {
-      final name = ex['exercise_name'] as String? ?? 'Unknown';
-      counts[name] = (counts[name] ?? 0) + 1;
-    }
-    
-    var maxCount = 0;
-    var mostFrequent = '-';
-    for (final entry in counts.entries) {
-      if (entry.value > maxCount) {
-        maxCount = entry.value;
-        mostFrequent = entry.key;
+    try {
+      final frequency = <String, int>{};
+      for (final ex in exercises) {
+        final name = ex['exercise_name']?.toString() ?? 'Unknown';
+        frequency[name] = (frequency[name] ?? 0) + 1;
       }
+      
+      if (frequency.isEmpty) return 'N/A';
+      
+      final mostFrequent = frequency.entries.reduce(
+        (a, b) => a.value > b.value ? a : b
+      );
+      return mostFrequent.key;
+    } catch (e) {
+      print('Error calculating most frequent exercise: $e');
+      return 'N/A';
     }
-    
-    return mostFrequent;
   }
 
   Future<void> _selectDateRange() async {

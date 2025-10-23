@@ -336,11 +336,15 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   ),
                 ),
               
-              WeeklyStatsCard(
-                userId: widget.userProfile.id!,
-                userProfile: widget.userProfile,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: WeeklyStatsCard(
+                    userId: widget.userProfile.id!,
+                    userProfile: widget.userProfile,
+                  ),
+                ),
               ),
-              const SizedBox(height: 16),
 
               // Quick Actions
               if (_quickActionsEnabled)

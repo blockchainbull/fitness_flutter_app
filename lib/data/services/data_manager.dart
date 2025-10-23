@@ -108,16 +108,12 @@ class DataManager {
           // Try to load from remote source
           UserProfile? userProfile;
           
-          if (kIsWeb) {
-            _log('Loading user profile via API (web platform)');
-            userProfile = await _apiService.getUserProfileById(userId);
-          } else {
-            _log('Loading user profile via direct database connection');
-            userProfile = await UserRepository.getUserProfileById(userId);
-          }
+          // ALWAYS use API service, regardless of platform
+          _log('Loading user profile via API');
+          userProfile = await _apiService.getUserProfileById(userId);
           
           if (userProfile != null) {
-            _log('User profile loaded from remote source');
+            _log('User profile loaded from API');
 
             if (userProfile.id == null || userProfile.id!.isEmpty) {
               userProfile = userProfile.copyWith(id: userId);
@@ -130,7 +126,7 @@ class DataManager {
             return userProfile;
           }
         } catch (e) {
-          _log('Failed to load user profile from remote: $e');
+          _log('Failed to load user profile from API: $e');
           _log('Falling back to local storage...');
         }
       }

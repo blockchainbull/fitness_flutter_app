@@ -348,19 +348,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: Icon(Icons.smart_toy, color: Colors.purple[700]),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'AI Health Coach',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Knows your data • Always available',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
+            Expanded( 
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'AI Health Coach',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Powered by your health data',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ), 
           ],
         ),
         backgroundColor: Colors.white,
