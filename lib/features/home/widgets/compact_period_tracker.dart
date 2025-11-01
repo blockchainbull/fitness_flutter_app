@@ -1,11 +1,12 @@
 // lib/features/home/widgets/compact_period_tracker.dart
 
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/period_entry.dart';
 import 'package:user_onboarding/data/repositories/period_repository.dart';
 import 'package:user_onboarding/features/tracking/screens/period_logging_page.dart';
-import 'package:intl/intl.dart';
+
 
 class CompactPeriodTracker extends StatefulWidget {
   final UserProfile userProfile;
@@ -39,6 +40,8 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
 
   Future<void> _loadPeriodData() async {
     try {
+      // Check mounted before first setState
+      if (!mounted) return;
       setState(() => _isLoading = true);
       
       final cycleLength = widget.userProfile.cycleLength ?? 28;
@@ -47,6 +50,9 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
         widget.userProfile.id ?? '',
         limit: 12,
       );
+      
+      // Check mounted after async operation
+      if (!mounted) return;
       
       setState(() {
         _periodHistory = history;
@@ -78,6 +84,8 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
       });
     } catch (e) {
       print('Error loading period data: $e');
+      // Check mounted before setState on error
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
@@ -89,8 +97,11 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
         builder: (context) => const PeriodCalendarPage(),
       ),
     ).then((_) {
-      _loadPeriodData();
-      widget.onUpdate?.call();
+      // Check if widget is still mounted before reloading
+      if (mounted) {
+        _loadPeriodData();
+        widget.onUpdate?.call();
+      }
     });
   }
 
@@ -146,10 +157,14 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (_isOnPeriod ? const Color(0xFFE91E63) : Colors.purple)
-                  .withOpacity(0.2),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: (_isOnPeriod
+                      ? const Color(0xFFE91E63)
+                      : _isFertileWindow
+                          ? Colors.purple.shade400
+                          : Colors.pink.shade200)
+                  .withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -159,69 +174,117 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _isOnPeriod ? Icons.water_drop : Icons.favorite_border,
-                    color: Colors.white,
-                    size: 24,
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      _isOnPeriod
+                          ? Icons.favorite
+                          : _isFertileWindow
+                              ? Icons.local_florist
+                              : Icons.calendar_today,
+                      color: _isOnPeriod || _isFertileWindow
+                          ? Colors.white
+                          : Colors.pink.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isOnPeriod
+                          ? 'On Period'
+                          : _isFertileWindow
+                              ? 'Fertile Window'
+                              : 'Period Cycle',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _isOnPeriod || _isFertileWindow
+                            ? Colors.white
+                            : Colors.pink.shade900,
+                      ),
+                    ),
+                  ],
                 ),
                 Icon(
                   Icons.arrow_forward_ios,
-                  color: Colors.white.withOpacity(0.8),
-                  size: 18,
+                  size: 16,
+                  color: _isOnPeriod || _isFertileWindow
+                      ? Colors.white
+                      : Colors.pink.shade700,
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            
-            Text(
-              'Period Tracker',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            
-            Text(
-              _isOnPeriod
-                  ? 'Day ${DateTime.now().difference(_currentPeriod!.startDate).inDays + 1} of period'
-                  : 'Day $_cycleDay of cycle',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _isOnPeriod
-                    ? 'Period in progress'
-                    : _isFertileWindow
-                        ? 'Fertile window'
-                        : _nextPeriodDate != null
-                            ? 'Next in ${_nextPeriodDate!.difference(DateTime.now()).inDays} days'
-                            : 'Tap to start tracking',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isOnPeriod
+                          ? 'Day ${DateTime.now().difference(_currentPeriod!.startDate).inDays + 1}'
+                          : 'Day $_cycleDay',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: _isOnPeriod || _isFertileWindow
+                            ? Colors.white
+                            : Colors.pink.shade900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _isOnPeriod
+                          ? 'of current period'
+                          : 'of ${widget.userProfile.cycleLength ?? 28}-day cycle',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: (_isOnPeriod || _isFertileWindow
+                                ? Colors.white
+                                : Colors.pink.shade700)
+                            .withOpacity(0.9),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                if (!_isOnPeriod && _nextPeriodDate != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (_isFertileWindow
+                              ? Colors.white
+                              : Colors.pink.shade50)
+                          .withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          '${_nextPeriodDate!.difference(DateTime.now()).inDays}',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: _isFertileWindow
+                                ? Colors.purple.shade700
+                                : Colors.pink.shade900,
+                          ),
+                        ),
+                        Text(
+                          'days',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: _isFertileWindow
+                                ? Colors.purple.shade600
+                                : Colors.pink.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ],
         ),

@@ -26,6 +26,8 @@ import 'package:user_onboarding/features/home/widgets/compact_supplements_tracke
 import 'package:user_onboarding/features/home/widgets/compact_period_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/weekly_stats_card.dart';
 import 'package:user_onboarding/features/notifications/screens/notifications_screen.dart';
+import 'package:user_onboarding/utils/user_diagnostic_widget.dart';
+
 
 
 class DashboardHome extends StatefulWidget {
@@ -224,164 +226,180 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
       key: _scaffoldKey,
       backgroundColor: Colors.grey[50],
       drawer: ActivityDrawer(userProfile: _currentUserProfile),
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: SafeArea(
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // Header
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: _buildHeader(),
-                ),
+      body: 
+        // Stack(
+        // children: [   
+          RefreshIndicator(
+            onRefresh: _refreshData,
+            child: SafeArea(
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // Header
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: _buildHeader(),
+                    ),
+                  ),
+
+                  // Goal Progress
+                  if (_goalProgressEnabled || 
+                    _currentUserProfile.weightGoal != null && 
+                    _currentUserProfile.weightGoal!.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: DashboardWeightGoalCard(
+                      userProfile: _currentUserProfile,
+                      onUpdate: () {
+                        _loadTodayProgress();
+                      },
+                    ),
+                  ),
+
+                  // Daily Macros
+                  if (_dailyMacros)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: DailyGoalsCard(
+                          userProfile: widget.userProfile,
+                          onTap: () {
+                            // Navigate to meal logging page
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EnhancedMealLoggingPage(
+                                  userProfile: widget.userProfile,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                  // Water Tracker
+                  if (_waterTrackerEnabled)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: CompactWaterTracker(
+                          userProfile: _currentUserProfile,
+                          onUpdate: () {
+                            _loadTodayProgress();
+                          },
+                        ),
+                      ),
+                    ),
+
+                  // Step Tracker
+                  if (_stepTrackerEnabled)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: CompactStepTracker(
+                          userProfile: _currentUserProfile,
+                          onUpdate: () {
+                            _loadTodayProgress();
+                          },
+                        ),
+                      ),
+                    ),
+
+                  if (_exerciseTrackerEnabled)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: CompactExerciseTracker(
+                          userProfile: _currentUserProfile,
+                          onUpdate: () {
+                            _loadTodayProgress();
+                          },
+                        ),
+                      ),
+                    ),
+
+                  // Sleep Tracker  
+                  if (_sleepTrackerEnabled)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: CompactSleepTracker(
+                          userProfile: _currentUserProfile,
+                          onUpdate: () {
+                            _loadTodayProgress();
+                          },
+                        ),
+                      ),
+                    ),
+
+                  // Supplements Tracker - only show if setup
+                  if (_supplementsTrackerEnabled && _hasSupplementsSetup)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: CompactSupplementsTracker(
+                          userProfile: _currentUserProfile,
+                          onUpdate: () {
+                            _loadTodayProgress();
+                          },
+                        ),
+                      ),
+                    ),
+                  
+                  if (widget.userProfile.hasPeriods == true)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: CompactPeriodTracker(
+                          userProfile: _currentUserProfile,
+                          onUpdate: () {
+                            _loadTodayProgress();
+                          },
+                        ),
+                      ),
+                    ),
+                  
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: WeeklyStatsCard(
+                        userId: widget.userProfile.id!,
+                        userProfile: widget.userProfile,
+                      ),
+                    ),
+                  ),
+
+
+
+                  // Quick Actions
+                  if (_quickActionsEnabled)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: _buildQuickActions(),
+                      ),
+                    ),
+
+                  
+                  
+                  // Bottom padding
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 20),
+                  ),
+                ],
               ),
-
-              // Goal Progress
-              if (_goalProgressEnabled || 
-                _currentUserProfile.weightGoal != null && 
-                _currentUserProfile.weightGoal!.isNotEmpty)
-              SliverToBoxAdapter(
-                child: DashboardWeightGoalCard(
-                  userProfile: _currentUserProfile,
-                  onUpdate: () {
-                    _loadTodayProgress();
-                  },
-                ),
-              ),
-
-              // Daily Macros
-              if (_dailyMacros)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: DailyGoalsCard(
-                      userProfile: widget.userProfile,
-                      onTap: () {
-                        // Navigate to meal logging page
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EnhancedMealLoggingPage(
-                              userProfile: widget.userProfile,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-
-              // Water Tracker
-              if (_waterTrackerEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: CompactWaterTracker(
-                      userProfile: _currentUserProfile,
-                      onUpdate: () {
-                        _loadTodayProgress();
-                      },
-                    ),
-                  ),
-                ),
-
-              // Step Tracker
-              if (_stepTrackerEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: CompactStepTracker(
-                      userProfile: _currentUserProfile,
-                      onUpdate: () {
-                        _loadTodayProgress();
-                      },
-                    ),
-                  ),
-                ),
-
-              if (_exerciseTrackerEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: CompactExerciseTracker(
-                      userProfile: _currentUserProfile,
-                      onUpdate: () {
-                        _loadTodayProgress();
-                      },
-                    ),
-                  ),
-                ),
-
-              // Sleep Tracker  
-              if (_sleepTrackerEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: CompactSleepTracker(
-                      userProfile: _currentUserProfile,
-                      onUpdate: () {
-                        _loadTodayProgress();
-                      },
-                    ),
-                  ),
-                ),
-
-              // Supplements Tracker - only show if setup
-              if (_supplementsTrackerEnabled && _hasSupplementsSetup)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: CompactSupplementsTracker(
-                      userProfile: _currentUserProfile,
-                      onUpdate: () {
-                        _loadTodayProgress();
-                      },
-                    ),
-                  ),
-                ),
-              
-              if (widget.userProfile.hasPeriods == true)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: CompactPeriodTracker(
-                      userProfile: _currentUserProfile,
-                      onUpdate: () {
-                        _loadTodayProgress();
-                      },
-                    ),
-                  ),
-                ),
-              
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: WeeklyStatsCard(
-                    userId: widget.userProfile.id!,
-                    userProfile: widget.userProfile,
-                  ),
-                ),
-              ),
-
-              // Quick Actions
-              if (_quickActionsEnabled)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildQuickActions(),
-                  ),
-                ),
-              
-              // Bottom padding
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 20),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+
+          // const Positioned(
+          //           bottom: 80,
+          //           left: 0,
+          //           right: 0,
+          //           child: UserDiagnosticWidget(),
+          //         ),
+          //       ],
+          //     ),
     );
   }
 
