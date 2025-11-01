@@ -1,4 +1,4 @@
-package com.example.user_onboarding
+package com.prowrites.nufitionist
 
 import io.flutter.embedding.android.FlutterActivity
 

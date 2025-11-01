@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.user_onboarding"
+    namespace = "com.prowrites.nufitionist"
     compileSdk = 36  // Changed to 36 to match plugin requirements
     
     compileOptions {
@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.user_onboarding"
+        applicationId = "com.prowrites.nufitionist"
         minSdk = flutter.minSdkVersion
         targetSdk = 36  // Changed to 36
         versionCode = 1
