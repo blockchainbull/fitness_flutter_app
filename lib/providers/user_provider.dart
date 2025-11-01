@@ -106,24 +106,33 @@ class UserProvider extends ChangeNotifier {
     }
   }
   
-  // Login
+  // Login - FIXED VERSION
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     
     try {
-      final userId = await _dataManager.login(email, password);
-      if (userId != null) {
+      // DataManager.login returns Map<String, dynamic>
+      final result = await _dataManager.login(email, password);
+      
+      if (result['success'] == true) {
+        // Load the user profile after successful login
         _userProfile = await _dataManager.loadUserProfile();
+        
         if (_userProfile != null) {
+          // Set user in UserManager
           await UserManager.setCurrentUser(_userProfile!);
           notifyListeners();
           return true;
+        } else {
+          _error = 'Failed to load user profile';
+          return false;
         }
+      } else {
+        _error = result['message'] ?? 'Invalid credentials';
+        return false;
       }
-      _error = 'Invalid credentials';
-      return false;
     } catch (e) {
       print('Error during login: $e');
       _error = e.toString();

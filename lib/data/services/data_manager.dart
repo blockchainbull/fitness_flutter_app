@@ -742,6 +742,7 @@ class DataManager {
   // Login user method
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      _log('=== LOGIN PROCESS STARTED ===');
       _log('Starting login for: $email');
       
       // Check connectivity first
@@ -759,30 +760,89 @@ class DataManager {
         },
       );
       
+      _log('API Response received: ${result}');
+      
       if (result['success'] == true && result['user'] != null) {
         final userData = result['user'];
+        final userId = userData['id'];
+        
+        _log('✅ Login API call successful');
+        _log('User ID from API: $userId');
+        _log('User data keys: ${userData.keys}');
         
         // Save user data locally
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(userIdKey, userData['id']);
-        await prefs.setString('user_email', email);
-        await prefs.setBool('is_logged_in', true);
         
-        _log('Login successful for user: ${userData['id']}');
+        // Save user ID
+        await prefs.setString(userIdKey, userId);
+        _log('✅ Saved user_id to SharedPreferences: $userId');
+        
+        // Save email
+        await prefs.setString('user_email', email);
+        _log('✅ Saved user_email to SharedPreferences');
+        
+        // Mark as logged in
+        await prefs.setBool('is_logged_in', true);
+        _log('✅ Marked is_logged_in as true');
+        
+        // Mark onboarding as completed (since they can login, they must have completed onboarding)
+        await prefs.setBool(onboardingCompletedKey, true);
+        _log('✅ Marked onboarding_completed as true');
+        
+        // Fetch and save the full user profile
+        try {
+          _log('Fetching full user profile from API...');
+          final userProfile = await _apiService.getUserProfileById(userId);
+          
+          if (userProfile != null) {
+            _log('✅ User profile fetched successfully');
+            _log('Profile ID: ${userProfile.id}');
+            _log('Profile Name: ${userProfile.name}');
+            
+            // Save profile locally
+            await _saveUserProfileLocally(userProfile);
+            _log('✅ User profile saved to local storage');
+            
+            // Also save via UserManager
+            await UserManager.setCurrentUser(userProfile);
+            _log('✅ User profile saved via UserManager');
+          } else {
+            _log('⚠️ getUserProfileById returned null');
+          }
+        } catch (profileError) {
+          _log('❌ Error fetching user profile: $profileError');
+          // Don't fail the login if profile fetch fails - we'll try again later
+        }
+        
+        // Debug: Print all SharedPreferences keys
+        _log('=== SharedPreferences Keys After Login ===');
+        for (var key in prefs.getKeys()) {
+          _log('Key: $key = ${prefs.get(key)}');
+        }
+        _log('=========================================');
+        
+        _log('=== LOGIN PROCESS COMPLETED SUCCESSFULLY ===');
         return {
           'success': true,
           'user': userData,
           'message': 'Login successful',
         };
       } else {
+        _log('❌ Login failed: Invalid response from API');
         throw Exception(result['message'] ?? 'Login failed');
       }
     } catch (e) {
-      _log('Login failed: $e');
+      _log('❌ Login failed with error: $e');
+      _log('Error type: ${e.runtimeType}');
       
       // Clear any cached login state
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_logged_in', false);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_logged_in', false);
+        _log('Cleared is_logged_in flag');
+      } catch (prefsError) {
+        _log('Error clearing prefs: $prefsError');
+      }
       
       return {
         'success': false,
