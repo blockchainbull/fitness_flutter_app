@@ -280,7 +280,6 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
     final goalColor = _getGoalColor();
     
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),

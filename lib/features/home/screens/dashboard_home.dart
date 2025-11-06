@@ -26,7 +26,7 @@ import 'package:user_onboarding/features/home/widgets/compact_supplements_tracke
 import 'package:user_onboarding/features/home/widgets/compact_period_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/weekly_stats_card.dart';
 import 'package:user_onboarding/features/notifications/screens/notifications_screen.dart';
-import 'package:user_onboarding/utils/user_diagnostic_widget.dart';
+// import 'package:user_onboarding/utils/user_diagnostic_widget.dart';
 
 
 
@@ -260,7 +260,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   if (_dailyMacros)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: DailyGoalsCard(
                           userProfile: widget.userProfile,
                           onTap: () {
@@ -282,7 +282,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   if (_waterTrackerEnabled)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: CompactWaterTracker(
                           userProfile: _currentUserProfile,
                           onUpdate: () {
@@ -296,7 +296,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                   if (_stepTrackerEnabled)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: CompactStepTracker(
                           userProfile: _currentUserProfile,
                           onUpdate: () {

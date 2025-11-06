@@ -185,7 +185,6 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     if (_isLoading) {
       return Container(
         height: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: const Center(
           child: SizedBox(
             width: 20,
@@ -205,7 +204,6 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     final formatter = NumberFormat('#,###');
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Material(
         borderRadius: BorderRadius.circular(16),
         elevation: 2,

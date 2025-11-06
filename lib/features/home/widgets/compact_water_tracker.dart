@@ -186,7 +186,6 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         height: 60,
         decoration: BoxDecoration(
           color: Colors.white,
@@ -214,7 +213,6 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
     final isGoalReached = glassesConsumed >= targetGlasses;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Material(
         borderRadius: BorderRadius.circular(16),
         elevation: 2,
