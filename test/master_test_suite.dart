@@ -1,10 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
-/// Master Test Suite - All Features
-/// This runs a comprehensive test of ALL tracking features
-/// Backend: https://health-ai-backend-i28b.onrender.com
 void main() {
   const String baseUrl = 'https://health-ai-backend-i28b.onrender.com/api/health';
   const String healthCheckUrl = 'https://health-ai-backend-i28b.onrender.com/health';

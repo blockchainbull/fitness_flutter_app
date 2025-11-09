@@ -2,9 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/step_entry.dart';
 import 'package:user_onboarding/data/repositories/step_repository.dart';
+import 'package:user_onboarding/data/services/notification_service.dart';
 import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dart';
 
 class CompactStepTracker extends StatefulWidget {
@@ -29,6 +31,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
   late AnimationController _animationController;
   late Animation<double> _fillAnimation;
   final TextEditingController _quickAddController = TextEditingController();
+  final NotificationService _notificationService = NotificationService();
 
   @override
   void initState() {
@@ -76,8 +79,17 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
         _isLoading = false;
       });
       
-      // Start the animation (it goes from 0 to 1)
-      _animationController.forward();
+      if (_todayEntry != null) {
+        final progress = (_todayEntry!.steps / _todayEntry!.goal).clamp(0.0, 1.0);
+        _fillAnimation = Tween<double>(
+          begin: 0.0,
+          end: progress,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeInOut,
+        ));
+        _animationController.forward(from: 0);
+      }
     } catch (e) {
       print('Error loading step entry: $e');
       setState(() => _isLoading = false);
@@ -85,24 +97,39 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
   }
 
   void _showQuickAddDialog() {
-    _quickAddController.text = '';
-    
+    _quickAddController.clear();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Quick Add Steps'),
-        content: TextField(
-          controller: _quickAddController,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Enter steps to add',
-            prefixIcon: const Icon(Icons.add),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _quickAddController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Steps to add',
+                hintText: 'e.g., 1000',
+                border: OutlineInputBorder(),
+              ),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              autofocus: true,
             ),
-          ),
-          onSubmitted: (_) => _quickAddSteps(),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              children: [500, 1000, 2000, 5000].map((steps) {
+                return ActionChip(
+                  label: Text('+$steps'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _quickAddSteps(steps);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -110,7 +137,13 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: _quickAddSteps,
+            onPressed: () {
+              final steps = int.tryParse(_quickAddController.text);
+              if (steps != null && steps > 0) {
+                Navigator.pop(context);
+                _quickAddSteps(steps);
+              }
+            },
             child: const Text('Add'),
           ),
         ],
@@ -118,38 +151,38 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     );
   }
 
-  Future<void> _quickAddSteps() async {
-    final stepsToAdd = int.tryParse(_quickAddController.text);
-    if (stepsToAdd == null || stepsToAdd <= 0) return;
-    
-    Navigator.pop(context); // Close dialog
-    
+  String _formatSteps(int steps) {
+    if (steps >= 1000) {
+      return '${(steps / 1000).toStringAsFixed(1)}k';
+    }
+    return steps.toString();
+  }  
+
+  Future<void> _quickAddSteps(int stepsToAdd) async {
     if (_todayEntry == null || _isSaving) return;
     
-    HapticFeedback.lightImpact();
+    setState(() => _isSaving = true);
     
-    final newSteps = _todayEntry!.steps + stepsToAdd;
+    final previousSteps = _todayEntry!.steps;
+    final newSteps = previousSteps + stepsToAdd;
+    final goalSteps = _todayEntry!.goal;
     
+    // Optimistically update UI
     setState(() {
       _todayEntry = _todayEntry!.copyWith(
         steps: newSteps,
-        updatedAt: DateTime.now(),
       );
-      _isSaving = true;
     });
     
-    // Update animation
-    _fillAnimation = Tween<double>(
-      begin: _fillAnimation.value,
-      end: (newSteps / _todayEntry!.goal).clamp(0.0, 1.0),
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    _animationController.forward(from: 0);
-    
     try {
-      await StepRepository.saveStepEntry(_todayEntry!);
+      // Save to database
+      await StepRepository.saveStepEntry(
+        _todayEntry!.copyWith(steps: newSteps),
+      );
+      
+      // Check for milestone notifications
+      await _checkStepMilestones(previousSteps, newSteps, goalSteps);
+      
       widget.onUpdate?.call();
       
       if (mounted) {
@@ -165,7 +198,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
       // Revert on error
       setState(() {
         _todayEntry = _todayEntry!.copyWith(
-          steps: _todayEntry!.steps - stepsToAdd,
+          steps: previousSteps,
         );
       });
     } finally {
@@ -173,11 +206,50 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     }
   }
 
-  String _formatSteps(int steps) {
-    if (steps >= 1000) {
-      return '${(steps / 1000).toStringAsFixed(1)}k';
+  Future<void> _checkStepMilestones(int previousSteps, int currentSteps, int goalSteps) async {
+    if (widget.userProfile.id == null) return;
+    
+    final previousProgress = (previousSteps / goalSteps * 100).round();
+    final currentProgress = (currentSteps / goalSteps * 100).round();
+    
+    // Get SharedPreferences to track if we've already shown notification today
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    final todayKey = '${today.year}-${today.month}-${today.day}';
+    
+    // Check 50% milestone
+    if (previousProgress < 50 && currentProgress >= 50) {
+      final notified50Key = 'step_milestone_50_$todayKey';
+      final alreadyNotified = prefs.getBool(notified50Key) ?? false;
+      
+      if (!alreadyNotified) {
+        await _notificationService.showMilestoneNotification(
+          id: NotificationService.stepMilestone50Id,
+          title: '🎯 Halfway There!',
+          body: 'You\'ve reached 50% of your step goal! Keep going!',
+          userId: widget.userProfile.id!,
+          milestoneType: 'steps_50',
+        );
+        await prefs.setBool(notified50Key, true);
+      }
     }
-    return steps.toString();
+    
+    // Check 100% milestone
+    if (previousProgress < 100 && currentProgress >= 100) {
+      final notified100Key = 'step_milestone_100_$todayKey';
+      final alreadyNotified = prefs.getBool(notified100Key) ?? false;
+      
+      if (!alreadyNotified) {
+        await _notificationService.showMilestoneNotification(
+          id: NotificationService.stepMilestone100Id,
+          title: '🎉 Goal Achieved!',
+          body: 'Congratulations! You\'ve reached your daily step goal of ${_formatSteps(goalSteps)} steps!',
+          userId: widget.userProfile.id!,
+          milestoneType: 'steps_100',
+        );
+        await prefs.setBool(notified100Key, true);
+      }
+    }
   }
 
   @override
@@ -267,8 +339,8 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
                 // Progress content
                 Expanded(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Row(
                         children: [

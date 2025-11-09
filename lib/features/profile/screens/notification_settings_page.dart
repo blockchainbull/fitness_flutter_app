@@ -122,6 +122,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     );
   }
 
+  
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {

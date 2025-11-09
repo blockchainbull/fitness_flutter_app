@@ -19,13 +19,6 @@
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
-
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app needs access to your microphone to enable voice input for logging meals and exercises.</string>
-
-	<key>NSMotionUsageDescription</key>
-	<string>This app needs access to your motion data to track your daily steps and physical activity.</string>
-
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
@@ -35,6 +28,7 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -52,5 +46,38 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- Microphone Permission for Speech-to-Text -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We need access to your microphone to allow voice commands for logging meals and exercises.</string>
+	
+	<!-- Motion & Fitness Permission for Step Tracking -->
+	<key>NSMotionUsageDescription</key>
+	<string>We need access to your motion data to track your daily steps and physical activity.</string>
+	
+	<!-- Health Kit Permission (if you decide to use it later) -->
+	<key>NSHealthShareUsageDescription</key>
+	<string>We need access to your health data to provide personalized fitness insights.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>We need permission to update your health data with your fitness activities.</string>
+	
+	<!-- Notification Permission -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>We need permission to send you reminders for meals, workouts, and hydration.</string>
+	
+	<!-- Background Modes for Notifications -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	
+	<!-- Allow network access -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+
 </dict>
 </plist>

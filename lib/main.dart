@@ -12,7 +12,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
   
-
   final notificationService = NotificationService();
   await notificationService.initialize();
   await notificationService.requestPermissions();
