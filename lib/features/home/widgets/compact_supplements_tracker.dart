@@ -89,11 +89,23 @@ class _CompactSupplementsTrackerState extends State<CompactSupplementsTracker> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Card(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(32.0),
-            child: CircularProgressIndicator(),
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.teal),
           ),
         ),
       );
@@ -104,11 +116,9 @@ class _CompactSupplementsTrackerState extends State<CompactSupplementsTracker> {
     final progress = totalSupplements > 0 ? takenCount / totalSupplements : 0.0;
     final allTaken = takenCount == totalSupplements && totalSupplements > 0;
 
-    return Card(
+    return Material(
+      borderRadius: BorderRadius.circular(16),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: InkWell(
         onTap: _navigateToSupplementsLogging,
         borderRadius: BorderRadius.circular(16),
@@ -125,7 +135,7 @@ class _CompactSupplementsTrackerState extends State<CompactSupplementsTracker> {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -42,7 +42,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       setState(() {
-        userId = prefs.getString('user_id');  // FIXED: Changed from 'userId' to 'user_id'
+        userId = prefs.getString('user_id');
       });
       print('🔍 Notifications: Retrieved user_id from SharedPreferences: $userId');
     } catch (e) {

@@ -50,11 +50,19 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Card(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: CircularProgressIndicator(),
+      return Material(
+        borderRadius: BorderRadius.circular(16),
+        elevation: 2,
+        child: Container(
+          height: 150,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+            ),
           ),
         ),
       );
@@ -68,7 +76,8 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
     final weekContext = _weeklyData!['weekly_context'] ?? {};
     final goalsProgress = weekContext['goals_progress'] ?? {};
     
-    return Card(
+    return Material(
+      borderRadius: BorderRadius.circular(16),
       elevation: 2,
       child: InkWell(
         onTap: () {
@@ -81,7 +90,12 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
             ),
           );
         },
-        child: Padding(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,11 +142,15 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
                 ],
               ),
               const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: (goalsProgress['calorie_goal_achievement'] ?? 0) / 100,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  _getProgressColor(goalsProgress['calorie_goal_achievement'] ?? 0),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: (goalsProgress['calorie_goal_achievement'] ?? 0) / 100,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    _getProgressColor(goalsProgress['calorie_goal_achievement'] ?? 0),
+                  ),
+                  minHeight: 6,
                 ),
               ),
               const SizedBox(height: 4),

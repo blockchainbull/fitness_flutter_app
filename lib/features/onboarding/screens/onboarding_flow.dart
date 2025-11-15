@@ -15,7 +15,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/data/services/notification_service.dart';
-import 'package:user_onboarding/features/permissions/screens/permission_request_screen.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({Key? key}) : super(key: key);

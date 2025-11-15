@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/onboarding_flow.dart';
-import 'package:user_onboarding/data/services/api_service.dart';
 import 'package:user_onboarding/data/services/notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
