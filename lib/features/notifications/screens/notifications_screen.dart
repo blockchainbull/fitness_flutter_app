@@ -60,19 +60,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Uri.parse('$backendUrl/notifications/$userId'),
       );
 
+      print('📱 Notification response status: ${response.statusCode}');
+      print('📱 Notification response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
           notifications = data['notifications'] ?? [];
           isLoading = false;
         });
+        
+        print('📱 Loaded ${notifications.length} notifications');
       } else {
-        print('Failed to load notifications: ${response.statusCode}');
-        setState(() => isLoading = false);
+        print('❌ Failed to load notifications: ${response.statusCode}');
+        setState(() {
+          notifications = [];
+          isLoading = false;
+        });
       }
     } catch (e) {
-      print('Error loading notifications: $e');
-      setState(() => isLoading = false);
+      print('❌ Error loading notifications: $e');
+      setState(() {
+        notifications = [];
+        isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading notifications: $e')),
+        );
+      }
     }
   }
 

@@ -53,6 +53,9 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
+
+      navigatorKey: NotificationService.navigatorKey,
+      
       home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
