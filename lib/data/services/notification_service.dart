@@ -172,7 +172,7 @@ class NotificationService {
     }
   }
 
-  // ⭐ FIXED: Handle navigation with proper UserProfile loading
+  // Handle navigation with proper UserProfile loading
   void _handleNotificationNavigation(String type, Map<String, dynamic> data) async {
     final BuildContext? context = navigatorKey.currentContext;
     if (context == null) {
@@ -747,35 +747,46 @@ class NotificationService {
     }
   }
 
-  // ⭐ FIXED: Renamed from showTestNotification to showImmediateNotification
   Future<void> showImmediateNotification({
-    required int id,
-    required String title,
-    required String body,
-  }) async {
-    await _notificationsPlugin.show(
-      id,
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'test_channel',
-          'Test Notifications',
-          channelDescription: 'Test notification channel',
-          importance: Importance.high,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
+  required int id,
+  required String title,
+  required String body,
+  String? userId,        
+  String type = 'test',
+}) async {
+  await _notificationsPlugin.show(
+    id,
+    title,
+    body,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        'test_channel',
+        'Test Notifications',
+        channelDescription: 'Test notification channel',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        icon: '@mipmap/ic_launcher',
       ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    ),
+  );
+
+  // Log to database if userId provided
+  if (userId != null) {
+    await _logNotificationToDatabase(
+      userId: userId,
+      title: title,
+      body: body,
+      type: type,
     );
   }
+}
 
   // Also keep the old name for compatibility
   Future<void> showTestNotification() async {

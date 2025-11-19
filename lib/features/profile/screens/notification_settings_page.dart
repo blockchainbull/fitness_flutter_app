@@ -111,18 +111,32 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
   Future<void> _sendTestNotification() async {
     final notificationService = NotificationService();
-    await notificationService.showImmediateNotification(
-      id: 999,
-      title: '🎉 Test Notification',
-      body: 'Your notifications are working perfectly!',
-    );
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Test notification sent!')),
-    );
+    // Get userId from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_id');
+    
+    if (userId != null) {
+      await notificationService.showImmediateNotification(
+        id: 999,
+        title: '🎉 Test Notification',
+        body: 'Your notifications are working perfectly!',
+        userId: userId,  
+        type: 'test',  
+      );
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Test notification sent and logged to database!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: User ID not found'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
-
-  
 
   @override
   Widget build(BuildContext context) {
