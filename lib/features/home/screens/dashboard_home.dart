@@ -91,6 +91,8 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     _checkSupplementsSetup();
     _loadUnreadCount();
     _loadInitialData();
+
+    _checkAndRescheduleNotifications();
   }
 
   @override
@@ -150,6 +152,69 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     } catch (e) {
       print('Error checking supplement setup: $e');
       setState(() => _hasSupplementsSetup = false);
+    }
+  }
+
+  Future<void> _checkAndRescheduleNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = _currentUserProfile.id;
+      
+      if (userId == null) return;
+      
+      final lastScheduled = prefs.getString('notifications_last_scheduled_$userId');
+      
+      if (lastScheduled == null) {
+        // Never scheduled, do it now
+        print('📱 First time setup - scheduling notifications...');
+        await _scheduleNotifications(userId, prefs);
+        return;
+      }
+      
+      final lastDate = DateTime.parse(lastScheduled);
+      final now = DateTime.now();
+      
+      // If last scheduled more than 24 hours ago, reschedule
+      if (now.difference(lastDate).inHours > 24) {
+        print('📱 Notifications expired, re-scheduling...');
+        await _scheduleNotifications(userId, prefs);
+      }
+    } catch (e) {
+      print('⚠️ Error checking notifications: $e');
+    }
+  }
+
+  Future<void> _scheduleNotifications(String userId, SharedPreferences prefs) async {
+    try {
+      final notificationService = NotificationService();
+      
+      // Check if already scheduled
+      final pending = await notificationService.getPendingNotifications();
+      
+      if (pending.isEmpty) {
+        await notificationService.scheduleAllNotifications(
+          userId,
+          _currentUserProfile.toMap(),
+        );
+        
+        // Save timestamp
+        await prefs.setString(
+          'notifications_last_scheduled_$userId',
+          DateTime.now().toIso8601String(),
+        );
+        
+        print('✅ Notifications scheduled successfully');
+      } else {
+        print('✅ ${pending.length} notifications already scheduled');
+        
+        // Update timestamp
+        await prefs.setString(
+          'notifications_last_scheduled_$userId',
+          DateTime.now().toIso8601String(),
+        );
+      }
+    } catch (e) {
+      print('❌ Error scheduling notifications: $e');
     }
   }
 
