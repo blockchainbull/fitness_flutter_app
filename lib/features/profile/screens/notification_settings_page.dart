@@ -65,77 +65,111 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         await NotificationService().cancelAllNotifications();
       }
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Notification settings saved!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Notification settings saved!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       print('Error saving notification preferences: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('❌ Failed to save settings'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ Failed to save settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
     
     setState(() => _isSaving = false);
   }
 
   Future<void> _rescheduleNotifications() async {
-    final notificationService = NotificationService();
-    await notificationService.cancelAllNotifications();
-    
-    // Schedule only enabled notification types
-    if (_prefs.mealReminders) {
-      // Schedule meal notifications based on custom times
-    }
-    if (_prefs.exerciseReminders) {
-      await notificationService.scheduleExerciseNotification(widget.userId);
-    }
-    if (_prefs.waterReminders) {
-      await notificationService.scheduleWaterNotifications(widget.userId);
-    }
-    if (_prefs.sleepReminders) {
-      await notificationService.scheduleSleepNotification(widget.userId, {});
-    }
-    if (_prefs.supplementReminders) {
-      await notificationService.scheduleSupplementNotification(widget.userId);
-    }
-    if (_prefs.weightReminders) {
-      await notificationService.scheduleWeightNotification(widget.userId);
+    try {
+      final notificationService = NotificationService();
+      await notificationService.cancelAllNotifications();
+      
+      // Get user profile for scheduling
+      final prefs = await SharedPreferences.getInstance();
+      final profileJson = prefs.getString('user_profile');
+      
+      if (profileJson != null) {
+        final userProfile = jsonDecode(profileJson);
+        await notificationService.scheduleAllNotifications(widget.userId, userProfile);
+        
+        // Update last scheduled timestamp
+        await prefs.setString(
+          'notifications_last_scheduled_${widget.userId}',
+          DateTime.now().toIso8601String(),
+        );
+        
+        print('✅ Notifications rescheduled with new preferences');
+      }
+    } catch (e) {
+      print('❌ Error rescheduling notifications: $e');
     }
   }
 
   Future<void> _sendTestNotification() async {
     final notificationService = NotificationService();
     
-    // Get userId from SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('user_id');
+    await notificationService.showImmediateNotification(
+      id: 999,
+      title: '🎉 Test Notification',
+      body: 'Your notifications are working perfectly!',
+      userId: widget.userId,  
+      type: 'test',  
+    );
     
-    if (userId != null) {
-      await notificationService.showImmediateNotification(
-        id: 999,
-        title: '🎉 Test Notification',
-        body: 'Your notifications are working perfectly!',
-        userId: userId,  
-        type: 'test',  
-      );
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Test notification sent and logged to database!')),
-      );
-    } else {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Error: User ID not found'),
-          backgroundColor: Colors.red,
+          content: Text('✅ Test notification sent!'),
+          backgroundColor: Colors.green,
         ),
       );
     }
+  }
+
+  Future<void> _viewScheduledNotifications() async {
+    final notificationService = NotificationService();
+    final pending = await notificationService.getPendingNotifications();
+    
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Scheduled Notifications (${pending.length})'),
+        content: SingleChildScrollView(
+          child: pending.isEmpty
+              ? const Text('No notifications scheduled')
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: pending.map((notif) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        '${notif.id}: ${notif.title}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -348,6 +382,19 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             ),
           ),
 
+          const SizedBox(height: 12),
+
+          // View Scheduled Notifications Button
+          OutlinedButton.icon(
+            onPressed: _viewScheduledNotifications,
+            icon: const Icon(Icons.list),
+            label: const Text('View Scheduled Notifications'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+
           const SizedBox(height: 16),
 
           // Info Card
@@ -358,14 +405,14 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.blue.withOpacity(0.3)),
             ),
-            child: Column(
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                    const SizedBox(width: 8),
-                    const Text(
+                    SizedBox(width: 8),
+                    Text(
                       'About Notifications',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -374,10 +421,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                SizedBox(height: 8),
+                Text(
                   'Notifications help you stay on track with your health goals. '
-                  'You can customize when you receive reminders for each activity.',
+                  'You can customize when you receive reminders for each activity. '
+                  'Don\'t forget to save your changes!',
                   style: TextStyle(fontSize: 14, color: Colors.black87),
                 ),
               ],

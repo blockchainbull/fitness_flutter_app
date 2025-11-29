@@ -163,9 +163,37 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       if (permissionGranted) {
         // Schedule all notifications
         await notificationService.scheduleAllNotifications(userId, userProfile);
-        print('✅ All notifications scheduled for user: $userId');
+        
+        // Save notification setup timestamp
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'notifications_last_scheduled_$userId',
+          DateTime.now().toIso8601String(),
+        );
+        
+        print('✅ All notifications scheduled for new user: $userId');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Daily reminders are now active!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       } else {
         print('⚠️ Notification permissions not granted');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Enable notifications in settings for daily reminders'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (e) {
       print('❌ Error setting up notifications: $e');
@@ -686,6 +714,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           'wakeup_time': _formData['wakeupTime'] ?? '06:00',
         },
       );
+
+      if (!mounted) return;
       
       // Close loading indicator
       Navigator.pop(context);
@@ -758,6 +788,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         },
       );
     } catch (error) {
+      if (!mounted) return;
       // Close loading indicator
       Navigator.pop(context);
       

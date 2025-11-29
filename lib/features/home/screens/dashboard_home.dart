@@ -518,11 +518,13 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
             IconButton(
               icon: const Icon(Icons.notifications_outlined, size: 28),
               onPressed: () async {
-                // Navigate to notifications screen
+                // ✅ FIXED: Pass userId parameter
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => NotificationsScreen(),
+                    builder: (context) => NotificationsScreen(
+                      userId: _currentUserProfile.id, // ← ADDED THIS
+                    ),
                   ),
                 );
                 // Refresh unread count when returning from notifications screen

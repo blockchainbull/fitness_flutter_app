@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/profile/screens/notification_settings_page.dart';
-import 'package:user_onboarding/features/notifications/screens/notification_test_screen.dart';
+import 'package:user_onboarding/features/notifications/screens/notifications_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -64,14 +64,16 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
               _buildTile(
-                'Test Notifications', // Changed title for clarity
-                'Go to the notification testing screen', // Changed subtitle
-                Icons.bug_report, // Changed icon to be test-related
+                'View Notifications',
+                'See all your notifications',
+                Icons.notifications,
                 () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const NotificationTestScreen(),
+                      builder: (context) => NotificationsScreen(
+                        userId: widget.userProfile.id,
+                      ),
                     ),
                   );
                 },

@@ -1,10 +1,11 @@
-// lib/features/auth/screens/login_screens.dart
+// lib/features/auth/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/onboarding_flow.dart';
 import 'package:user_onboarding/data/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -47,12 +48,14 @@ class _LoginScreenState extends State<LoginScreen> {
         },
       );
       
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomePage(userProfile: userProfile),
-        ),
-      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomePage(userProfile: userProfile),
+          ),
+        );
+      }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -70,7 +73,17 @@ class _LoginScreenState extends State<LoginScreen> {
       
       if (permissionGranted) {
         await notificationService.scheduleAllNotifications(userId, userProfile);
+        
+        // Save notification setup timestamp
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'notifications_last_scheduled_$userId',
+          DateTime.now().toIso8601String(),
+        );
+        
         print('✅ Notifications scheduled for logged-in user: $userId');
+      } else {
+        print('⚠️ Notification permissions not granted');
       }
     } catch (e) {
       print('❌ Error setting up notifications: $e');

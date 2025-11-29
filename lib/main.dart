@@ -1,4 +1,5 @@
-// lib/main.dart
+// lib/main.dart - COMPLETE FILE WITH UNIVERSAL TIMEZONE
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,13 +8,46 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/features/splash/screens/splash_screen.dart';
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'package:user_onboarding/data/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // ✅ UNIVERSAL TIMEZONE INITIALIZATION
+  // This works for ALL timezones automatically based on device settings
   tz.initializeTimeZones();
   
+  // Get device's timezone name
+  final String timeZoneName = DateTime.now().timeZoneName;
+  
+  // Set timezone based on device or fallback to UTC
+  try {
+    // Try to set from device timezone
+    if (timeZoneName.isNotEmpty && timeZoneName != 'UTC') {
+      // First try direct timezone name
+      try {
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
+        print('🌍 Timezone set to: $timeZoneName (from device)');
+      } catch (e) {
+        // If direct name fails, try to find closest match
+        final location = _findClosestTimezone(timeZoneName);
+        tz.setLocalLocation(location);
+        print('🌍 Timezone set to: ${location.name} (closest match to $timeZoneName)');
+      }
+    } else {
+      // Fallback: Use system default
+      tz.setLocalLocation(tz.local);
+      print('🌍 Timezone set to: ${tz.local.name} (system default)');
+    }
+  } catch (e) {
+    // Final fallback: UTC
+    tz.setLocalLocation(tz.getLocation('UTC'));
+    print('⚠️ Timezone detection failed, using UTC. Error: $e');
+  }
+  
+  // Initialize notification service
   final notificationService = NotificationService();
   await notificationService.initialize();
   await notificationService.requestPermissions();
@@ -29,13 +63,14 @@ Future<void> main() async {
     await Supabase.initialize(
       url: supabaseUrl,
       anonKey: supabaseAnonKey,
-      debug: true, // Enable for debugging
+      debug: true,
     );
-    print('[Main] Supabase initialized successfully');
+    print('[Main] ✅ Supabase initialized successfully');
   } else {
-    print('[Main] WARNING: Supabase credentials missing in .env file');
+    print('[Main] ⚠️ WARNING: Supabase credentials missing in .env file');
   }
 
+  // Check and reschedule notifications if needed
   await _initializeNotifications();
   
   runApp(
@@ -46,7 +81,44 @@ Future<void> main() async {
   );
 }
 
-// Initialize and schedule notifications
+/// Find closest timezone match
+tz.Location _findClosestTimezone(String timeZoneName) {
+  // Common timezone mappings
+  final Map<String, String> timezoneMap = {
+    'PST': 'America/Los_Angeles',
+    'PDT': 'America/Los_Angeles',
+    'MST': 'America/Denver',
+    'MDT': 'America/Denver',
+    'CST': 'America/Chicago',
+    'CDT': 'America/Chicago',
+    'EST': 'America/New_York',
+    'EDT': 'America/New_York',
+    'GMT': 'Europe/London',
+    'BST': 'Europe/London',
+    'CET': 'Europe/Paris',
+    'CEST': 'Europe/Paris',
+    'IST': 'Asia/Kolkata',
+    'PKT': 'Asia/Karachi',
+    'JST': 'Asia/Tokyo',
+    'AEST': 'Australia/Sydney',
+    'AEDT': 'Australia/Sydney',
+  };
+  
+  // Try mapped timezone
+  final mappedZone = timezoneMap[timeZoneName];
+  if (mappedZone != null) {
+    try {
+      return tz.getLocation(mappedZone);
+    } catch (e) {
+      // Continue to fallback
+    }
+  }
+  
+  // Fallback to local
+  return tz.local;
+}
+
+/// Initialize and schedule notifications
 Future<void> _initializeNotifications() async {
   try {
     final prefs = await SharedPreferences.getInstance();
@@ -63,12 +135,11 @@ Future<void> _initializeNotifications() async {
   }
 }
 
-// Check if notifications need rescheduling
+/// Check if notifications need rescheduling
 Future<void> _checkAndRescheduleIfNeeded(String userId, SharedPreferences prefs) async {
   final lastScheduled = prefs.getString('notifications_last_scheduled_$userId');
   
   if (lastScheduled == null) {
-    // Never scheduled, do it now
     print('📱 First time setup - scheduling notifications...');
     await _scheduleNotifications(userId, prefs);
     return;
@@ -77,7 +148,6 @@ Future<void> _checkAndRescheduleIfNeeded(String userId, SharedPreferences prefs)
   final lastDate = DateTime.parse(lastScheduled);
   final now = DateTime.now();
   
-  // If last scheduled more than 24 hours ago, reschedule
   if (now.difference(lastDate).inHours > 24) {
     print('📱 Notifications expired (${now.difference(lastDate).inHours}h ago), re-scheduling...');
     await _scheduleNotifications(userId, prefs);
@@ -86,27 +156,19 @@ Future<void> _checkAndRescheduleIfNeeded(String userId, SharedPreferences prefs)
   }
 }
 
-// Schedule notifications and save timestamp
+/// Schedule notifications and save timestamp
 Future<void> _scheduleNotifications(String userId, SharedPreferences prefs) async {
   try {
     final notificationService = NotificationService();
-    
-    // Check if already scheduled
     final pending = await notificationService.getPendingNotifications();
     
     if (pending.isEmpty) {
-      // Get user profile from cache
       final profileJson = prefs.getString('user_profile');
       
       if (profileJson != null) {
         final userProfile = jsonDecode(profileJson);
+        await notificationService.scheduleAllNotifications(userId, userProfile);
         
-        await notificationService.scheduleAllNotifications(
-          userId,
-          userProfile,
-        );
-        
-        // Save timestamp
         await prefs.setString(
           'notifications_last_scheduled_$userId',
           DateTime.now().toIso8601String(),
@@ -119,7 +181,6 @@ Future<void> _scheduleNotifications(String userId, SharedPreferences prefs) asyn
     } else {
       print('✅ ${pending.length} notifications already scheduled');
       
-      // Still update the timestamp since notifications are active
       await prefs.setString(
         'notifications_last_scheduled_$userId',
         DateTime.now().toIso8601String(),
@@ -141,9 +202,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-
       navigatorKey: NotificationService.navigatorKey,
-      
       home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
