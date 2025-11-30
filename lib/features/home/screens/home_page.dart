@@ -9,6 +9,8 @@ import 'package:user_onboarding/features/profile/screens/profile_page.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 import 'package:user_onboarding/data/services/api_service.dart';
+import 'package:user_onboarding/features/notifications/widgets/notification_badge.dart';
+import 'package:user_onboarding/data/services/notification_service.dart';
 
 class HomePage extends StatefulWidget {
   final UserProfile userProfile;

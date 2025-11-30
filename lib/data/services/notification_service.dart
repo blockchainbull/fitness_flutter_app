@@ -43,14 +43,11 @@ class NotificationService {
   int? _lastStepCount100;
 
   Future<void> initialize() async {
-    // Initialize timezone
     tz.initializeTimeZones();
     
-    // Android initialization settings
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS initialization settings
     const DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -71,47 +68,43 @@ class NotificationService {
     // Create notification channels for Android
     if (Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-          _notificationsPlugin.resolvePlatformSpecificImplementation
-              <AndroidFlutterLocalNotificationsPlugin>();
+          _notificationsPlugin.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
 
-      // Create main notification channel
-      const AndroidNotificationChannel mainChannel = AndroidNotificationChannel(
-        'activity_reminders',
-        'Activity Reminders',
-        description: 'Reminders to log your daily activities',
-        importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      );
+      if (androidImplementation != null) {
+        // Main health reminders channel
+        await androidImplementation.createNotificationChannel(
+          const AndroidNotificationChannel(
+            'health_reminders',
+            'Health Reminders',
+            description: 'Daily health tracking reminders',
+            importance: Importance.high,
+            playSound: true,
+            enableVibration: true,
+            showBadge: true, // IMPORTANT: Enable badge
+          ),
+        );
 
-      await androidImplementation?.createNotificationChannel(mainChannel);
+        // Test channel
+        await androidImplementation.createNotificationChannel(
+          const AndroidNotificationChannel(
+            'test_channel',
+            'Test Notifications',
+            description: 'Test notification channel',
+            importance: Importance.high,
+            playSound: true,
+            enableVibration: true,
+            showBadge: true,
+          ),
+        );
 
-      // Milestone notification channel
-      const AndroidNotificationChannel milestoneChannel = AndroidNotificationChannel(
-        'milestone_notifications',
-        'Milestone Achievements',
-        description: 'Notifications for reaching your fitness milestones',
-        importance: Importance.max,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      );
-
-      await androidImplementation?.createNotificationChannel(milestoneChannel);
-
-      // Create test notification channel
-      const AndroidNotificationChannel testChannel = AndroidNotificationChannel(
-        'test_channel',
-        'Test Notifications',
-        description: 'Test notifications channel',
-        importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
-      );
-
-      await androidImplementation?.createNotificationChannel(testChannel);
+        // Request notification permission for Android 13+
+        await androidImplementation.requestNotificationsPermission();
+        await androidImplementation.requestExactAlarmsPermission();
+      }
     }
+
+    print('✅ Notification service initialized');
   }
 
   // Request permissions (especially for Android 13+ and iOS)
@@ -293,10 +286,24 @@ class NotificationService {
 
   // MEAL NOTIFICATIONS
   Future<void> scheduleMealNotifications(String userId, Map<String, dynamic> userProfile) async {
-    final int mealsPerDay = userProfile['daily_meals_count'] ?? 3;
+    print('🍽️ Scheduling meal notifications for user: $userId');
+    
+    // ✅ UPDATED: Try both camelCase and snake_case
+    final int mealsPerDay = userProfile['daily_meals_count'] ?? 
+                            userProfile['dailyMealsCount'] ?? 
+                            3;
+    
+    print('📊 User meals per day: $mealsPerDay');
+    print('📋 Full profile keys: ${userProfile.keys.toList()}');
     
     List<Map<String, dynamic>> mealTimes = _getMealTimes(mealsPerDay);
     
+    // Cancel any existing meal notifications first
+    for (int i = 0; i < 10; i++) {
+      await cancelNotification(mealNotificationIdBase + i);
+    }
+    
+    // Schedule only the meals the user needs
     for (int i = 0; i < mealTimes.length; i++) {
       final mealTime = mealTimes[i];
       await _scheduleSmartNotification(
@@ -308,25 +315,27 @@ class NotificationService {
         activityType: mealTime['name'].toLowerCase(),
         userId: userId,
       );
+      
+      print('✅ Scheduled ${mealTime['name']} at ${mealTime['hour']}:${mealTime['minute']}');
     }
+    
+    print('✅ Scheduled $mealsPerDay meal notifications');
   }
 
   List<Map<String, dynamic>> _getMealTimes(int mealsPerDay) {
-    if (mealsPerDay == 6) {
+    print('🔍 Getting meal times for $mealsPerDay meals');
+    
+    if (mealsPerDay == 2) {
+      // 2 meals: Early meal + Late meal
       return [
-        {'name': 'Breakfast', 'hour': 8, 'minute': 0},
-        {'name': 'Snack 1', 'hour': 10, 'minute': 30},
-        {'name': 'Lunch', 'hour': 13, 'minute': 0},
-        {'name': 'Snack 2', 'hour': 15, 'minute': 30},
-        {'name': 'Dinner', 'hour': 19, 'minute': 0},
-        {'name': 'Snack 3', 'hour': 21, 'minute': 0},
+        {'name': 'First Meal', 'hour': 11, 'minute': 0},  // Brunch time
+        {'name': 'Second Meal', 'hour': 18, 'minute': 0}, // Dinner time
       ];
-    } else if (mealsPerDay == 5) {
+    } else if (mealsPerDay == 3) {
+      // Standard 3 meals
       return [
         {'name': 'Breakfast', 'hour': 8, 'minute': 0},
-        {'name': 'Snack 1', 'hour': 10, 'minute': 30},
         {'name': 'Lunch', 'hour': 13, 'minute': 0},
-        {'name': 'Snack 2', 'hour': 16, 'minute': 0},
         {'name': 'Dinner', 'hour': 19, 'minute': 0},
       ];
     } else if (mealsPerDay == 4) {
@@ -336,14 +345,31 @@ class NotificationService {
         {'name': 'Snack', 'hour': 15, 'minute': 30},
         {'name': 'Dinner', 'hour': 19, 'minute': 0},
       ];
-    } else {
-      // Default 3 meals
+    } else if (mealsPerDay == 5) {
       return [
         {'name': 'Breakfast', 'hour': 8, 'minute': 0},
+        {'name': 'Snack 1', 'hour': 10, 'minute': 30},
         {'name': 'Lunch', 'hour': 13, 'minute': 0},
+        {'name': 'Snack 2', 'hour': 16, 'minute': 0},
         {'name': 'Dinner', 'hour': 19, 'minute': 0},
       ];
+    } else if (mealsPerDay >= 6) {
+      return [
+        {'name': 'Breakfast', 'hour': 8, 'minute': 0},
+        {'name': 'Snack 1', 'hour': 10, 'minute': 30},
+        {'name': 'Lunch', 'hour': 13, 'minute': 0},
+        {'name': 'Snack 2', 'hour': 15, 'minute': 30},
+        {'name': 'Dinner', 'hour': 19, 'minute': 0},
+        {'name': 'Snack 3', 'hour': 21, 'minute': 0},
+      ];
     }
+    
+    // Default to 3 meals if something goes wrong
+    return [
+      {'name': 'Breakfast', 'hour': 8, 'minute': 0},
+      {'name': 'Lunch', 'hour': 13, 'minute': 0},
+      {'name': 'Dinner', 'hour': 19, 'minute': 0},
+    ];
   }
 
   // EXERCISE NOTIFICATION - Once a day
@@ -458,66 +484,70 @@ class NotificationService {
     required String activityType,
     required String userId,
   }) async {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
+    try {
+      final now = DateTime.now();
+      var scheduledDate = DateTime(now.year, now.month, now.day, hour, minute);
+      
+      // If the time has passed today, schedule for tomorrow
+      if (scheduledDate.isBefore(now)) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      }
 
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
+      final tz.TZDateTime scheduledTZDate = tz.TZDateTime.from(
+        scheduledDate,
+        tz.local,
+      );
+
+      // IMPORTANT: Schedule the notification with Android-specific details
+      await _notificationsPlugin.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledTZDate,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'health_reminders',
+            'Health Reminders',
+            channelDescription: 'Daily health tracking reminders',
+            importance: Importance.high,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+            // CRITICAL: Add these parameters for visibility
+            showWhen: true,
+            visibility: NotificationVisibility.public,
+            icon: '@mipmap/ic_launcher',
+            styleInformation: BigTextStyleInformation(body), // Shows full text
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            sound: 'default',
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time, // Repeat daily
+        payload: jsonEncode({
+          'type': activityType,
+          'userId': userId,
+        }),
+      );
+
+      // Log to database for history
+      await _logNotificationToDatabase(
+        userId: userId,
+        title: title,
+        body: body,
+        type: activityType,
+      );
+
+      print('✅ Scheduled $activityType notification for ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}');
+    } catch (e) {
+      print('❌ Error scheduling notification: $e');
     }
-
-    // Log to database FIRST to get notification ID
-    final notificationId = await _logNotificationToDatabase(
-      userId: userId,
-      title: title,
-      body: body,
-      type: activityType,
-    );
-
-    // Schedule with notification ID in payload
-    await _notificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduledDate,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'activity_reminders',
-          'Activity Reminders',
-          channelDescription: 'Reminders to log your daily activities',
-          importance: Importance.high,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: '@mipmap/ic_launcher',
-          styleInformation: BigTextStyleInformation(body),
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-      payload: jsonEncode({
-        'type': activityType,
-        'user_id': userId,
-        'title': title,
-        'body': body,
-        'notification_id': notificationId,
-      }),
-    );
-
-    print('✅ Scheduled $activityType notification for $hour:${minute.toString().padLeft(2, '0')}');
   }
 
   // Helper method for weekly notifications

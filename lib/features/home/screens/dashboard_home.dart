@@ -192,9 +192,17 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
       final pending = await notificationService.getPendingNotifications();
       
       if (pending.isEmpty) {
+        // ✅ CRITICAL: Use toMap() which now includes snake_case versions
+        final profileMap = _currentUserProfile.toMap();
+        
+        // ✅ DEBUG: Verify the data
+        print('📋 Scheduling notifications with profile:');
+        print('   daily_meals_count: ${profileMap['daily_meals_count']}');
+        print('   dailyMealsCount: ${profileMap['dailyMealsCount']}');
+        
         await notificationService.scheduleAllNotifications(
           userId,
-          _currentUserProfile.toMap(),
+          profileMap,  // ← Now includes both camelCase and snake_case
         );
         
         // Save timestamp

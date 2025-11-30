@@ -339,6 +339,37 @@ class UserProfile {
       
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+
+
+
+      'activity_level': activityLevel,
+      'primary_goal': primaryGoal,
+      'weight_goal': weightGoal,
+      'target_weight': targetWeight,
+      'goal_timeline': goalTimeline,
+      'sleep_hours': sleepHours,
+      'wakeup_time': wakeupTime,
+      'daily_step_goal': dailyStepGoal,
+      'daily_meals_count': dailyMealsCount,
+      'sleep_issues': sleepIssues,
+      'dietary_preferences': dietaryPreferences,
+      'water_intake': waterIntake,
+      'medical_conditions': medicalConditions,
+      'other_medical_condition': otherMedicalCondition,
+      'preferred_workouts': preferredWorkouts,
+      'workout_frequency': workoutFrequency,
+      'workout_duration': workoutDuration,
+      'workout_location': workoutLocation,
+      'available_equipment': availableEquipment,
+      'fitness_level': fitnessLevel,
+      'has_trainer': hasTrainer,
+      'has_periods': hasPeriods,
+      'last_period_date': lastPeriodDate?.toIso8601String(),
+      'cycle_length': cycleLength,
+      'period_length': periodLength,
+      'cycle_length_regular': cycleLengthRegular,
+      'pregnancy_status': pregnancyStatus,
+      'period_tracking_preference': periodTrackingPreference,
     };
     
     return map;

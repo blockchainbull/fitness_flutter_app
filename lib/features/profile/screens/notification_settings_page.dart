@@ -98,8 +98,14 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       final profileJson = prefs.getString('user_profile');
       
       if (profileJson != null) {
-        final userProfile = jsonDecode(profileJson);
-        await notificationService.scheduleAllNotifications(widget.userId, userProfile);
+        final userProfileMap = jsonDecode(profileJson);
+        
+        // ✅ IMPORTANT: Ensure daily_meals_count is in the map
+        print('📋 Profile before scheduling: ${userProfileMap.keys.toList()}');
+        print('📊 daily_meals_count: ${userProfileMap['daily_meals_count']}');
+        print('📊 dailyMealsCount: ${userProfileMap['dailyMealsCount']}');
+        
+        await notificationService.scheduleAllNotifications(widget.userId, userProfileMap);
         
         // Update last scheduled timestamp
         await prefs.setString(

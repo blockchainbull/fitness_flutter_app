@@ -22,7 +22,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool isLoading = true;
   String? userId;
   String? errorMessage;
-  final String backendUrl = 'https://health-ai-backend.onrender.com';
+  final String backendUrl = 'https://health-ai-backend-i28b.onrender.com';
   bool isBackendWakingUp = false;
 
   @override
@@ -81,7 +81,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final response = await http.get(
         Uri.parse(url),
       ).timeout(
-        const Duration(seconds: 30),  // 30 seconds for sleeping backend
+        const Duration(seconds: 60),  // 60 seconds for sleeping backend
         onTimeout: () {
           print('⏱️ [NotificationsScreen] Request timed out after 30 seconds');
           setState(() {
@@ -200,62 +200,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _markAsRead(String notificationId) async {
     try {
-      print('📝 Marking notification as read: $notificationId');
-      
       final response = await http.put(
-        Uri.parse('$backendUrl/notifications/$userId/$notificationId/read'),
-      ).timeout(const Duration(seconds: 10));
-
+        Uri.parse('$backendUrl/notifications/mark-read/$notificationId'),
+      );
+      
       if (response.statusCode == 200) {
-        print('✅ Marked as read');
-        setState(() {
-          for (var notif in notifications) {
-            if (notif['id'] == notificationId) {
-              notif['is_read'] = true;
-            }
-          }
-          groupedNotifications = _groupNotificationsByDate(notifications);
-        });
+        // Refresh the notification list
+        await _loadNotifications();
       }
     } catch (e) {
-      print('❌ Error marking as read: $e');
+      print('❌ Error marking notification as read: $e');
     }
   }
 
   Future<void> _markAllAsRead() async {
+    if (userId == null) return;
+    
     try {
-      print('📝 Marking all as read...');
-      
       final response = await http.put(
-        Uri.parse('$backendUrl/notifications/$userId/read-all'),
-      ).timeout(const Duration(seconds: 10));
-
+        Uri.parse('$backendUrl/notifications/mark-all-read/$userId'),
+      );
+      
       if (response.statusCode == 200) {
-        print('✅ All marked as read');
         await _loadNotifications();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ All notifications marked as read'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        throw Exception('Failed: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error: $e');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print('❌ Error marking all as read: $e');
     }
   }
 
