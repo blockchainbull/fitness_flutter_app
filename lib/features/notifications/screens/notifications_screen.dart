@@ -217,11 +217,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (userId == null) return;
     
     try {
-      final response = await http.put(
+      await http.put(
         Uri.parse('$backendUrl/notifications/mark-all-read/$userId'),
       );
       
-      if (response.statusCode == 200) {
+      // ⭐ ADD THIS CHECK
+      if (mounted) {
         await _loadNotifications();
       }
     } catch (e) {
