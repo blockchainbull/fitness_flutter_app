@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/profile/screens/notification_settings_page.dart';
 import 'package:user_onboarding/features/notifications/screens/notifications_screen.dart';
+import 'package:user_onboarding/widgets/emergency_notification_fix.dart';
 
 class SettingsPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -36,6 +37,14 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSection(
             'Notifications',
             [
+
+              // ⭐ EMERGENCY FIX WIDGET - Shows at the top for easy access
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: EmergencyNotificationFix(),
+              ),
+
+
               _buildSwitchTile(
                 'Push Notifications',
                 'Receive workout reminders and updates',

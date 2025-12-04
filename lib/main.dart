@@ -15,8 +15,6 @@ import 'package:user_onboarding/data/services/notification_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ✅ UNIVERSAL TIMEZONE INITIALIZATION
-  // This works for ALL timezones automatically based on device settings
   tz.initializeTimeZones();
   
   // Get device's timezone name
@@ -137,22 +135,21 @@ Future<void> _initializeNotifications() async {
 
 /// Check if notifications need rescheduling
 Future<void> _checkAndRescheduleIfNeeded(String userId, SharedPreferences prefs) async {
-  final lastScheduled = prefs.getString('notifications_last_scheduled_$userId');
-  
-  if (lastScheduled == null) {
-    print('📱 First time setup - scheduling notifications...');
+  try {
+    final notificationService = NotificationService();
+    final pending = await notificationService.getPendingNotifications();
+    
+    print('📱 Currently scheduled: ${pending.length} notifications');
+    
+    if (pending.isEmpty) {
+      print('⚠️ No notifications - scheduling now...');
+      await _scheduleNotifications(userId, prefs);
+    } else {
+      print('✅ ${pending.length} notifications already scheduled');
+    }
+  } catch (e) {
+    print('❌ Error: $e');
     await _scheduleNotifications(userId, prefs);
-    return;
-  }
-  
-  final lastDate = DateTime.parse(lastScheduled);
-  final now = DateTime.now();
-  
-  if (now.difference(lastDate).inHours > 24) {
-    print('📱 Notifications expired (${now.difference(lastDate).inHours}h ago), re-scheduling...');
-    await _scheduleNotifications(userId, prefs);
-  } else {
-    print('✅ Notifications still active (scheduled ${now.difference(lastDate).inHours}h ago)');
   }
 }
 

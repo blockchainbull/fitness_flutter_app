@@ -39,7 +39,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     
     <!-- FOREGROUND SERVICE (If you plan to add background tracking) -->
-    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/> -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
         android:label="Nufitionist"
@@ -74,14 +74,14 @@
         
         <!-- Notification receiver for handling boot completed -->
         <receiver 
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
         
