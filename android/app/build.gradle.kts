@@ -8,7 +8,8 @@ plugins {
 android {
     namespace = "com.prowrites.nufitionist"
     compileSdk = 36  // Changed to 36 to match plugin requirements
-    
+    ndkVersion = "28.2.13676358"
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -28,11 +29,24 @@ android {
         
         // Enable multidex support
         multiDexEnabled = true
+
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+        }
     }
 
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+        kotlinOptions {
+            jvmTarget = "11"
         }
     }
 }
