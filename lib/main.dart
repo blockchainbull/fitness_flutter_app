@@ -1,4 +1,4 @@
-// lib/main.dart - COMPLETE FILE WITH UNIVERSAL TIMEZONE
+// lib/main.dart
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -11,12 +11,20 @@ import 'package:user_onboarding/features/splash/screens/splash_screen.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:user_onboarding/data/services/notification_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:user_onboarding/services/fcm_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   tz.initializeTimeZones();
   
+  await Firebase.initializeApp();
+
+  final fcmService = FCMService();
+  await fcmService.initialize();
+
+
   // Get device's timezone name
   final String timeZoneName = DateTime.now().timeZoneName;
   
@@ -137,19 +145,34 @@ Future<void> _initializeNotifications() async {
 Future<void> _checkAndRescheduleIfNeeded(String userId, SharedPreferences prefs) async {
   try {
     final notificationService = NotificationService();
+    
+    // ⭐ ALWAYS check actual pending count
     final pending = await notificationService.getPendingNotifications();
     
-    print('📱 Currently scheduled: ${pending.length} notifications');
+    print('📱 [CHECK] User: $userId');
+    print('📱 [CHECK] Currently scheduled: ${pending.length}');
     
-    if (pending.isEmpty) {
-      print('⚠️ No notifications - scheduling now...');
+    // If NO notifications OR less than 5, reschedule
+    if (pending.length < 5) {
+      print('⚠️ [CHECK] Too few notifications (${ pending.length}), rescheduling...');
       await _scheduleNotifications(userId, prefs);
     } else {
-      print('✅ ${pending.length} notifications already scheduled');
+      print('✅ [CHECK] ${pending.length} notifications OK');
+      
+      // Update timestamp
+      await prefs.setString(
+        'notifications_last_scheduled_$userId',
+        DateTime.now().toIso8601String(),
+      );
     }
   } catch (e) {
-    print('❌ Error: $e');
-    await _scheduleNotifications(userId, prefs);
+    print('❌ [CHECK ERROR] $e');
+    // Try to reschedule anyway
+    try {
+      await _scheduleNotifications(userId, prefs);
+    } catch (e2) {
+      print('❌ [RESCHEDULE ERROR] $e2');
+    }
   }
 }
 

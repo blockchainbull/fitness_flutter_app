@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "69862723384",
+    "project_id": "nufitionist-faf66",
+    "storage_bucket": "nufitionist-faf66.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:69862723384:android:f648172c2cbc1f240bfbcd",
+        "android_client_info": {
+          "package_name": "com.prowrites.nufitionist"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAg-K36jPHUCzO5KR-AlBsloNcl9TF4dPA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

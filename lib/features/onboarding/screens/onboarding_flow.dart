@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/data/services/notification_service.dart';
+import 'package:user_onboarding/services/fcm_service.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({Key? key}) : super(key: key);
@@ -155,16 +156,17 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Future<void> _setupNotifications(String userId, Map<String, dynamic> userProfile) async {
     try {
-      final notificationService = NotificationService();
+      final fcmService = FCMService();
+      await fcmService.subscribeToNotifications(userId);
+      print('✅ New user subscribed to FCM notifications');
       
-      // Request permissions first
+      // Keep old notification service as fallback
+      final notificationService = NotificationService();
       final permissionGranted = await notificationService.requestPermissions();
       
       if (permissionGranted) {
-        // Schedule all notifications
         await notificationService.scheduleAllNotifications(userId, userProfile);
         
-        // Save notification setup timestamp
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(
           'notifications_last_scheduled_$userId',
@@ -179,18 +181,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               content: Text('✅ Daily reminders are now active!'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        print('⚠️ Notification permissions not granted');
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Enable notifications in settings for daily reminders'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
             ),
           );
         }

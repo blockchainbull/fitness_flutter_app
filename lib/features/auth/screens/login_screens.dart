@@ -6,6 +6,7 @@ import 'package:user_onboarding/features/home/screens/home_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/onboarding_flow.dart';
 import 'package:user_onboarding/data/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:user_onboarding/services/fcm_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -68,13 +69,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _setupNotifications(String userId, Map<String, dynamic> userProfile) async {
     try {
+      // ⭐ ADD FCM SUBSCRIPTION
+      final fcmService = FCMService();
+      await fcmService.subscribeToNotifications(userId);
+      print('✅ User subscribed to FCM notifications');
+      
+      // Keep the old notification service for now (fallback)
       final notificationService = NotificationService();
       final permissionGranted = await notificationService.requestPermissions();
       
       if (permissionGranted) {
         await notificationService.scheduleAllNotifications(userId, userProfile);
         
-        // Save notification setup timestamp
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(
           'notifications_last_scheduled_$userId',
@@ -82,8 +88,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         
         print('✅ Notifications scheduled for logged-in user: $userId');
-      } else {
-        print('⚠️ Notification permissions not granted');
       }
     } catch (e) {
       print('❌ Error setting up notifications: $e');

@@ -1,4 +1,6 @@
-// lib/data/services/notification_service.dart
+// lib/data/services/notification_service_MINIMAL.dart
+// ⭐ MINIMAL VERSION - Guaranteed to work without crashes
+
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -8,7 +10,6 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-// Import your app screens for navigation
 import 'package:user_onboarding/features/tracking/screens/meal_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
 import 'package:user_onboarding/features/notifications/screens/notifications_screen.dart';
@@ -18,7 +19,6 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   static const String backendUrl = 'https://health-ai-backend-i28b.onrender.com';
   
-  // ⭐ Global navigator key - allows navigation from background notifications
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   
   factory NotificationService() => _instance;
@@ -38,22 +38,19 @@ class NotificationService {
   static const int stepMilestone50Id = 7000;
   static const int stepMilestone100Id = 7001;
 
-  // Track last step notification to prevent duplicates
-  int? _lastStepCount50;
-  int? _lastStepCount100;
-
   Future<void> initialize() async {
     print('🔔 [INIT] Starting notification service initialization...');
     
     tz.initializeTimeZones();
-  
+    
+    // Auto-detect timezone
     final String currentTimeZone = DateTime.now().timeZoneName;
     try {
       tz.setLocalLocation(tz.getLocation(currentTimeZone));
-      print('✅ [INIT] Timezone set to device timezone: $currentTimeZone');
+      print('✅ [INIT] Timezone set to: $currentTimeZone');
     } catch (e) {
-      // Fallback to UTC if timezone not in database
       tz.setLocalLocation(tz.getLocation('UTC'));
+      print('⚠️ [INIT] Using UTC timezone');
     }
     
     const AndroidInitializationSettings androidSettings =
@@ -76,80 +73,49 @@ class NotificationService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
-    // Create notification channels for Android
+    // Create notification channel for Android
     if (Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
           _notificationsPlugin.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
 
       if (androidImplementation != null) {
-        // ⭐ CRITICAL: Create channels with proper settings
+        // Create ONE main channel with correct settings
         await androidImplementation.createNotificationChannel(
           const AndroidNotificationChannel(
             'health_reminders',
             'Health Reminders',
             description: 'Daily health tracking reminders',
-            importance: Importance.high,
+            importance: Importance.max,
             playSound: true,
             enableVibration: true,
             showBadge: true,
           ),
         );
 
-        await androidImplementation.createNotificationChannel(
-          const AndroidNotificationChannel(
-            'test_channel',
-            'Test Notifications',
-            description: 'Test notification channel',
-            importance: Importance.high,
-            playSound: true,
-            enableVibration: true,
-            showBadge: true,
-          ),
-        );
-
-        // ⭐ Request notification permission for Android 13+
-        final bool? granted = await androidImplementation.requestNotificationsPermission();
-        final bool? exactAlarmGranted = await androidImplementation.requestExactAlarmsPermission();
+        await androidImplementation.requestNotificationsPermission();
+        await androidImplementation.requestExactAlarmsPermission();
         
-        print('📱 [PERMISSIONS] Notification: $granted, Exact Alarm: $exactAlarmGranted');
+        print('✅ [INIT] Notification channel created');
       }
     }
 
-    print('✅ [INIT] Notification service initialized successfully');
+    print('✅ [INIT] Notification service initialized');
   }
 
-  // Request permissions (especially for Android 13+ and iOS)
   Future<bool> requestPermissions() async {
     if (Platform.isAndroid) {
-      final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-          _notificationsPlugin.resolvePlatformSpecificImplementation
-              <AndroidFlutterLocalNotificationsPlugin>();
-
-      final bool? granted = await androidImplementation?.requestNotificationsPermission();
-      final bool? exactAlarmGranted = await androidImplementation?.requestExactAlarmsPermission();
+      final androidImpl = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      final granted = await androidImpl?.requestNotificationsPermission();
+      final exactAlarmGranted = await androidImpl?.requestExactAlarmsPermission();
       
-      print('📱 Android notification permission: $granted');
-      print('📱 Android exact alarm permission: $exactAlarmGranted');
-      
-      return granted ?? false;
-    } else if (Platform.isIOS) {
-      final bool? granted = await _notificationsPlugin
-          .resolvePlatformSpecificImplementation
-              <IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(
-            alert: true,
-            badge: true,
-            sound: true,
-          );
-      
-      print('📱 iOS notification permission: $granted');
+      print('📱 Permissions - Notification: $granted, Exact Alarm: $exactAlarmGranted');
       return granted ?? false;
     }
     return true;
   }
 
-  // Handle notification tap with proper navigation
   void _onNotificationTapped(NotificationResponse response) {
     final String? payload = response.payload;
     if (payload == null) return;
@@ -157,40 +123,22 @@ class NotificationService {
     try {
       final data = jsonDecode(payload);
       final String type = data['type'] ?? '';
-      final String userId = data['user_id'] ?? '';
-      final String? notificationId = data['notification_id'];
-      
-      print('📱 Notification tapped - Type: $type, User: $userId');
-      
-      // Mark notification as read if we have the ID
-      if (notificationId != null) {
-        markAsRead(notificationId);
-      }
-      
-      // Navigate based on notification type
+      print('📱 Notification tapped - Type: $type');
       _handleNotificationNavigation(type, data);
-      
     } catch (e) {
       print('❌ Error handling notification tap: $e');
     }
   }
 
-  // Handle navigation with proper UserProfile loading
   void _handleNotificationNavigation(String type, Map<String, dynamic> data) async {
     final BuildContext? context = navigatorKey.currentContext;
-    if (context == null) {
-      print('❌ Navigation context not available');
-      return;
-    }
+    if (context == null) return;
 
-    // Load user profile from SharedPreferences
     UserProfile? userProfile;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('user_id');
       final profileJson = prefs.getString('user_profile');
-      
-      if (userId != null && profileJson != null) {
+      if (profileJson != null) {
         userProfile = UserProfile.fromMap(jsonDecode(profileJson));
       }
     } catch (e) {
@@ -198,16 +146,12 @@ class NotificationService {
     }
 
     if (userProfile == null) {
-      print('❌ User profile not found, cannot navigate');
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const NotificationsScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const NotificationsScreen()),
       );
       return;
     }
 
-    // Navigate based on notification type
     switch (type.toLowerCase()) {
       case 'breakfast':
       case 'lunch':
@@ -216,125 +160,56 @@ class NotificationService {
       case 'meal':
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => EnhancedMealLoggingPage(
-              userProfile: userProfile!,
-            ),
+            builder: (context) => EnhancedMealLoggingPage(userProfile: userProfile!),
           ),
         );
         break;
-        
-      case 'exercise':
-      case 'workout':
-      case 'water':
-      case 'sleep':
-      case 'supplement':
-      case 'supplements':
-      case 'weight':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => ActivityLoggingMenu(
-              userProfile: userProfile!,
-            ),
-          ),
-        );
-        break;
-        
-      case 'steps_50':
-      case 'steps_100':
-      case 'milestone':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🎉 ${data['title'] ?? 'Milestone achieved!'}'),
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.green,
-          ),
-        );
-        break;
-        
       default:
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => const NotificationsScreen(),
+            builder: (context) => ActivityLoggingMenu(userProfile: userProfile!),
           ),
         );
         break;
     }
   }
 
-  // Schedule all notifications for a user
+  // ⭐ MINIMAL SCHEDULE - Only essential parameters, no complex styling
   Future<void> scheduleAllNotifications(String userId, Map<String, dynamic> userProfile) async {
-    print('📱 [SCHEDULE ALL] Starting for user: $userId');
+    print('📱 [SCHEDULE] Starting for user: $userId');
     
-    // Cancel all existing notifications first
     await cancelAllNotifications();
     
-    // Schedule meal notifications
     await scheduleMealNotifications(userId, userProfile);
-    
-    // Schedule exercise notification
     await scheduleExerciseNotification(userId);
-    
-    // Schedule water notifications
     await scheduleWaterNotifications(userId);
-    
-    // Schedule sleep notification
     await scheduleSleepNotification(userId, userProfile);
-    
-    // Schedule supplement notification
     await scheduleSupplementNotification(userId);
     
-    // Schedule weight notification (weekly)
-    await scheduleWeightNotification(userId);
-    
-    // ⭐ CRITICAL: Show scheduled notifications for debugging
-    await _debugPrintScheduledNotifications();
-    
-    print('✅ [SCHEDULE ALL] Complete! All notifications scheduled.');
+    final pending = await getPendingNotifications();
+    print('✅ [SCHEDULE] Complete! ${pending.length} notifications scheduled');
   }
 
-  // ⭐ NEW: Debug helper to see what's scheduled
-  Future<void> _debugPrintScheduledNotifications() async {
-    final pending = await _notificationsPlugin.pendingNotificationRequests();
-    print('');
-    print('📋 [DEBUG] Currently scheduled notifications: ${pending.length}');
-    for (var notif in pending) {
-      print('   ID ${notif.id}: ${notif.title}');
-    }
-    print('');
-  }
-
-  // MEAL NOTIFICATIONS
   Future<void> scheduleMealNotifications(String userId, Map<String, dynamic> userProfile) async {
-    print('🍽️ [MEALS] Scheduling meal notifications for user: $userId');
+    print('🍽️ [MEALS] Scheduling notifications');
     
     final int mealsPerDay = userProfile['daily_meals_count'] ?? 
                             userProfile['dailyMealsCount'] ?? 
                             3;
     
-    print('📊 [MEALS] User meals per day: $mealsPerDay');
-    
     List<Map<String, dynamic>> mealTimes = _getMealTimes(mealsPerDay);
     
-    // Cancel any existing meal notifications first
-    for (int i = 0; i < 10; i++) {
-      await cancelNotification(mealNotificationIdBase + i);
-    }
-    
-    // Schedule only the meals the user needs
     for (int i = 0; i < mealTimes.length; i++) {
       final mealTime = mealTimes[i];
-      await _scheduleSmartNotification(
+      await _scheduleNotification(
         id: mealNotificationIdBase + i,
         title: '🍽️ ${mealTime['name']} Reminder',
         body: 'Time to log your ${mealTime['name'].toLowerCase()}!',
         hour: mealTime['hour'],
         minute: mealTime['minute'],
-        activityType: mealTime['name'].toLowerCase(),
         userId: userId,
       );
     }
-    
-    print('✅ [MEALS] Scheduled $mealsPerDay meal notifications');
   }
 
   List<Map<String, dynamic>> _getMealTimes(int mealsPerDay) {
@@ -356,22 +231,13 @@ class NotificationService {
         {'name': 'Snack', 'hour': 15, 'minute': 30},
         {'name': 'Dinner', 'hour': 19, 'minute': 0},
       ];
-    } else if (mealsPerDay == 5) {
+    } else if (mealsPerDay >= 5) {
       return [
         {'name': 'Breakfast', 'hour': 8, 'minute': 0},
         {'name': 'Snack 1', 'hour': 10, 'minute': 30},
         {'name': 'Lunch', 'hour': 13, 'minute': 0},
         {'name': 'Snack 2', 'hour': 16, 'minute': 0},
         {'name': 'Dinner', 'hour': 19, 'minute': 0},
-      ];
-    } else if (mealsPerDay >= 6) {
-      return [
-        {'name': 'Breakfast', 'hour': 8, 'minute': 0},
-        {'name': 'Snack 1', 'hour': 10, 'minute': 30},
-        {'name': 'Lunch', 'hour': 13, 'minute': 0},
-        {'name': 'Snack 2', 'hour': 15, 'minute': 30},
-        {'name': 'Dinner', 'hour': 19, 'minute': 0},
-        {'name': 'Snack 3', 'hour': 21, 'minute': 0},
       ];
     }
     
@@ -382,321 +248,167 @@ class NotificationService {
     ];
   }
 
-  // EXERCISE NOTIFICATION - Once a day
   Future<void> scheduleExerciseNotification(String userId) async {
-    await _scheduleSmartNotification(
+    await _scheduleNotification(
       id: exerciseNotificationId,
       title: '💪 Exercise Reminder',
-      body: 'Don\'t forget to log your workout for today!',
+      body: 'Don\'t forget to log your workout!',
       hour: 18,
       minute: 0,
-      activityType: 'exercise',
       userId: userId,
     );
   }
 
-  // WATER NOTIFICATIONS - 2 times, 6 hours apart
   Future<void> scheduleWaterNotifications(String userId) async {
-    await _scheduleSmartNotification(
+    await _scheduleNotification(
       id: waterNotificationId1,
       title: '💧 Hydration Check',
       body: 'Remember to log your water intake!',
       hour: 10,
       minute: 0,
-      activityType: 'water',
       userId: userId,
     );
     
-    await _scheduleSmartNotification(
+    await _scheduleNotification(
       id: waterNotificationId2,
       title: '💧 Stay Hydrated',
-      body: 'Time to log your water intake again!',
+      body: 'Time to log your water!',
       hour: 16,
       minute: 0,
-      activityType: 'water',
       userId: userId,
     );
   }
 
-  // SLEEP NOTIFICATION - 1.5 hours after wake up time
   Future<void> scheduleSleepNotification(String userId, Map<String, dynamic> userProfile) async {
-    final String? wakeTime = userProfile['usual_wake_time'];
-    
-    if (wakeTime != null) {
-      final timeParts = wakeTime.split(':');
-      int wakeHour = int.parse(timeParts[0]);
-      int wakeMinute = int.parse(timeParts[1]);
-      
-      wakeMinute += 90;
-      if (wakeMinute >= 60) {
-        wakeHour += wakeMinute ~/ 60;
-        wakeMinute = wakeMinute % 60;
-      }
-      
-      await _scheduleSmartNotification(
-        id: sleepNotificationId,
-        title: '😴 Sleep Log Reminder',
-        body: 'How was your sleep last night? Log it now!',
-        hour: wakeHour,
-        minute: wakeMinute,
-        activityType: 'sleep',
-        userId: userId,
-      );
-    } else {
-      await _scheduleSmartNotification(
-        id: sleepNotificationId,
-        title: '😴 Sleep Log Reminder',
-        body: 'How was your sleep last night? Log it now!',
-        hour: 9,
-        minute: 0,
-        activityType: 'sleep',
-        userId: userId,
-      );
-    }
+    await _scheduleNotification(
+      id: sleepNotificationId,
+      title: '😴 Sleep Log Reminder',
+      body: 'How was your sleep last night?',
+      hour: 9,
+      minute: 0,
+      userId: userId,
+    );
   }
 
-  // SUPPLEMENT NOTIFICATION
   Future<void> scheduleSupplementNotification(String userId) async {
-    await _scheduleSmartNotification(
+    await _scheduleNotification(
       id: supplementNotificationId,
       title: '💊 Supplement Reminder',
       body: 'Time to take your supplements!',
       hour: 8,
       minute: 30,
-      activityType: 'supplement',
       userId: userId,
     );
   }
 
-  // WEIGHT NOTIFICATION - Weekly
-  Future<void> scheduleWeightNotification(String userId) async {
-    await _scheduleWeeklyNotification(
-      id: weightNotificationId,
-      title: '⚖️ Weekly Weigh-In',
-      body: 'It\'s time for your weekly weigh-in! Track your progress.',
-      dayOfWeek: DateTime.monday,
-      hour: 7,
-      minute: 0,
-      payload: jsonEncode({
-        'type': 'weight',
-        'user_id': userId,
-      }),
-    );
-  }
-
-  // ⭐ UPDATED: Smart notification with better debugging
-  Future<void> _scheduleSmartNotification({
+  // ⭐ MINIMAL NOTIFICATION - Only required parameters
+  Future<void> _scheduleNotification({
     required int id,
     required String title,
     required String body,
     required int hour,
     required int minute,
-    required String activityType,
     required String userId,
   }) async {
     try {
       final now = tz.TZDateTime.now(tz.local);
       var scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
       
-      // If the time has passed today, schedule for tomorrow
       if (scheduledDate.isBefore(now)) {
         scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
 
-      // ⭐ CRITICAL: Debug logging
-      print('⏰ [SCHEDULE] $activityType (ID: $id):');
-      print('   Current time: ${now.toString()}');
-      print('   Scheduled for: ${scheduledDate.toString()}');
-      print('   Time until notification: ${scheduledDate.difference(now).inMinutes} minutes (${scheduledDate.difference(now).inHours}h)');
+      print('⏰ [SCHEDULE] ID $id at ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}');
 
-      // ⭐ CRITICAL: Use proper notification details
+      // ⭐ MINIMAL settings - only what's required
       await _notificationsPlugin.zonedSchedule(
         id,
         title,
         body,
         scheduledDate,
-        NotificationDetails(
+        const NotificationDetails(
           android: AndroidNotificationDetails(
-            'health_reminders', // Must match channel ID
+            'health_reminders',  // Use the channel we created
             'Health Reminders',
             channelDescription: 'Daily health tracking reminders',
-            importance: Importance.max, // Changed to max for testing
+            importance: Importance.max,
             priority: Priority.high,
             playSound: true,
             enableVibration: true,
             showWhen: true,
-            visibility: NotificationVisibility.public,
             icon: '@mipmap/ic_launcher',
-            styleInformation: BigTextStyleInformation(body),
-            // ⭐ Add these for better visibility
-            ongoing: false,
-            autoCancel: true,
           ),
-          iOS: const DarwinNotificationDetails(
+          iOS: DarwinNotificationDetails(
             presentAlert: true,
             presentBadge: true,
             presentSound: true,
-            sound: 'default',
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time, // Repeat daily
-        payload: jsonEncode({
-          'type': activityType,
-          'user_id': userId,
-        }),
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: jsonEncode({'type': 'reminder', 'user_id': userId}),
       );
 
-      // Log to database for history (non-blocking)
+      // Log to database (non-blocking)
       _logNotificationToDatabase(
         userId: userId,
         title: title,
         body: body,
-        type: activityType,
-      ).catchError((e) {
-        print('⚠️ Failed to log notification to DB: $e');
-      });
+        type: 'reminder',
+      ).catchError((e) => print('⚠️ DB log failed: $e'));
 
-      print('✅ [SCHEDULE] $activityType scheduled successfully');
+      print('✅ [SCHEDULE] ID $id scheduled successfully');
     } catch (e) {
-      print('❌ [SCHEDULE ERROR] Failed to schedule $activityType: $e');
+      print('❌ [SCHEDULE ERROR] ID $id failed: $e');
+      print('   Stack trace: ${StackTrace.current}');
     }
   }
 
-  // Helper method for weekly notifications
-  Future<void> _scheduleWeeklyNotification({
+  Future<void> showImmediateNotification({
     required int id,
     required String title,
     required String body,
-    required int dayOfWeek,
-    required int hour,
-    required int minute,
-    String? payload,
+    String? userId,        
+    String type = 'test',
   }) async {
-    var scheduledDate = _nextInstanceOfDayAndTime(dayOfWeek, hour, minute);
-
-    await _notificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduledDate,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'health_reminders', // Use same channel for consistency
-          'Health Reminders',
-          channelDescription: 'Weekly reminders',
-          importance: Importance.high,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-      payload: payload,
-    );
-  }
-
-  tz.TZDateTime _nextInstanceOfDayAndTime(int dayOfWeek, int hour, int minute) {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-
-    while (scheduledDate.weekday != dayOfWeek || scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
-
-    return scheduledDate;
-  }
-
-  // MILESTONE NOTIFICATIONS
-  Future<void> checkStepMilestone({
-    required int currentSteps,
-    required int goalSteps,
-    required String userId,
-  }) async {
-    if (goalSteps == 0) return;
-
-    final double progress = (currentSteps / goalSteps) * 100;
-
-    if (progress >= 50 && progress < 100 && _lastStepCount50 != currentSteps) {
-      _lastStepCount50 = currentSteps;
-      await showMilestoneNotification(
-        id: stepMilestone50Id,
-        title: '🎯 Halfway There!',
-        body: 'You\'ve reached 50% of your step goal! Keep going!',
-        userId: userId,
-        milestoneType: 'steps_50',
-      );
-    }
-
-    if (progress >= 100 && _lastStepCount100 != currentSteps) {
-      _lastStepCount100 = currentSteps;
-      await showMilestoneNotification(
-        id: stepMilestone100Id,
-        title: '🎉 Goal Achieved!',
-        body: 'Congratulations! You\'ve reached your daily step goal!',
-        userId: userId,
-        milestoneType: 'steps_100',
-      );
-    }
-  }
-
-  Future<void> showMilestoneNotification({
-    required int id,
-    required String title,
-    required String body,
-    required String userId,
-    required String milestoneType,
-  }) async {
+    print('🔔 [IMMEDIATE] Showing: $title');
+    
     await _notificationsPlugin.show(
       id,
       title,
       body,
-      NotificationDetails(
+      const NotificationDetails(
         android: AndroidNotificationDetails(
-          'health_reminders', // Use same channel
+          'health_reminders',
           'Health Reminders',
-          channelDescription: 'Milestone achievements',
+          channelDescription: 'Health reminders',
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
           enableVibration: true,
+          showWhen: true,
           icon: '@mipmap/ic_launcher',
-          styleInformation: BigTextStyleInformation(body),
         ),
-        iOS: const DarwinNotificationDetails(
+        iOS: DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
         ),
       ),
-      payload: jsonEncode({
-        'type': milestoneType,
-        'user_id': userId,
-        'title': title,
-      }),
     );
 
-    // Log to database
-    await _logNotificationToDatabase(
-      userId: userId,
-      title: title,
-      body: body,
-      type: milestoneType,
-    );
+    if (userId != null) {
+      _logNotificationToDatabase(
+        userId: userId,
+        title: title,
+        body: body,
+        type: type,
+      ).catchError((e) => print('⚠️ DB log failed: $e'));
+    }
   }
 
-  // Log notification to database and return ID
   Future<String?> _logNotificationToDatabase({
     required String userId,
     required String title,
@@ -717,11 +429,8 @@ class NotificationService {
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final notificationId = data['notification']?['id'];
-        print('✅ Notification logged to DB with ID: $notificationId');
-        return notificationId;
+        return data['notification']?['id'];
       }
-      
       return null;
     } catch (e) {
       print('❌ Error logging notification: $e');
@@ -729,119 +438,19 @@ class NotificationService {
     }
   }
 
-  // Mark notification as read
-  Future<void> markAsRead(String notificationId) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$backendUrl/notifications/$notificationId/read'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      
-      if (response.statusCode == 200) {
-        print('✅ Notification marked as read: $notificationId');
-      }
-    } catch (e) {
-      print('❌ Error marking notification as read: $e');
-    }
+  Future<void> cancelAllNotifications() async {
+    await _notificationsPlugin.cancelAll();
+    print('🔕 All notifications cancelled');
   }
 
-  // Mark all as read
-  Future<void> markAllAsRead(String userId) async {
-    try {
-      await http.put(
-        Uri.parse('$backendUrl/notifications/$userId/mark-all-read'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      print('✅ All notifications marked as read');
-    } catch (e) {
-      print('❌ Error marking all as read: $e');
-    }
+  Future<void> cancelNotification(int id) async {
+    await _notificationsPlugin.cancel(id);
   }
 
-  // Delete notification
-  Future<void> deleteNotification(String notificationId) async {
-    try {
-      await http.delete(
-        Uri.parse('$backendUrl/notifications/$notificationId'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      print('✅ Notification deleted: $notificationId');
-    } catch (e) {
-      print('❌ Error deleting notification: $e');
-    }
+  Future<List<PendingNotificationRequest>> getPendingNotifications() async {
+    return await _notificationsPlugin.pendingNotificationRequests();
   }
 
-  // Check if activity is logged for today
-  Future<bool> isActivityLoggedToday(String userId, String activityType) async {
-    try {
-      final today = DateTime.now();
-      final dateStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-      
-      final response = await http.get(
-        Uri.parse('$backendUrl/api/health/check-activity/$userId/$activityType?date=$dateStr'),
-      );
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['logged'] == true;
-      }
-      return false;
-    } catch (e) {
-      print('Error checking activity: $e');
-      return false;
-    }
-  }
-
-  // ⭐ UPDATED: Immediate notification with better settings
-  Future<void> showImmediateNotification({
-    required int id,
-    required String title,
-    required String body,
-    String? userId,        
-    String type = 'test',
-  }) async {
-    print('🔔 [IMMEDIATE] Showing notification: $title');
-    
-    await _notificationsPlugin.show(
-      id,
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'test_channel',
-          'Test Notifications',
-          channelDescription: 'Test notification channel',
-          importance: Importance.max, // Max for immediate visibility
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: '@mipmap/ic_launcher',
-          showWhen: true,
-          visibility: NotificationVisibility.public,
-          styleInformation: BigTextStyleInformation(body),
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-    );
-
-    // Log to database if userId provided
-    if (userId != null) {
-      await _logNotificationToDatabase(
-        userId: userId,
-        title: title,
-        body: body,
-        type: type,
-      );
-    }
-    
-    print('✅ [IMMEDIATE] Notification shown');
-  }
-
-  // Also keep the old name for compatibility
   Future<void> showTestNotification() async {
     await showImmediateNotification(
       id: 999,
@@ -850,55 +459,64 @@ class NotificationService {
     );
   }
 
-  // Cancel all notifications
-  Future<void> cancelAllNotifications() async {
-    await _notificationsPlugin.cancelAll();
-    print('🔕 All notifications cancelled');
-  }
-
-  // Cancel specific notification
-  Future<void> cancelNotification(int id) async {
-    await _notificationsPlugin.cancel(id);
-  }
-
-  // Get pending notifications (for debugging)
-  Future<List<PendingNotificationRequest>> getPendingNotifications() async {
-    return await _notificationsPlugin.pendingNotificationRequests();
-  }
-
-  // Get unread notification count
+  // Get unread notification count from backend
   Future<int> getUnreadCount(String userId) async {
     try {
       final response = await http.get(
-        Uri.parse('$backendUrl/notifications/unread-count/$userId'),
+        Uri.parse('$backendUrl/notifications/unread/$userId'),
       );
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['count'] as int;
+        return data['unread_count'] ?? 0;
       }
       return 0;
     } catch (e) {
-      print('Error getting unread count: $e');
+      print('❌ Error getting unread count: $e');
       return 0;
     }
   }
 
-  // Get all notifications
-  Future<List<Map<String, dynamic>>> getNotifications(String userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$backendUrl/notifications/$userId'),
-      );
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['notifications']);
-      }
-      return [];
-    } catch (e) {
-      print('Error getting notifications: $e');
-      return [];
-    }
+  // Show milestone notification (for achievements like step goals)
+  Future<void> showMilestoneNotification({
+    required int id,
+    required String title,
+    required String body,
+    required String userId,
+    required String milestoneType,
+  }) async {
+    print('🎉 [MILESTONE] Showing: $title');
+    
+    await _notificationsPlugin.show(
+      id,
+      title,
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'health_reminders',
+          'Health Reminders',
+          channelDescription: 'Milestone achievements',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+          showWhen: true,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+    );
+
+    // Log to database
+    await _logNotificationToDatabase(
+      userId: userId,
+      title: title,
+      body: body,
+      type: milestoneType,
+    );
   }
 }

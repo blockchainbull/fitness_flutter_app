@@ -26,6 +26,7 @@ import 'package:user_onboarding/features/home/widgets/compact_supplements_tracke
 import 'package:user_onboarding/features/home/widgets/compact_period_tracker.dart';
 import 'package:user_onboarding/features/home/widgets/weekly_stats_card.dart';
 import 'package:user_onboarding/features/notifications/screens/notifications_screen.dart';
+import 'package:user_onboarding/services/fcm_service.dart';
 // import 'package:user_onboarding/utils/user_diagnostic_widget.dart';
 
 
@@ -91,7 +92,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     _checkSupplementsSetup();
     _loadUnreadCount();
     _loadInitialData();
-
+    _subscribeFCM();
     _checkAndRescheduleNotifications();
   }
 
@@ -230,6 +231,16 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     await Future.wait([
       if (_dailyMacros) _loadTodayProgress(),
     ]);
+  }
+
+  Future<void> _subscribeFCM() async {
+    try {
+      final fcmService = FCMService();
+      await fcmService.subscribeToNotifications(_currentUserProfile.id);
+      print('✅ FCM subscription refreshed on app start');
+    } catch (e) {
+      print('⚠️ FCM subscription error: $e');
+    }
   }
 
   Future<void> _loadTodayProgress() async {

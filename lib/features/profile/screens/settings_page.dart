@@ -1,9 +1,13 @@
 // lib/features/profile/screens/settings_page.dart
+// ⭐ WORKING VERSION with simple notification fix
+
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
+import 'package:user_onboarding/data/services/notification_service.dart';
 import 'package:user_onboarding/features/profile/screens/notification_settings_page.dart';
 import 'package:user_onboarding/features/notifications/screens/notifications_screen.dart';
-import 'package:user_onboarding/widgets/emergency_notification_fix.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class SettingsPage extends StatefulWidget {
   final UserProfile userProfile;
@@ -24,6 +28,190 @@ class _SettingsPageState extends State<SettingsPage> {
   String _selectedTheme = 'System';
   String _selectedUnits = 'Metric';
 
+  Future<void> _scheduleNotifications() async {
+    try {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Scheduling notifications...'),
+            ],
+          ),
+        ),
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      final profileJson = prefs.getString('user_profile');
+
+      if (userId == null || profileJson == null) {
+        if (mounted) Navigator.pop(context);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Please log in first'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final userProfile = jsonDecode(profileJson);
+      final notificationService = NotificationService();
+
+      // Initialize
+      try {
+        await notificationService.initialize();
+        print('✅ Initialized');
+      } catch (e) {
+        print('⚠️ Init warning: $e');
+      }
+
+      // Schedule notifications (they will override old ones with same ID)
+      int successCount = 0;
+      
+      try {
+        await notificationService.scheduleMealNotifications(userId, userProfile);
+        final mealsCount = userProfile['daily_meals_count'] ?? userProfile['dailyMealsCount'] ?? 3;
+        successCount += (mealsCount is int ? mealsCount : (mealsCount as num).toInt());
+      } catch (e) {
+        print('⚠️ Meals error: $e');
+      }
+
+      try {
+        await notificationService.scheduleExerciseNotification(userId);
+        successCount++;
+      } catch (e) {
+        print('⚠️ Exercise error: $e');
+      }
+
+      try {
+        await notificationService.scheduleWaterNotifications(userId);
+        successCount += 2;
+      } catch (e) {
+        print('⚠️ Water error: $e');
+      }
+
+      try {
+        await notificationService.scheduleSleepNotification(userId, userProfile);
+        successCount++;
+      } catch (e) {
+        print('⚠️ Sleep error: $e');
+      }
+
+      try {
+        await notificationService.scheduleSupplementNotification(userId);
+        successCount++;
+      } catch (e) {
+        print('⚠️ Supplement error: $e');
+      }
+
+      // Save timestamp
+      await prefs.setString(
+        'notifications_last_scheduled_$userId',
+        DateTime.now().toIso8601String(),
+      );
+
+      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Scheduled $successCount notifications!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        _showSuccessDialog(successCount);
+      }
+    } catch (e) {
+      print('❌ Error: $e');
+      
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: ${e.toString().substring(0, 50)}...'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showSuccessDialog(int count) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('✅ Success!'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Scheduled $count notifications',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              const Text('Next notifications:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('• 8:00 AM - Breakfast'),
+              const Text('• 8:30 AM - Supplement'),
+              const Text('• 9:00 AM - Sleep Log'),
+              const Text('• 10:00 AM - Water'),
+              const Text('• 1:00 PM - Lunch'),
+              const Text('• 4:00 PM - Water'),
+              const Text('• 6:00 PM - Exercise'),
+              const Text('• 7:00 PM - Dinner'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '💡 What happens next:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text('• Notifications will appear at these times'),
+                    Text('• Check your notification panel when they fire'),
+                    Text('• If app restarts, they will persist'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,17 +222,62 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: ListView(
         children: [
+          // ⭐ SIMPLE FIX BUTTON - No complex widget
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.notification_important, color: Colors.red.shade700),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Notification Setup',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Click the button below to schedule your daily health reminders.',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _scheduleNotifications,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    icon: const Icon(Icons.notifications_active),
+                    label: const Text(
+                      'SCHEDULE NOTIFICATIONS',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
           _buildSection(
             'Notifications',
             [
-
-              // ⭐ EMERGENCY FIX WIDGET - Shows at the top for easy access
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: EmergencyNotificationFix(),
-              ),
-
-
               _buildSwitchTile(
                 'Push Notifications',
                 'Receive workout reminders and updates',
