@@ -1,5 +1,4 @@
 // lib/main.dart
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -12,203 +11,185 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:user_onboarding/data/services/notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; 
 import 'package:user_onboarding/services/fcm_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('🔔 [FCM] Background message received');
+  print('   Title: ${message.notification?.title}');
+  print('   Body: ${message.notification?.body}');
+}
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  tz.initializeTimeZones();
-  
-  await Firebase.initializeApp();
-
-  final fcmService = FCMService();
-  await fcmService.initialize();
-
-
-  // Get device's timezone name
-  final String timeZoneName = DateTime.now().timeZoneName;
-  
-  // Set timezone based on device or fallback to UTC
-  try {
-    // Try to set from device timezone
-    if (timeZoneName.isNotEmpty && timeZoneName != 'UTC') {
-      // First try direct timezone name
-      try {
-        tz.setLocalLocation(tz.getLocation(timeZoneName));
-        print('🌍 Timezone set to: $timeZoneName (from device)');
-      } catch (e) {
-        // If direct name fails, try to find closest match
-        final location = _findClosestTimezone(timeZoneName);
-        tz.setLocalLocation(location);
-        print('🌍 Timezone set to: ${location.name} (closest match to $timeZoneName)');
-      }
-    } else {
-      // Fallback: Use system default
-      tz.setLocalLocation(tz.local);
-      print('🌍 Timezone set to: ${tz.local.name} (system default)');
-    }
-  } catch (e) {
-    // Final fallback: UTC
-    tz.setLocalLocation(tz.getLocation('UTC'));
-    print('⚠️ Timezone detection failed, using UTC. Error: $e');
-  }
-  
-  // Initialize notification service
-  final notificationService = NotificationService();
-  await notificationService.initialize();
-  await notificationService.requestPermissions();
-  
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
-  
-  // Initialize Supabase
-  final supabaseUrl = dotenv.env['SUPABASE_URL'];
-  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
-  
-  if (supabaseUrl != null && supabaseAnonKey != null) {
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-      debug: true,
-    );
-    print('[Main] ✅ Supabase initialized successfully');
-  } else {
-    print('[Main] ⚠️ WARNING: Supabase credentials missing in .env file');
-  }
-
-  // Check and reschedule notifications if needed
-  await _initializeNotifications();
-  
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => UserProvider()..initUser(),
-      child: const MyApp(),
-    ),
-  );
-}
-
-/// Find closest timezone match
-tz.Location _findClosestTimezone(String timeZoneName) {
-  // Common timezone mappings
-  final Map<String, String> timezoneMap = {
-    'PST': 'America/Los_Angeles',
-    'PDT': 'America/Los_Angeles',
-    'MST': 'America/Denver',
-    'MDT': 'America/Denver',
-    'CST': 'America/Chicago',
-    'CDT': 'America/Chicago',
-    'EST': 'America/New_York',
-    'EDT': 'America/New_York',
-    'GMT': 'Europe/London',
-    'BST': 'Europe/London',
-    'CET': 'Europe/Paris',
-    'CEST': 'Europe/Paris',
-    'IST': 'Asia/Kolkata',
-    'PKT': 'Asia/Karachi',
-    'JST': 'Asia/Tokyo',
-    'AEST': 'Australia/Sydney',
-    'AEDT': 'Australia/Sydney',
+  // Add global error handler
+  FlutterError.onError = (FlutterErrorDetails details) {
+    print('❌ FLUTTER ERROR: ${details.exception}');
+    print('📍 Stack trace: ${details.stack}');
   };
   
-  // Try mapped timezone
-  final mappedZone = timezoneMap[timeZoneName];
-  if (mappedZone != null) {
+  try {
+    print('🚀 Starting app initialization...');
+    
+    // Initialize timezone
+    print('🌍 Initializing timezones...');
+    tz.initializeTimeZones();
+    
+    // Initialize Firebase with options
+    print('🔥 Initializing Firebase...');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('✅ Firebase initialized successfully');
+
+
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+    // Initialize FCM Service
+    print('🔔 Initializing FCM Service...');
+    final fcmService = FCMService();
+    await fcmService.initialize();
+    print('✅ FCM Service initialized successfully');
+
+    // Set timezone
+    _setTimezone();
+
+    // Load environment variables
+    print('📝 Loading environment variables...');
+    await dotenv.load(fileName: ".env");
+    print('✅ Environment variables loaded');
+
+    // Initialize Supabase
+    print('🗄️ Initializing Supabase...');
+    await Supabase.initialize(
+      url: dotenv.env['SUPABASE_URL']!,
+      anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    );
+    print('✅ Supabase initialized successfully');
+
+    
+
+    // Initialize notification service
+    print('🔔 Initializing Notification Service...');
+    await NotificationService().initialize();
+    print('✅ Notification Service initialized');
+
+    print('🎉 All services initialized successfully, launching app...');
+
+    // Run the app
+    runApp(const MyApp());
+    
+  } catch (e, stackTrace) {
+    print('❌ CRITICAL ERROR during initialization: $e');
+    print('📍 Stack trace: $stackTrace');
+    
+    // Show error screen
+    runApp(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 80,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Failed to Initialize App',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error: $e',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // Note: This won't actually restart the app
+                      // User needs to manually restart
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Restart Required'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void _setTimezone() {
+  final String timeZoneName = DateTime.now().timeZoneName;
+  try {
+    if (timeZoneName.isNotEmpty && timeZoneName != 'UTC') {
+      try {
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
+        print('🌍 Timezone set to: $timeZoneName');
+      } catch (e) {
+        final location = _findClosestTimezone(timeZoneName);
+        tz.setLocalLocation(location);
+        print('🌍 Timezone set to: ${location.name}');
+      }
+    } else {
+      tz.setLocalLocation(tz.local);
+      print('🌍 Timezone set to: ${tz.local.name}');
+    }
+  } catch (e) {
+    tz.setLocalLocation(tz.getLocation('UTC'));
+    print('⚠️ Timezone set to UTC (fallback)');
+  }
+}
+
+tz.Location _findClosestTimezone(String timeZoneName) {
+  final Map<String, String> timezoneMap = {
+    'PKT': 'Asia/Karachi',
+    'PST': 'America/Los_Angeles',
+    'EST': 'America/New_York',
+    'CST': 'America/Chicago',
+    'MST': 'America/Denver',
+    'IST': 'Asia/Kolkata',
+    'GMT': 'Europe/London',
+    'CET': 'Europe/Paris',
+    'JST': 'Asia/Tokyo',
+  };
+
+  if (timezoneMap.containsKey(timeZoneName)) {
     try {
-      return tz.getLocation(mappedZone);
+      return tz.getLocation(timezoneMap[timeZoneName]!);
     } catch (e) {
       // Continue to fallback
     }
   }
-  
-  // Fallback to local
-  return tz.local;
-}
 
-/// Initialize and schedule notifications
-Future<void> _initializeNotifications() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('user_id');
-    
-    if (userId != null) {
-      print('📱 User found: $userId, checking notifications...');
-      await _checkAndRescheduleIfNeeded(userId, prefs);
-    } else {
-      print('📱 No user logged in, skipping notification scheduling');
-    }
-  } catch (e) {
-    print('⚠️ Error initializing notifications: $e');
-  }
-}
-
-/// Check if notifications need rescheduling
-Future<void> _checkAndRescheduleIfNeeded(String userId, SharedPreferences prefs) async {
-  try {
-    final notificationService = NotificationService();
-    
-    // ⭐ ALWAYS check actual pending count
-    final pending = await notificationService.getPendingNotifications();
-    
-    print('📱 [CHECK] User: $userId');
-    print('📱 [CHECK] Currently scheduled: ${pending.length}');
-    
-    // If NO notifications OR less than 5, reschedule
-    if (pending.length < 5) {
-      print('⚠️ [CHECK] Too few notifications (${ pending.length}), rescheduling...');
-      await _scheduleNotifications(userId, prefs);
-    } else {
-      print('✅ [CHECK] ${pending.length} notifications OK');
-      
-      // Update timestamp
-      await prefs.setString(
-        'notifications_last_scheduled_$userId',
-        DateTime.now().toIso8601String(),
-      );
-    }
-  } catch (e) {
-    print('❌ [CHECK ERROR] $e');
-    // Try to reschedule anyway
-    try {
-      await _scheduleNotifications(userId, prefs);
-    } catch (e2) {
-      print('❌ [RESCHEDULE ERROR] $e2');
-    }
-  }
-}
-
-/// Schedule notifications and save timestamp
-Future<void> _scheduleNotifications(String userId, SharedPreferences prefs) async {
-  try {
-    final notificationService = NotificationService();
-    final pending = await notificationService.getPendingNotifications();
-    
-    if (pending.isEmpty) {
-      final profileJson = prefs.getString('user_profile');
-      
-      if (profileJson != null) {
-        final userProfile = jsonDecode(profileJson);
-        await notificationService.scheduleAllNotifications(userId, userProfile);
-        
-        await prefs.setString(
-          'notifications_last_scheduled_$userId',
-          DateTime.now().toIso8601String(),
-        );
-        
-        print('✅ Notifications scheduled successfully');
-      } else {
-        print('⚠️ User profile not found in cache');
-      }
-    } else {
-      print('✅ ${pending.length} notifications already scheduled');
-      
-      await prefs.setString(
-        'notifications_last_scheduled_$userId',
-        DateTime.now().toIso8601String(),
-      );
-    }
-  } catch (e) {
-    print('❌ Error scheduling notifications: $e');
-  }
+  return tz.getLocation('UTC');
 }
 
 class MyApp extends StatelessWidget {
@@ -216,15 +197,20 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Health AI',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Nufitionist',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          useMaterial3: true,
+          scaffoldBackgroundColor: Colors.white,
+        ),
+        home: const SplashScreen(),
       ),
-      navigatorKey: NotificationService.navigatorKey,
-      home: const SplashScreen(),
-      debugShowCheckedModeBanner: false,
     );
   }
 }

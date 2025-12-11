@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services") version "4.4.4" apply false
 }
 
 android {
@@ -23,7 +22,7 @@ android {
     defaultConfig {
         applicationId = "com.prowrites.nufitionist"
         minSdk = flutter.minSdkVersion
-        targetSdk = 36  // Changed to 36
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
         
@@ -58,6 +57,10 @@ flutter {
 dependencies {
     // Core library desugaring dependency
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
     implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
     implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-messaging")
+    
+    implementation("androidx.multidex:multidex:2.0.1")
 }

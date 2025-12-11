@@ -1,19 +1,10 @@
 // lib/services/fcm_service.dart
-// Firebase Cloud Messaging Service for Flutter
 
-import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
-// Top-level function for background message handling
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('📱 [FCM BACKGROUND] Handling message: ${message.messageId}');
-  print('📱 [FCM BACKGROUND] Title: ${message.notification?.title}');
-  print('📱 [FCM BACKGROUND] Body: ${message.notification?.body}');
-}
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -33,22 +24,14 @@ class FCMService {
   Future<void> initialize() async {
     print('🔔 [FCM] Initializing Firebase Cloud Messaging...');
 
-    // Request permission (iOS mainly, Android auto-grants)
     await _requestPermission();
-
-    // Initialize local notifications for foreground display
     await _initializeLocalNotifications();
-
-    // Get FCM token
     await _getToken();
-
-    // Set up message handlers
     _setupMessageHandlers();
 
     print('✅ [FCM] Initialization complete');
   }
 
-  /// Request notification permissions
   Future<void> _requestPermission() async {
     print('📱 [FCM] Requesting permission...');
     
@@ -61,28 +44,22 @@ class FCMService {
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       print('✅ [FCM] Permission granted');
-    } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-      print('⚠️ [FCM] Provisional permission granted');
     } else {
       print('❌ [FCM] Permission denied');
     }
   }
 
-  /// Initialize local notifications for foreground messages
   Future<void> _initializeLocalNotifications() async {
     print('📱 [FCM] Initializing local notifications...');
 
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const DarwinInitializationSettings iosSettings =
-        DarwinInitializationSettings(
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
 
-    const InitializationSettings initSettings = InitializationSettings(
+    const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
@@ -92,8 +69,8 @@ class FCMService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
-    // Create Android notification channel
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    // Create Android notification channel - FIXED SYNTAX
+    const channel = AndroidNotificationChannel(
       'fcm_default_channel',
       'FCM Notifications',
       description: 'Firebase Cloud Messaging notifications',
@@ -103,46 +80,37 @@ class FCMService {
       showBadge: true,
     );
 
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    final android = _localNotifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (android != null) {
+      await android.createNotificationChannel(channel);
+    }
 
     print('✅ [FCM] Local notifications initialized');
   }
 
-  /// Get FCM token
   Future<void> _getToken() async {
     try {
       _fcmToken = await _firebaseMessaging.getToken();
       print('✅ [FCM] Token obtained: ${_fcmToken?.substring(0, 20)}...');
 
-      // Save token to backend
       await _saveTokenToBackend(_fcmToken!);
-
-      // Listen for token refresh
-      _firebaseMessaging.onTokenRefresh.listen((newToken) {
-        print('🔄 [FCM] Token refreshed');
-        _fcmToken = newToken;
-        _saveTokenToBackend(newToken);
-      });
+      _firebaseMessaging.onTokenRefresh.listen(_saveTokenToBackend);
     } catch (e) {
       print('❌ [FCM] Error getting token: $e');
     }
   }
 
-  /// Save FCM token to backend
   Future<void> _saveTokenToBackend(String token) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
 
       if (userId == null) {
-        print('⚠️ [FCM] No user ID, skipping token save');
+        print('⚠️ [FCM] No user ID found, skipping token save');
         return;
       }
-
-      print('📤 [FCM] Saving token to backend for user: $userId');
 
       final response = await http.post(
         Uri.parse('$backendUrl/api/fcm/register'),
@@ -157,193 +125,168 @@ class FCMService {
       if (response.statusCode == 200) {
         print('✅ [FCM] Token saved to backend');
       } else {
-        print('⚠️ [FCM] Failed to save token: ${response.statusCode}');
+        print('❌ [FCM] Failed to save token: ${response.body}');
       }
     } catch (e) {
-      print('❌ [FCM] Error saving token to backend: $e');
+      print('❌ [FCM] Error saving token: $e');
     }
   }
 
-  /// Set up message handlers
   void _setupMessageHandlers() {
-    print('📱 [FCM] Setting up message handlers...');
+    print('📨 [FCM] Setting up message handlers...');
 
-    // Handle foreground messages (app is open)
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('📬 [FCM] Foreground message received');
+      print('   Title: ${message.notification?.title}');
+      print('   Body: ${message.notification?.body}');
+      
+      _showLocalNotification(message);
+    });
 
-    // Handle notification tap (app was in background)
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print('📬 [FCM] Notification opened (background)');
+      _handleNotificationTap(message);
+    });
 
-    // Handle background messages
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    // Check if app was opened from terminated state
     _checkInitialMessage();
-
-    print('✅ [FCM] Message handlers set up');
   }
 
-  /// Handle foreground messages
-  Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    print('📱 [FCM FOREGROUND] Message received');
-    print('📱 [FCM FOREGROUND] Title: ${message.notification?.title}');
-    print('📱 [FCM FOREGROUND] Body: ${message.notification?.body}');
-    print('📱 [FCM FOREGROUND] Data: ${message.data}');
+  Future<void> _checkInitialMessage() async {
+    RemoteMessage? initialMessage = 
+        await _firebaseMessaging.getInitialMessage();
 
-    // Show local notification when app is in foreground
-    if (message.notification != null) {
-      await _showLocalNotification(message);
+    if (initialMessage != null) {
+      print('📬 [FCM] App opened from notification (terminated state)');
+      _handleNotificationTap(initialMessage);
     }
   }
 
-  /// Show local notification
   Future<void> _showLocalNotification(RemoteMessage message) async {
-    RemoteNotification? notification = message.notification;
-    
-    if (notification == null) return;
+    const androidDetails = AndroidNotificationDetails(
+      'fcm_default_channel',
+      'FCM Notifications',
+      channelDescription: 'Firebase Cloud Messaging notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      enableVibration: true,
+      playSound: true,
+    );
 
-    print('🔔 [FCM] Showing local notification');
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
 
     await _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'fcm_default_channel',
-          'FCM Notifications',
-          channelDescription: 'Firebase Cloud Messaging notifications',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          showWhen: true,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
+      message.hashCode,
+      message.notification?.title ?? 'Nufitionist',
+      message.notification?.body ?? '',
+      details,
       payload: jsonEncode(message.data),
     );
   }
 
-  /// Handle notification tap when app was in background
-  Future<void> _handleMessageOpenedApp(RemoteMessage message) async {
-    print('📱 [FCM] App opened from notification');
-    print('📱 [FCM] Data: ${message.data}');
-    
-    // TODO: Navigate to appropriate screen based on message.data
-    // Example: if (message.data['type'] == 'meal') { navigate to meal logging }
-  }
-
-  /// Check if app was opened from terminated state
-  Future<void> _checkInitialMessage() async {
-    RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
-    
-    if (initialMessage != null) {
-      print('📱 [FCM] App opened from terminated state via notification');
-      print('📱 [FCM] Data: ${initialMessage.data}');
-      // TODO: Handle navigation
-    }
-  }
-
-  /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
-    print('📱 [FCM] Notification tapped');
+    print('👆 [FCM] Notification tapped');
     
     if (response.payload != null) {
       try {
         final data = jsonDecode(response.payload!);
-        print('📱 [FCM] Payload: $data');
-        // TODO: Navigate based on data
+        _handleNotificationTap(null, data: data);
       } catch (e) {
-        print('❌ [FCM] Error parsing payload: $e');
+        print('❌ [FCM] Error parsing notification payload: $e');
       }
     }
   }
 
-  /// Test notification (for debugging)
-  Future<void> sendTestNotification() async {
-    if (_fcmToken == null) {
-      print('❌ [FCM] No token available');
-      return;
-    }
+  void _handleNotificationTap(RemoteMessage? message, {Map<String, dynamic>? data}) {
+    final notificationData = data ?? message?.data ?? {};
+    final type = notificationData['type'] ?? '';
 
-    try {
-      print('📤 [FCM] Sending test notification...');
-      
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('user_id');
+    print('🔔 [FCM] Handling notification tap, type: $type');
 
-      if (userId == null) {
-        print('❌ [FCM] No user ID');
-        return;
-      }
-
-      final response = await http.post(
-        Uri.parse('$backendUrl/api/fcm/test'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': userId,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        print('✅ [FCM] Test notification sent!');
-      } else {
-        print('❌ [FCM] Failed to send test: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ [FCM] Error sending test: $e');
+    switch (type) {
+      case 'meal':
+        print('   → Navigate to Meals screen');
+        break;
+      case 'hydration':
+        print('   → Navigate to Water tracking');
+        break;
+      case 'exercise':
+        print('   → Navigate to Exercise screen');
+        break;
+      case 'sleep':
+        print('   → Navigate to Sleep tracking');
+        break;
+      default:
+        print('   → Navigate to Home screen');
     }
   }
 
-  /// Subscribe to notification scheduling
+  /// Subscribe to notifications - FIXED METHOD NAME
   Future<void> subscribeToNotifications(String userId) async {
     try {
-      print('📤 [FCM] Subscribing to notifications for user: $userId');
-
       final response = await http.post(
         Uri.parse('$backendUrl/api/fcm/subscribe'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': userId,
-        }),
+        body: jsonEncode({'user_id': userId}),
       );
 
       if (response.statusCode == 200) {
         print('✅ [FCM] Subscribed to notifications');
-      } else {
-        print('⚠️ [FCM] Failed to subscribe: ${response.statusCode}');
       }
     } catch (e) {
       print('❌ [FCM] Error subscribing: $e');
     }
   }
 
-  /// Unsubscribe from notifications
-  Future<void> unsubscribeFromNotifications(String userId) async {
+  /// Legacy method name for compatibility
+  Future<void> subscribe() async {
     try {
-      print('📤 [FCM] Unsubscribing from notifications for user: $userId');
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      if (userId != null) {
+        await subscribeToNotifications(userId);
+      }
+    } catch (e) {
+      print('❌ [FCM] Error subscribing: $e');
+    }
+  }
+
+  /// Send test notification
+  Future<void> sendTestNotification() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+
+      if (userId == null) return;
 
       final response = await http.post(
-        Uri.parse('$backendUrl/api/fcm/unsubscribe'),
+        Uri.parse('$backendUrl/api/fcm/test'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': userId,
-        }),
+        body: jsonEncode({'user_id': userId}),
       );
 
       if (response.statusCode == 200) {
-        print('✅ [FCM] Unsubscribed from notifications');
-      } else {
-        print('⚠️ [FCM] Failed to unsubscribe: ${response.statusCode}');
+        print('✅ [FCM] Test notification sent');
       }
     } catch (e) {
-      print('❌ [FCM] Error unsubscribing: $e');
+      print('❌ [FCM] Error sending test: $e');
     }
   }
+}
+
+// Background message handler (must be top-level function)
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('🔔 [FCM] Background message received');
+  print('   Title: ${message.notification?.title}');
+  print('   Body: ${message.notification?.body}');
 }
