@@ -30,7 +30,6 @@ import 'package:user_onboarding/services/fcm_service.dart';
 // import 'package:user_onboarding/utils/user_diagnostic_widget.dart';
 
 
-
 class DashboardHome extends StatefulWidget {
   final UserProfile userProfile;
   final Function(int)? onTabChange;
@@ -56,7 +55,8 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   final MetricsService _metricsService = MetricsService();
   bool _isLoadingMetrics = false;
   int _unreadNotificationCount = 0;
-  
+  Timer? _notificationRefreshTimer;
+
   // Feature flags
   final bool _quickActionsEnabled = true;
   final bool _dailyMacros = true;
@@ -91,6 +91,14 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     _setupListeners();
     _checkSupplementsSetup();
     _loadUnreadCount();
+    _notificationRefreshTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) {
+        if (mounted) {
+          _loadUnreadCount();
+        }
+      },
+    );
     _loadInitialData();
     _subscribeFCM();
     _checkAndRescheduleNotifications();
@@ -98,6 +106,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
 
   @override
   void dispose() {
+    _notificationRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _profileSubscription.cancel();
     super.dispose();
@@ -115,13 +124,21 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   }
 
   Future<void> _loadUnreadCount() async {
+    if (!mounted) return;
+    
     try {
+      print('🔔 Loading unread notification count...');
       final count = await NotificationService().getUnreadCount(_currentUserProfile.id);
-      setState(() {
-        _unreadNotificationCount = count;
-      });
+      
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = count;
+        });
+        print('✅ Unread count updated: $count');
+      }
     } catch (e) {
-      print('Error loading unread count: $e');
+      print('❌ Error loading unread count: $e');
+      // Don't show error to user, just log it
     }
   }
 
@@ -274,6 +291,15 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+
+    super.didChangeAppLifecycleState(state);
+  
+    // Refresh unread count when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      print('🔄 App resumed - refreshing notification count');
+      _loadUnreadCount();
+    }
+
     if (state == AppLifecycleState.resumed && mounted) {
       _refreshData();
     }

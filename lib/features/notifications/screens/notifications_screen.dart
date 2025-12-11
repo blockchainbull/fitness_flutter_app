@@ -1,5 +1,4 @@
 // lib/features/notifications/screens/notifications_screen.dart
-// FINAL VERSION - Handles sleeping backend gracefully
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
