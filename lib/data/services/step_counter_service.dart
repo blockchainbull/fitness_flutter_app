@@ -32,7 +32,16 @@ class StepCounterService extends ChangeNotifier {
   // Initialize the service
   Future<void> initialize(String userId) async {
     print('📱 Initializing StepCounterService for user: $userId');
-    
+
+    // Pedometer & activity-recognition permission have no web implementation,
+    // and calling them throws MissingPluginException. Fall back to manual entry.
+    if (kIsWeb) {
+      _hasPermission = false;
+      _isPedometerAvailable = false;
+      notifyListeners();
+      return;
+    }
+
     // Check if permission is already granted
     _hasPermission = await Permission.activityRecognition.isGranted;
     
@@ -48,8 +57,9 @@ class StepCounterService extends ChangeNotifier {
 
   // Request permission and start listening
   Future<bool> requestPermissionAndStart(String userId) async {
+    if (kIsWeb) return false; // No pedometer on web.
     print('🔐 Requesting activity recognition permission...');
-    
+
     final status = await Permission.activityRecognition.request();
     _hasPermission = status.isGranted;
     
@@ -68,6 +78,7 @@ class StepCounterService extends ChangeNotifier {
 
   // Start listening to pedometer
   Future<void> _startListening(String userId) async {
+    if (kIsWeb) return; // Pedometer stream is unavailable on web.
     if (_isListening) {
       print('⚠️ Already listening to pedometer');
       return;

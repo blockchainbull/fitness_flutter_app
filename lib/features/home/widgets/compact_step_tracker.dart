@@ -1,4 +1,5 @@
 // lib/features/home/widgets/compact_step_tracker.dart
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -62,20 +63,28 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
   }
 
   Future<void> _checkPermissionAndInitialize() async {
+    // Web has no pedometer / activity-recognition permission — skip the plugin
+    // calls (they throw) and fall back to manual step entry.
+    if (kIsWeb) {
+      if (mounted) setState(() => _hasPedometerPermission = false);
+      await _loadTodayEntry();
+      return;
+    }
+
     final status = await Permission.activityRecognition.status;
     setState(() {
       _hasPedometerPermission = status.isGranted;
     });
-    
+
     if (_hasPedometerPermission && widget.userProfile.id != null) {
       await _stepCounterService.initialize(widget.userProfile.id!);
     }
-    
+
     await _loadTodayEntry();
   }
 
   Future<void> _requestPedometerPermission() async {
-    if (widget.userProfile.id == null) return;
+    if (kIsWeb || widget.userProfile.id == null) return;
     
     final granted = await _stepCounterService.requestPermissionAndStart(
       widget.userProfile.id!
@@ -130,7 +139,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              openAppSettings();
+              if (!kIsWeb) openAppSettings();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue,
@@ -416,8 +425,9 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
 
     return Column(
       children: [
-        // Show permission banner if pedometer not enabled
-        if (!_hasPedometerPermission)
+        // Show permission banner if pedometer not enabled (never on web, where
+        // there is no pedometer — manual entry only).
+        if (!kIsWeb && !_hasPedometerPermission)
           _buildPermissionBanner(),
         
         // Existing step tracker card

@@ -91,6 +91,10 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
       const Duration(seconds: 60),
       (_) {
         if (mounted) {
+          // If the calendar day has rolled over, re-schedule (which re-logs
+          // today's notifications) so new notifications appear without needing
+          // to log out and back in. Guarded to run once per day.
+          _checkAndRescheduleNotifications();
           _loadUnreadCount();
         }
       },
@@ -169,74 +173,49 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     }
   }
 
+  // Re-schedules (and re-logs) today's notifications once per calendar day.
+  // Previously this only ran at login with a rolling 24h guard and an
+  // `pending.isEmpty` check, so once notifications were scheduled they were
+  // never re-logged during a session — the badge froze and today's
+  // notifications only appeared after a logout/login. Keying off the calendar
+  // day (and calling it from the periodic timer + on resume) makes them refresh
+  // automatically at day rollover.
+  bool _isReschedulingNotifications = false;
+
   Future<void> _checkAndRescheduleNotifications() async {
+    // Set synchronously (before any await) so overlapping calls from the timer
+    // and the resume handler can't both schedule.
+    if (_isReschedulingNotifications) return;
+    _isReschedulingNotifications = true;
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = _currentUserProfile.id;
-      
       if (userId == null) return;
-      
-      final lastScheduled = prefs.getString('notifications_last_scheduled_$userId');
-      
-      if (lastScheduled == null) {
-        // Never scheduled, do it now
-        print('📱 First time setup - scheduling notifications...');
-        await _scheduleNotifications(userId, prefs);
-        return;
-      }
-      
-      final lastDate = DateTime.parse(lastScheduled);
-      final now = DateTime.now();
-      
-      // If last scheduled more than 24 hours ago, reschedule
-      if (now.difference(lastDate).inHours > 24) {
-        print('📱 Notifications expired, re-scheduling...');
-        await _scheduleNotifications(userId, prefs);
-      }
-    } catch (e) {
-      print('⚠️ Error checking notifications: $e');
-    }
-  }
 
-  Future<void> _scheduleNotifications(String userId, SharedPreferences prefs) async {
-    try {
-      final notificationService = NotificationService();
-      
-      // Check if already scheduled
-      final pending = await notificationService.getPendingNotifications();
-      
-      if (pending.isEmpty) {
-        // ✅ CRITICAL: Use toMap() which now includes snake_case versions
-        final profileMap = _currentUserProfile.toMap();
-        
-        // ✅ DEBUG: Verify the data
-        print('📋 Scheduling notifications with profile:');
-        print('   daily_meals_count: ${profileMap['daily_meals_count']}');
-        print('   dailyMealsCount: ${profileMap['dailyMealsCount']}');
-        
-        await notificationService.scheduleAllNotifications(
-          userId,
-          profileMap,  // ← Now includes both camelCase and snake_case
-        );
-        
-        // Save timestamp
-        await prefs.setString(
-          'notifications_last_scheduled_$userId',
-          DateTime.now().toIso8601String(),
-        );
-        
-        print('✅ Notifications scheduled successfully');
-      } else {
-        print('✅ ${pending.length} notifications already scheduled');
-        
-        // Update timestamp
-        await prefs.setString(
-          'notifications_last_scheduled_$userId',
-          DateTime.now().toIso8601String(),
-        );
-      }
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final lastScheduledDate =
+          prefs.getString('notifications_last_scheduled_date_$userId');
+
+      // Already scheduled for today — nothing to do.
+      if (lastScheduledDate == today) return;
+
+      print('📱 Scheduling notifications for $today (last: $lastScheduledDate)');
+
+      await NotificationService().scheduleAllNotifications(
+        userId,
+        _currentUserProfile.toMap(),
+      );
+
+      await prefs.setString('notifications_last_scheduled_date_$userId', today);
+
+      // Reflect the freshly logged notifications in the badge immediately.
+      if (mounted) await _loadUnreadCount();
+
+      print('✅ Notifications scheduled for $today');
     } catch (e) {
-      print('❌ Error scheduling notifications: $e');
+      print('⚠️ Error scheduling notifications: $e');
+    } finally {
+      _isReschedulingNotifications = false;
     }
   }
 
@@ -290,9 +269,11 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
 
     super.didChangeAppLifecycleState(state);
   
-    // Refresh unread count when app comes to foreground
+    // Refresh unread count when app comes to foreground, and re-schedule
+    // today's notifications if the day rolled over while backgrounded.
     if (state == AppLifecycleState.resumed) {
       print('🔄 App resumed - refreshing notification count');
+      _checkAndRescheduleNotifications();
       _loadUnreadCount();
     }
 

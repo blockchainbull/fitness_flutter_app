@@ -408,23 +408,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 final createdAt = DateTime.parse(notification['created_at']);
                                 final timeAgo = _getTimeAgo(createdAt);
 
-                                return Container(
-                                  margin: const EdgeInsets.symmetric(
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 4,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: isRead ? Colors.white : Colors.blue.shade50,
+                                  // ListTile must paint its background/ink on a
+                                  // Material ancestor — wrapping it in a coloured
+                                  // Container hides those and logs a framework
+                                  // error. Use a Material and theme colours so it
+                                  // also adapts to dark mode.
+                                  child: Material(
+                                    color: isRead
+                                        ? Theme.of(context).colorScheme.surface
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                            .withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ListTile(
+                                    elevation: 1,
+                                    shadowColor: Colors.black.withOpacity(0.1),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: ListTile(
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16,
                                       vertical: 8,
@@ -495,6 +500,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                         _markAsRead(notification['id']);
                                       }
                                     },
+                                    ),
                                   ),
                                 );
                               }).toList(),
