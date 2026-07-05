@@ -553,38 +553,6 @@ class _MealHistoryPageState extends State<MealHistoryPage> {
     );
   }
 
-  Widget _buildCleanNutrientBox(String label, String value, Color accentColor) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: accentColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // Delete meal with confirmation
   Future<void> _confirmDeleteMeal(Map<String, dynamic> meal) async {
     final confirmed = await showDialog<bool>(

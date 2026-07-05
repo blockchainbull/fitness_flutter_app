@@ -1,10 +1,8 @@
 // lib/features/home/screens/dashboard_home.dart
 import 'dart:async';
-import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/services/api/supplement_api.dart';
 import 'package:user_onboarding/data/services/notification_service.dart';
@@ -50,7 +48,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   late UserProfile _currentUserProfile;
   late StreamSubscription<UserProfile> _profileSubscription;
   final MetricsService _metricsService = MetricsService();
-  bool _isLoadingMetrics = false;
   int _unreadNotificationCount = 0;
   Timer? _notificationRefreshTimer;
 
@@ -237,9 +234,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
 
   Future<void> _loadTodayProgress() async {
     if (!_dailyMacros) return;
-    
-    setState(() => _isLoadingMetrics = true);
-    
+
     try {
       final metrics = await _metricsService.getTodayMetrics(_currentUserProfile.id!);
       
@@ -256,11 +251,9 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
           'caloriesConsumed': metrics['caloriesConsumed'],
           'netCalories': metrics['netCalories'],
         };
-        _isLoadingMetrics = true;
       });
     } catch (e) {
       print('Error loading today progress: $e');
-      setState(() => _isLoadingMetrics = false);
     }
   }
 
@@ -577,94 +570,6 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
     );
   }
 
-  Widget _buildGoalProgress() {
-    if (!_goalProgressEnabled || 
-        _currentUserProfile.weightGoal == null || 
-        _currentUserProfile.weightGoal!.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    return DashboardWeightGoalCard(userProfile: _currentUserProfile);
-  }
-
-  Widget _buildStreaks(Map<String, dynamic> streaks) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: streaks.entries.map((entry) {
-          IconData icon;
-          Color color;
-          
-          switch (entry.key) {
-            case 'steps':
-              icon = Icons.directions_walk;
-              color = Colors.blue;
-              break;
-            case 'water':
-              icon = Icons.water_drop;
-              color = Colors.cyan;
-              break;
-            case 'workout':
-              icon = Icons.fitness_center;
-              color = Colors.orange;
-              break;
-            default:
-              icon = Icons.check;
-              color = Colors.green;
-          }
-          
-          return Column(
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(icon, size: 32, color: color.withOpacity(0.3)),
-                  Text(
-                    '${entry.value}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                entry.key,
-                style: const TextStyle(fontSize: 10),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildAchievements(List<dynamic> achievements) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Recent Achievements',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: achievements.take(3).map((achievement) {
-              return Chip(
-                avatar: Text(achievement['icon'], style: const TextStyle(fontSize: 16)),
-                label: Text(achievement['title']),
-                backgroundColor: Theme.of(context).colorScheme.surface,
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ============== CUSTOM WIDGETS ==============

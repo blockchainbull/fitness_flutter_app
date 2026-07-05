@@ -1,5 +1,4 @@
 // lib/features/tracking/screens/enhanced_meal_logging_page.dart
-import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -55,7 +54,6 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _showCalendar = false;
   bool _showRecentMeals = false;
-  bool _showPresets = false;
   
   
   // Common meal combos for quick selection

@@ -1,6 +1,5 @@
 // lib/features/home/widgets/compact_period_tracker.dart
 
-import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/period_entry.dart';
@@ -24,7 +23,6 @@ class CompactPeriodTracker extends StatefulWidget {
 
 class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
   PeriodEntry? _currentPeriod;
-  List<PeriodEntry> _periodHistory = [];
   bool _isLoading = true;
   
   int _cycleDay = 1;
@@ -55,8 +53,6 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
       if (!mounted) return;
       
       setState(() {
-        _periodHistory = history;
-        
         if (history.isNotEmpty && history.first.endDate == null) {
           _isOnPeriod = true;
           _currentPeriod = history.first;

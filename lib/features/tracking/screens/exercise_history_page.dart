@@ -21,7 +21,6 @@ class _EnhancedExerciseHistoryPageState extends State<EnhancedExerciseHistoryPag
   final SharingApi _sharingApi = SharingApi();
 
   List<Map<String, dynamic>> _exercises = [];
-  Map<String, dynamic> _weeklyStats = {};
   bool _isLoading = false;
   
   // Filters
@@ -62,12 +61,8 @@ class _EnhancedExerciseHistoryPageState extends State<EnhancedExerciseHistoryPag
         limit: 200,
       );
       
-      // Load weekly stats
-      final stats = await _apiService.getWeeklyExerciseSummary(widget.userProfile.id!);
-      
       setState(() {
         _exercises = exercises;
-        _weeklyStats = stats;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

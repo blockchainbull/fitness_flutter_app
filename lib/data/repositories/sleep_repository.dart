@@ -214,29 +214,6 @@ class SleepRepository {
     }
   }
 
-  Future<SleepEntry?> _getFromLocalStorageByDate(String userId, DateTime date) async {
-    final prefs = await SharedPreferences.getInstance();
-    final entriesJson = prefs.getString(_sleepEntriesKey);
-    
-    if (entriesJson != null) {
-      List<Map<String, dynamic>> entries = List<Map<String, dynamic>>.from(json.decode(entriesJson));
-      
-      final entry = entries.firstWhere(
-        (e) => e['userId'] == userId && 
-               DateTime.parse(e['date']).day == date.day &&
-               DateTime.parse(e['date']).month == date.month &&
-               DateTime.parse(e['date']).year == date.year,
-        orElse: () => {},
-      );
-      
-      if (entry.isNotEmpty) {
-        return SleepEntry.fromMap(entry);
-      }
-    }
-    
-    return null;
-  }
-
   Future<List<SleepEntry>> _getFromLocalStorage(String userId, {int limit = 30}) async {
     print('[SleepRepository] Getting from local storage for user: $userId');
     

@@ -23,8 +23,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   StepEntry? _todayEntry;
   List<StepEntry> _weeklyHistory = [];
   bool _isLoading = true;
-  int _userStepGoal = 10000;
-  
+
   final TextEditingController _manualStepsController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.week;
@@ -33,7 +32,6 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
   @override
   void initState() {
     super.initState();
-    _userStepGoal = (widget.userProfile.formData['dailyStepGoal'] as int?) ?? 10000;
     _checkAndShowGoalModal();
   }
 
@@ -87,11 +85,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
             TextButton(
               onPressed: () async {
                 final goal = int.tryParse(goalSetupController.text) ?? 10000;
-                
-                setState(() {
-                  _userStepGoal = goal;
-                });
-                
+
                 try {
                   final apiService = AuthApi();
                   

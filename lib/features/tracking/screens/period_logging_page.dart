@@ -167,7 +167,6 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
 
     final cycleLength = _userProfile?.cycleLength ?? 28;
     final minCycleLength = cycleLength - 7; // Allow 7 days variance
-    final maxCycleLength = cycleLength + 7;
 
     // Find the most recent period before this date
     PeriodEntry? previousPeriod;
@@ -248,26 +247,6 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
       return 'Invalid date for period start';
     }
     return null;
-  }
-
-  bool _canEndPeriodOnDate(DateTime endDate, PeriodEntry period) {
-    // End date must be after start date
-    if (endDate.isBefore(period.startDate)) {
-      return false;
-    }
-
-    // Period shouldn't be longer than 10 days typically
-    final duration = endDate.difference(period.startDate).inDays;
-    if (duration > 10) {
-      return false;
-    }
-
-    // End date can't be in the future
-    if (endDate.isAfter(DateTime.now())) {
-      return false;
-    }
-
-    return true;
   }
 
   Widget _buildCalendarDay(DateTime day, DateTime focusedDay) {
@@ -772,40 +751,6 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     );
   }
 
-  Widget _buildDetailItem(IconData icon, String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   int _getCycleDay(DateTime day) {
     if (_periodHistory.isEmpty || _userProfile == null) return 1;

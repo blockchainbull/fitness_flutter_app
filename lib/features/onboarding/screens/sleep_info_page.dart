@@ -21,7 +21,6 @@ class _SleepInfoPageState extends State<SleepInfoPage> with SingleTickerProvider
   TimeOfDay _bedtime = const TimeOfDay(hour: 22, minute: 0); // 10:00 PM
   TimeOfDay _wakeupTime = const TimeOfDay(hour: 6, minute: 0); // 6:00 AM
   List<String> _selectedSleepIssues = [];
-  bool _showValidationErrors = false;
   bool _adjustByBedtime = true; // true = adjust wake time, false = adjust bedtime
   
   late AnimationController _animationController;
@@ -156,7 +155,6 @@ class _SleepInfoPageState extends State<SleepInfoPage> with SingleTickerProvider
       _bedtime = preset['bedtime'] as TimeOfDay;
       _wakeupTime = preset['wakeup'] as TimeOfDay;
       _sleepHours = preset['hours'] as double;
-      _showValidationErrors = false;
     });
     
     widget.onDataChanged('sleepHours', _sleepHours);

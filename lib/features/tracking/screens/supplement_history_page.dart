@@ -22,7 +22,6 @@ class SupplementHistoryPage extends StatefulWidget {
 class _SupplementHistoryPageState extends State<SupplementHistoryPage> {
   final SharingApi _sharingApi = SharingApi();
   List<Map<String, dynamic>> _historyData = [];
-  List<String> _userSupplements = [];
   bool _isLoading = true;
   String _selectedPeriod = '7 days';
   final List<String> _periodOptions = ['7 days', '14 days', '30 days', '90 days'];
@@ -35,19 +34,6 @@ class _SupplementHistoryPageState extends State<SupplementHistoryPage> {
 
   Future<void> _loadUserSupplements() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final supplementPreferenceKey = 'supplement_setup_${widget.userProfile.id}_list';
-      final supplementsJson = prefs.getString(supplementPreferenceKey);
-      
-      if (supplementsJson != null) {
-        final List<dynamic> supplementsList = jsonDecode(supplementsJson);
-        setState(() {
-          _userSupplements = supplementsList
-              .map((s) => s['name'] as String)
-              .toList();
-        });
-      }
-      
       await _loadHistoryData();
     } catch (e) {
       print('Error loading user supplements: $e');

@@ -35,7 +35,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _isLoading = false;
   Map<String, dynamic>? _userContext;
   Map<String, dynamic>? _userFramework;
-  bool _isLoadingHistory = false;
   int _contextVersion = 1;
   bool _isLoadingContext = false;
 
@@ -77,10 +76,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _loadChatHistory() async {
-    setState(() {
-      _isLoadingHistory = true;
-    });
-    
     try {
       print('[ChatPage] Loading chat history for user: ${widget.userProfile.id}');
       
@@ -123,10 +118,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     } catch (e) {
       print('[ChatPage] Error loading chat history: $e');
-    } finally {
-      setState(() {
-        _isLoadingHistory = false;
-      });
     }
   }
   
@@ -224,8 +215,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     if (_userContext != null) {
       final todayProgress = _userContext!['today_progress'] ?? {};
-      final weeklySum = _userContext!['weekly_summary'] ?? {};
-      
+
       // Add context-aware greeting based on actual data
       welcomeMessage += 'I can see your activity data for today:\n';
       

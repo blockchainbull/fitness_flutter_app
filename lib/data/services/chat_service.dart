@@ -4,8 +4,6 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 
 class ChatService {
   static final ChatApi _apiService = ChatApi();
-  static Map<String, dynamic>? _cachedContext;
-  static DateTime? _lastContextFetch;
 
   /// Send message with context version tracking
   static Future<String> sendMessage(
@@ -150,9 +148,8 @@ class ChatService {
   static Future<String> generateContextSummary(String userId) async {
     try {
       final context = await getUserContext(userId);
-      final userProfile = context['user_profile'] ?? {};
       final recentActivity = context['recent_activity'] ?? {};
-      
+
       final List<String> summaryParts = [];
       
       // Add recent activity highlights

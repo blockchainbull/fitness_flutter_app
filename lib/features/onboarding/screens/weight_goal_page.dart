@@ -20,7 +20,6 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
   String _selectedWeightGoal = '';
   final _targetWeightController = TextEditingController();
   String _selectedTimeline = '';
-  String? _weightError;
   late double _currentWeight;
   bool _showValidationErrors = false;
 

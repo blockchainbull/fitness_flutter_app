@@ -28,11 +28,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   bool _isLoading = false;
   DateTime _selectedDate = DateTime.now();
 
-  int _targetDuration = 30;
-  List<String> _preferredWorkouts = [];
-  String _fitnessLevel = 'Beginner';
-
-  
   // Exercise history and smart defaults
   List<Map<String, dynamic>> _exerciseHistory = [];
   Map<String, ExerciseDefaults> _exerciseDefaults = {};
@@ -47,7 +42,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
 
   // Track suggested exercises from last workout
   List<Map<String, dynamic>> _suggestedExercises = [];
-  bool _showSuggestions = false;
 
   // Enhanced muscle groups with more exercises
   final Map<String, List<Exercise>> _muscleGroupExercises = {
@@ -140,9 +134,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   @override
   void initState() {
     super.initState();
-    _targetDuration = widget.userProfile.workoutDuration ?? 30;
-    _preferredWorkouts = widget.userProfile.preferredWorkouts ?? [];
-    _fitnessLevel = widget.userProfile.fitnessLevel ?? 'Beginner';
     _loadExerciseData();
     _loadCustomExercises();
   }
@@ -1023,17 +1014,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     final defaults = _exerciseDefaults[exercise.name];
     final progressData = _progressHistory[exercise.name];
 
-    // Calculate estimated duration
-    double estimatedDuration = 0;
-    if (exercise.type == 'strength' && log.sets > 0 && log.reps > 0) {
-      estimatedDuration = calculateExerciseDuration(
-        exerciseType: exercise.type,
-        sets: log.sets,
-        reps: log.reps,
-        exerciseName: exercise.name,
-      );
-    }
-    
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: ExpansionTile(
@@ -1319,7 +1299,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     if (muscleGroupExercises.isEmpty) {
       setState(() {
         _suggestedExercises = [];
-        _showSuggestions = false;
       });
       return;
     }
@@ -1341,7 +1320,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
       // Same day, don't show suggestions
       setState(() {
         _suggestedExercises = [];
-        _showSuggestions = false;
       });
       return;
     }
@@ -1363,7 +1341,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
       
       setState(() {
         _suggestedExercises = lastWorkoutExercises;
-        _showSuggestions = true;
       });
 
       // Show suggestion dialog
