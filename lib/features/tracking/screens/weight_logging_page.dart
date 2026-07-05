@@ -989,9 +989,14 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                       '${entry.weight.toStringAsFixed(2)} kg',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    Text(
-                      dateText,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        dateText,
+                        textAlign: TextAlign.end,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
                     ),
                   ],
                 ),

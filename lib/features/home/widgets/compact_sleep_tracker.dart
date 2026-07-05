@@ -184,7 +184,7 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
               child: CircularProgressIndicator(
                 value: 1.0,
                 strokeWidth: 8,
-                backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.2),
+                backgroundColor: Colors.white.withOpacity(0.2),
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.transparent),
               ),
             ),
@@ -195,7 +195,7 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
               child: CircularProgressIndicator(
                 value: progress * _progressAnimation.value,
                 strokeWidth: 8,
-                backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.2),
+                backgroundColor: Colors.white.withOpacity(0.2),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
@@ -277,7 +277,7 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.surface.withOpacity(0.2),
+                                  color: Colors.white.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: const Icon(
@@ -316,7 +316,7 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
+                                color: Colors.white.withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Row(
@@ -470,7 +470,7 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
                             borderRadius: BorderRadius.circular(8),
                             child: LinearProgressIndicator(
                               value: progress,
-                              backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.2),
+                              backgroundColor: Colors.white.withOpacity(0.2),
                               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                               minHeight: 8,
                             ),
@@ -480,27 +480,44 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
                       
                       const SizedBox(height: 12),
                       
-                      // Action button
+                      // Action button — translucent "glass" pill on the gradient.
                       Container(
                         width: double.infinity,
-                        height: 36,
-                        child: ElevatedButton.icon(
-                          onPressed: _navigateToSleepLogging,
-                          icon: Icon(
-                            _lastNightHours > 0 ? Icons.edit : Icons.add,
-                            size: 16,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1.5,
                           ),
-                          label: Text(
-                            _lastNightHours > 0 ? 'Update Sleep' : 'Log Sleep',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.surface,
-                            foregroundColor: const Color(0xFF6B5ACF),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _navigateToSleepLogging,
+                            borderRadius: BorderRadius.circular(22),
+                            child: Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _lastNightHours > 0 ? Icons.edit : Icons.add,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _lastNightHours > 0 ? 'Update Sleep' : 'Log Sleep',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            elevation: 0,
                           ),
                         ),
                       ),

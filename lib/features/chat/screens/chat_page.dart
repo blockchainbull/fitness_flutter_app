@@ -964,9 +964,13 @@ class MessageBubble extends StatelessWidget {
               ),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isUser 
-                    ? Colors.purple[500] 
-                    : (isError ? Colors.red[50] : (isWelcome ? Colors.purple[50] : Colors.white)),
+                color: isUser
+                    ? Colors.purple[500]
+                    : (isError
+                        ? Colors.red.withValues(alpha: 0.12)
+                        : (isWelcome
+                            ? Colors.purple.withValues(alpha: 0.15)
+                            : Theme.of(context).colorScheme.surface)),
                 borderRadius: BorderRadius.circular(16).copyWith(
                   bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
                   bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),

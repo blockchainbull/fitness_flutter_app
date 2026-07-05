@@ -145,7 +145,7 @@ class _CompactSupplementsTrackerState extends State<CompactSupplementsTracker> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface.withOpacity(0.2),
+                            color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -184,7 +184,7 @@ class _CompactSupplementsTrackerState extends State<CompactSupplementsTracker> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface.withOpacity(0.2),
+                        color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -228,7 +228,7 @@ class _CompactSupplementsTrackerState extends State<CompactSupplementsTracker> {
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.2),
+                      backgroundColor: Colors.white.withOpacity(0.2),
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                       minHeight: 6,
                     ),
@@ -292,23 +292,40 @@ class _CompactSupplementsTrackerState extends State<CompactSupplementsTracker> {
                 
                 const SizedBox(height: 12),
                 
-                // Log button
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: _navigateToSupplementsLogging,
-                    icon: const Icon(Icons.checklist, size: 18),
-                    label: const Text('Manage Supplements'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      foregroundColor: Colors.teal,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
+                // Log button — translucent "glass" pill on the gradient.
+                Container(
+                  width: double.infinity,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _navigateToSupplementsLogging,
+                      borderRadius: BorderRadius.circular(22),
+                      child: const Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.checklist, color: Colors.white, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Manage Supplements',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      elevation: 0,
                     ),
                   ),
                 ),

@@ -66,14 +66,21 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
         }
         
         if (widget.userProfile.lastPeriodDate != null) {
+          final lastPeriod = widget.userProfile.lastPeriodDate!;
           final daysSinceLastPeriod = DateTime.now()
-              .difference(widget.userProfile.lastPeriodDate!)
+              .difference(lastPeriod)
               .inDays + 1;
           _cycleDay = daysSinceLastPeriod % cycleLength;
           if (_cycleDay == 0) _cycleDay = cycleLength;
-          
-          _nextPeriodDate = widget.userProfile.lastPeriodDate!
-              .add(Duration(days: cycleLength));
+
+          // Project the next period forward past every cycle that has already
+          // elapsed so it's always a future date. Previously we added a single
+          // cycle length to a possibly-stale lastPeriodDate, which produced
+          // large negative "days until next period" values (e.g. -298 days)
+          // whenever the profile hadn't been updated in a while.
+          final elapsedCycles = (daysSinceLastPeriod - 1) ~/ cycleLength;
+          _nextPeriodDate = lastPeriod
+              .add(Duration(days: (elapsedCycles + 1) * cycleLength));
           
           // Check if in fertile window (days 10-17 of cycle typically)
           _isFertileWindow = _cycleDay >= (cycleLength - 17) && 

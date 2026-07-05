@@ -499,6 +499,7 @@ class _StepsLoggingPageState extends State<StepsLoggingPage> {
                       backgroundColor: Colors.green.shade700,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: const StadiumBorder(),
                     ),
                   ),
                 ),

@@ -705,6 +705,7 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
   
   Widget _buildHeader() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -837,16 +838,16 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: (isUnconfigured || isSupplementsUnconfigured) 
-              ? Colors.grey.shade50 
-              : Colors.white,
+          color: (isUnconfigured || isSupplementsUnconfigured)
+              ? Colors.grey.withValues(alpha: 0.15)
+              : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: (isUnconfigured || isSupplementsUnconfigured)
-                ? Colors.grey.shade300
-                : status.isComplete 
+                ? Colors.grey.withValues(alpha: 0.3)
+                : status.isComplete
                     ? status.color.withOpacity(0.3)
-                    : Colors.grey.shade200,
+                    : Theme.of(context).dividerColor,
             width: 1.5,
           ),
           boxShadow: [

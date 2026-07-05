@@ -22,6 +22,7 @@ class WeeklySummaryScreen extends StatefulWidget {
 class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
   final ChatApi _apiService = ChatApi();
   Map<String, dynamic>? _currentWeekData;
+  Map<String, dynamic>? _previousWeekData;
   List<Map<String, dynamic>> _recentWeeks = [];
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
@@ -41,15 +42,29 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
         widget.userProfile.id!,
         date: DateFormat('yyyy-MM-dd').format(_selectedDate),
       );
-      
+
+      // Load the previous week too so weight progress can be measured against
+      // last week's ending weight (week-over-week) instead of intra-week.
+      Map<String, dynamic>? previousWeek;
+      try {
+        previousWeek = await _apiService.getWeeklyContext(
+          widget.userProfile.id!,
+          date: DateFormat('yyyy-MM-dd')
+              .format(_selectedDate.subtract(const Duration(days: 7))),
+        );
+      } catch (e) {
+        print('Error loading previous week data: $e');
+      }
+
       // Load recent weeks for trends
       final recentWeeks = await _apiService.getRecentWeeks(
         widget.userProfile.id!,
         weeks: 4,
       );
-      
+
       setState(() {
         _currentWeekData = currentWeek;
+        _previousWeekData = previousWeek;
         _recentWeeks = recentWeeks;
         _isLoading = false;
       });
@@ -456,11 +471,29 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
   
   Widget _buildWeightProgressCard() {
     final weight = _currentWeekData!['weekly_context']['weight_progress'];
-    
-    if (weight['starting_weight'] == null && weight['ending_weight'] == null) {
+    final prevWeight = _previousWeekData?['weekly_context']?['weight_progress'];
+
+    // This week's latest weight (fall back to its starting weight).
+    final endWeight = _toDouble(weight['ending_weight']) ??
+        _toDouble(weight['starting_weight']);
+
+    // Baseline = last week's ending weight so the card reflects week-over-week
+    // change. Fall back to this week's own starting weight when there's no
+    // previous week on record.
+    final prevEnd = _toDouble(prevWeight?['ending_weight']);
+    final usingLastWeek = prevEnd != null;
+    final startWeight = prevEnd ?? _toDouble(weight['starting_weight']);
+
+    if (startWeight == null && endWeight == null) {
       return const SizedBox.shrink();
     }
-    
+
+    final hasBoth = startWeight != null && endWeight != null;
+    final change = hasBoth ? (endWeight - startWeight) : 0.0;
+    final gained = change > 0.05;
+    final lost = change < -0.05;
+    final changeColor = gained ? Colors.red : (lost ? Colors.green : Colors.grey);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -478,15 +511,15 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            if (weight['starting_weight'] != null && weight['ending_weight'] != null) ...[
+            if (hasBoth) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   Column(
                     children: [
-                      const Text('Start'),
+                      Text(usingLastWeek ? 'Last Week' : 'Start'),
                       Text(
-                        '${weight['starting_weight']} kg',
+                        '${startWeight.toStringAsFixed(1)} kg',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -495,23 +528,19 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
                     ],
                   ),
                   Icon(
-                    weight['weight_change'] > 0 
-                        ? Icons.trending_up 
-                        : weight['weight_change'] < 0 
-                            ? Icons.trending_down 
+                    gained
+                        ? Icons.trending_up
+                        : lost
+                            ? Icons.trending_down
                             : Icons.trending_flat,
-                    color: weight['weight_change'] > 0 
-                        ? Colors.red 
-                        : weight['weight_change'] < 0 
-                            ? Colors.green 
-                            : Colors.grey,
+                    color: changeColor,
                     size: 32,
                   ),
                   Column(
                     children: [
-                      const Text('End'),
+                      const Text('This Week'),
                       Text(
-                        '${weight['ending_weight']} kg',
+                        '${endWeight.toStringAsFixed(1)} kg',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -526,25 +555,15 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: weight['weight_change'] > 0 
-                        ? Colors.red.withOpacity(0.1)
-                        : weight['weight_change'] < 0 
-                            ? Colors.green.withOpacity(0.1)
-                            : Colors.grey.withOpacity(0.1),
+                    color: changeColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    weight['weight_change'] > 0 
-                        ? '+${weight['weight_change']} kg'
-                        : weight['weight_change'] < 0 
-                            ? '${weight['weight_change']} kg'
-                            : 'No change',
+                    (gained || lost)
+                        ? '${gained ? '+' : '-'}${change.abs().toStringAsFixed(1)} kg'
+                        : 'No change',
                     style: TextStyle(
-                      color: weight['weight_change'] > 0 
-                          ? Colors.red 
-                          : weight['weight_change'] < 0 
-                              ? Colors.green 
-                              : Colors.grey,
+                      color: changeColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -555,6 +574,12 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
         ),
       ),
     );
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
   
   Widget _buildInsightsCard() {
@@ -647,9 +672,10 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
   
   Widget _buildDailyBreakdownChart(Map<String, dynamic> dailyData) {
     if (dailyData.isEmpty) return const SizedBox.shrink();
-    
+
     final sortedDates = dailyData.keys.toList()..sort();
-    
+    final labelColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.7);
+
     return SizedBox(
       height: 150,
       child: LineChart(
@@ -673,7 +699,7 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
                     final date = DateTime.parse(sortedDates[value.toInt()]);
                     return Text(
                       DateFormat('E').format(date),
-                      style: const TextStyle(fontSize: 10),
+                      style: TextStyle(fontSize: 10, color: labelColor),
                     );
                   }
                   return const Text('');
@@ -738,7 +764,8 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
   
   Widget _buildMultiWeekChart() {
     final weeks = _recentWeeks.take(4).toList().reversed.toList();
-    
+    final labelColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.7);
+
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
@@ -776,7 +803,7 @@ class _WeeklySummaryScreenState extends State<WeeklySummaryScreen> {
                   final week = weeks[value.toInt()];
                   return Text(
                     'W${week['summary']?['week_number'] ?? ''}',
-                    style: const TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: 12, color: labelColor),
                   );
                 }
                 return const Text('');

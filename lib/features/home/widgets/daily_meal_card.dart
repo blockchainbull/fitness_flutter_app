@@ -574,9 +574,7 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
                           backgroundColor: goalColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          shape: const StadiumBorder(),
                         ),
                       ),
                     ),
@@ -599,9 +597,7 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: goalColor,
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          shape: const StadiumBorder(),
                         ),
                       ),
                     ),

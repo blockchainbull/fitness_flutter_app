@@ -667,6 +667,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: const StadiumBorder(),
                     ),
                   ),
                 ),

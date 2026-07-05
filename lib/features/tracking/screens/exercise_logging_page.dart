@@ -631,7 +631,9 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     
     return Card(
       elevation: isSelected ? 8 : 2,
-      color: isSelected ? Colors.orange.shade50 : null,
+      // Use a translucent tint (not shade50) so the selected state adapts to
+      // dark mode instead of flipping to a light cream card.
+      color: isSelected ? Colors.orange.withValues(alpha: 0.18) : null,
       child: InkWell(
         onTap: () => _selectMuscleGroup(muscleGroup),
         borderRadius: BorderRadius.circular(8),
@@ -806,8 +808,9 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: isSelected ? 4 : 1,
-      // NEW: Add visual indicator if already logged
-      color: isLoggedToday ? Colors.green.shade50 : null,
+      // NEW: Add visual indicator if already logged (translucent so it adapts
+      // to dark mode instead of showing a light green card).
+      color: isLoggedToday ? Colors.green.withValues(alpha: 0.15) : null,
       child: CheckboxListTile(
         title: Row(
           children: [

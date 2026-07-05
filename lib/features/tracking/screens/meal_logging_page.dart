@@ -492,9 +492,12 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
               
               // Entry Mode Toggle
               _buildEntryModeToggle(),
-              
+
               // Quick Meal Combos
-              if (!_useMultiLineEntry) _buildQuickCombos(),
+              if (!_useMultiLineEntry) ...[
+                const SizedBox(height: 12),
+                _buildQuickCombos(),
+              ],
               
               // Main Entry Area
               _buildEntryArea(),
@@ -593,7 +596,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
             borderRadius: BorderRadius.circular(12),
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Theme.of(context).colorScheme.surface,
         ),
       ),
     );
@@ -814,10 +817,14 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.green : Colors.white,
+                color: isSelected
+                    ? Colors.green
+                    : Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isSelected ? Colors.green : Colors.grey.shade300,
+                  color: isSelected
+                      ? Colors.green
+                      : Theme.of(context).dividerColor,
                 ),
               ),
               child: Center(
@@ -1017,7 +1024,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Theme.of(context).colorScheme.surface,
                     ),
                   ),
                 ),
@@ -1064,7 +1071,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Theme.of(context).colorScheme.surface,
                     ),
                   ),
                 ),
@@ -1087,7 +1094,7 @@ class _EnhancedMealLoggingPageState extends State<EnhancedMealLoggingPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Theme.of(context).colorScheme.surface,
                     ),
                   ),
                 ),
