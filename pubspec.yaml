@@ -31,7 +31,7 @@ dependencies:
   pedometer: ^4.0.2
   firebase_core: ^4.10.0
   firebase_messaging: ^16.3.0
-  
+  equatable: ^2.0.5
   fl_chart: ^0.68.0
 
 dev_dependencies:

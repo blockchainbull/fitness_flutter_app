@@ -570,7 +570,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ),
-        Container(
+        Material(
           color: Theme.of(context).colorScheme.surface,
           child: Column(children: children),
         ),
