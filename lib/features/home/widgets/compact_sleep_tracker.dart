@@ -88,7 +88,9 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
       } else {
         _sleepDate = today;
       }
-      
+      if (!mounted) return;
+
+
       if (sleepLog != null && sleepLog['success'] == true && sleepLog['entry'] != null) {
         final entry = sleepLog['entry'];
         
@@ -108,12 +110,13 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
       }
     } catch (e) {
       print('Error loading sleep data: $e');
+      if (!mounted) return;
       setState(() {
         _lastNightHours = 0;
         _sleepQuality = '';
       });
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

@@ -130,6 +130,7 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
         }
       }
       
+      if (!mounted) return;
       setState(() {
         _todayMinutes = todayMinutes;
         _todayExercises = todayCount;

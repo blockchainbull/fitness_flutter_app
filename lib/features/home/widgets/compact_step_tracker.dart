@@ -72,6 +72,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     }
 
     final status = await Permission.activityRecognition.status;
+    if (!mounted) return;
     setState(() {
       _hasPedometerPermission = status.isGranted;
     });
@@ -89,11 +90,12 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     final granted = await _stepCounterService.requestPermissionAndStart(
       widget.userProfile.id!
     );
-    
+    if (!mounted) return;
+
     setState(() {
       _hasPedometerPermission = granted;
     });
-    
+
     if (granted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -212,10 +214,11 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     
     try {
       final entry = await StepRepository.getTodayStepEntry(widget.userProfile.id!);
-      final stepGoal = widget.userProfile.dailyStepGoal ?? 
-                      (widget.userProfile.dailyStepGoal as int?) ?? 
+      if (!mounted) return;
+      final stepGoal = widget.userProfile.dailyStepGoal ??
+                      (widget.userProfile.dailyStepGoal as int?) ??
                       10000;
-      
+
       setState(() {
         _todayEntry = entry ?? StepEntry(
           userId: widget.userProfile.id!,
@@ -240,7 +243,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
       }
     } catch (e) {
       print('Error loading step entry: $e');
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -344,13 +347,15 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     } catch (e) {
       print('Error saving step entry: $e');
       // Revert on error
-      setState(() {
-        _todayEntry = _todayEntry!.copyWith(
-          steps: previousSteps,
-        );
-      });
+      if (mounted) {
+        setState(() {
+          _todayEntry = _todayEntry!.copyWith(
+            steps: previousSteps,
+          );
+        });
+      }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 

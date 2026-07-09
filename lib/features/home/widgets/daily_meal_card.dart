@@ -173,7 +173,8 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
         widget.userProfile.id!,
         date: dateStr,
       );
-      
+      if (!mounted) return;
+
       // Calculate consumed macros
       double totalProtein = 0;
       double totalCarbs = 0;
@@ -198,7 +199,7 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
       });
     } catch (e) {
       print('Error loading today\'s progress: $e');
-      setState(() => _isLoadingProgress = false);
+      if (mounted) setState(() => _isLoadingProgress = false);
     }
   }
   

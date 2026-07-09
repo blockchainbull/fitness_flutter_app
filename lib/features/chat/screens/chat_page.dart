@@ -81,9 +81,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       
       // Get chat history from the backend
       final history = await ChatService.getChatHistory(widget.userProfile.id);
-      
+
       print('[ChatPage] Loaded ${history.length} messages from history');
-      
+      if (!mounted) return;
+
       if (history.isNotEmpty) {
         setState(() {
           _messages = history.map((msg) {
@@ -129,7 +130,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     try {
       // Get cached context - much faster!
       final context = await ChatService.getUserContext(widget.userProfile.id!);
-      
+      if (!mounted) return;
+
       setState(() {
         _userContext = context;
         _isLoadingContext = false;
@@ -144,10 +146,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       
     } catch (e) {
       print('[ChatPage] Error loading context: $e');
+      if (!mounted) return;
       setState(() {
         _isLoadingContext = false;
       });
-      
+
       // Try to rebuild context on error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -237,7 +237,8 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
 
     try {
       final metrics = await _metricsService.getTodayMetrics(_currentUserProfile.id!);
-      
+      if (!mounted) return;
+
       setState(() {
         todayProgress = {
           'steps': metrics['steps'],
