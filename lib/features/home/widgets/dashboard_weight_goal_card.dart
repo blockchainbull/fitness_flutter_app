@@ -71,7 +71,7 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
     
     if (_isLoading) {
       return Container(
-        margin: const EdgeInsets.all(16),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(32),
         child: const Center(
           child: CircularProgressIndicator(),
@@ -85,7 +85,7 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
     final totalChange = currentWeight - startingWeight;
     
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,

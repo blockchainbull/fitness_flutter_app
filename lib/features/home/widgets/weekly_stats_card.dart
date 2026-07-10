@@ -27,12 +27,20 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
   @override
   void initState() {
     super.initState();
+    // /weekly/context is a heavy server-side aggregation that can take 15–30s.
+    // Kick it off immediately so it starts as early as possible and fills in
+    // when it returns.
     _loadWeeklyStats();
   }
   
   Future<void> _loadWeeklyStats() async {
     try {
-      final data = await _apiService.getWeeklyContext(widget.userId);
+      // /weekly/context is a heavy aggregation and routinely takes 15–30s, so
+      // allow a generous timeout rather than giving up early and leaving a
+      // blank card. If it still fails we hide the card (see build()).
+      final data = await _apiService
+          .getWeeklyContext(widget.userId)
+          .timeout(const Duration(seconds: 45));
       if (mounted) {
         setState(() {
           _weeklyData = data;
@@ -54,14 +62,29 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
         borderRadius: BorderRadius.circular(16),
         elevation: 2,
         child: Container(
-          height: 150,
+          height: 110,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Center(
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Loading this week's summary…",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

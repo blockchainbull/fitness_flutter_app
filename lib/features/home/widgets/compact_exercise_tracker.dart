@@ -8,11 +8,13 @@ import 'package:flutter/services.dart';
 class CompactExerciseTracker extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
+  final Duration loadDelay;
 
   const CompactExerciseTracker({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.loadDelay = Duration.zero,
   }) : super(key: key);
 
   @override
@@ -31,7 +33,10 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
   void initState() {
     super.initState();
     _initializeExerciseGoal();
-    _loadExerciseData();
+    // Deferred by the dashboard so lower cards load after the top ones.
+    Future.delayed(widget.loadDelay, () {
+      if (mounted) _loadExerciseData();
+    });
   }
 
   void _initializeExerciseGoal() {

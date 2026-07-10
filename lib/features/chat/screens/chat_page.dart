@@ -375,15 +375,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ),
                   Text(
                     'Powered by your health data',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
                   ),
                 ],
               ),
             ), 
           ],
         ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
         elevation: 1,
         actions: [
           if (_hasWeeklyContext)
@@ -392,10 +392,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: Chip(
                 label: Text(
                   '$_weeksAnalyzed weeks',
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
                 ),
-                backgroundColor: Colors.purple.withOpacity(0.1),
-                avatar: const Icon(Icons.insights, size: 16, color: Colors.purple),
+                backgroundColor: Colors.white.withValues(alpha: 0.22),
+                avatar: const Icon(Icons.insights, size: 16, color: Colors.white),
               ),
             ),
           IconButton(

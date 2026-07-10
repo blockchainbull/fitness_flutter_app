@@ -10,11 +10,13 @@ import 'package:user_onboarding/features/tracking/screens/period_logging_page.da
 class CompactPeriodTracker extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
+  final Duration loadDelay;
 
   const CompactPeriodTracker({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.loadDelay = Duration.zero,
   }) : super(key: key);
 
   @override
@@ -33,7 +35,10 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
   @override
   void initState() {
     super.initState();
-    _loadPeriodData();
+    // Deferred by the dashboard so lower cards load after the top ones.
+    Future.delayed(widget.loadDelay, () {
+      if (mounted) _loadPeriodData();
+    });
   }
 
   Future<void> _loadPeriodData() async {

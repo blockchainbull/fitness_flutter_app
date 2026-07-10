@@ -391,6 +391,9 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: CompactStepTracker(
                           userProfile: _currentUserProfile,
+                          // Staggered so the lower cards load after the top of
+                          // the page (weight/weekly/meal/water) has settled.
+                          loadDelay: const Duration(milliseconds: 900),
                           onUpdate: () {
                             _loadTodayProgress();
                           },
@@ -404,6 +407,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: CompactExerciseTracker(
                           userProfile: _currentUserProfile,
+                          loadDelay: const Duration(milliseconds: 1100),
                           onUpdate: () {
                             _loadTodayProgress();
                           },
@@ -418,6 +422,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: CompactSleepTracker(
                           userProfile: _currentUserProfile,
+                          loadDelay: const Duration(milliseconds: 1300),
                           onUpdate: () {
                             _loadTodayProgress();
                           },
@@ -432,6 +437,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: CompactSupplementsTracker(
                           userProfile: _currentUserProfile,
+                          loadDelay: const Duration(milliseconds: 1500),
                           onUpdate: () {
                             _loadTodayProgress();
                           },
@@ -445,6 +451,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: CompactPeriodTracker(
                           userProfile: _currentUserProfile,
+                          loadDelay: const Duration(milliseconds: 1700),
                           onUpdate: () {
                             _loadTodayProgress();
                           },

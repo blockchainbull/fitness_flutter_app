@@ -15,11 +15,13 @@ import 'package:user_onboarding/data/services/step_counter_service.dart';
 class CompactStepTracker extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
+  final Duration loadDelay;
 
   const CompactStepTracker({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.loadDelay = Duration.zero,
   }) : super(key: key);
 
   @override
@@ -52,7 +54,10 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
-    _checkPermissionAndInitialize();
+    // Deferred by the dashboard so lower cards load after the top ones.
+    Future.delayed(widget.loadDelay, () {
+      if (mounted) _checkPermissionAndInitialize();
+    });
     _stepCounterService.addListener(_onStepCountUpdate);
   }
 

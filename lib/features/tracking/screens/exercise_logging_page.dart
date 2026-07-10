@@ -620,11 +620,14 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     // NEW: Check if has last workout suggestion available
     final hasLastWorkout = _hasLastWorkoutForMuscleGroup(muscleGroup);
     
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       elevation: isSelected ? 8 : 2,
-      // Use a translucent tint (not shade50) so the selected state adapts to
-      // dark mode instead of flipping to a light cream card.
-      color: isSelected ? Colors.orange.withValues(alpha: 0.18) : null,
+      // Light peach in light mode; a translucent tint in dark mode so the
+      // selected state reads well without flipping to a light cream card.
+      color: isSelected
+          ? (isDark ? Colors.orange.withValues(alpha: 0.22) : Colors.orange.shade50)
+          : null,
       child: InkWell(
         onTap: () => _selectMuscleGroup(muscleGroup),
         borderRadius: BorderRadius.circular(8),
@@ -799,9 +802,13 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: isSelected ? 4 : 1,
-      // NEW: Add visual indicator if already logged (translucent so it adapts
-      // to dark mode instead of showing a light green card).
-      color: isLoggedToday ? Colors.green.withValues(alpha: 0.15) : null,
+      // NEW: Add visual indicator if already logged. Light green in light mode,
+      // translucent tint in dark mode so it adapts.
+      color: isLoggedToday
+          ? (Theme.of(context).brightness == Brightness.dark
+              ? Colors.green.withValues(alpha: 0.15)
+              : Colors.green.shade50)
+          : null,
       child: CheckboxListTile(
         title: Row(
           children: [

@@ -246,7 +246,8 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
       floatingActionButton: FloatingActionButton(
         onPressed: _isSaving ? null : _showAddWeightDialog,
         backgroundColor: _isSaving ? Colors.grey : Colors.indigo,
-        child: _isSaving 
+        foregroundColor: Colors.white,
+        child: _isSaving
             ? const SizedBox(
                 width: 20,
                 height: 20,
