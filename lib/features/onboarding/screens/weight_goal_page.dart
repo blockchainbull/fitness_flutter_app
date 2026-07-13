@@ -198,7 +198,7 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
                   decoration: BoxDecoration(
                     color: isSelected 
                         ? (goal['color'] as Color).withOpacity(0.1)
-                        : Colors.grey[50],
+                        : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected 
@@ -325,19 +325,19 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
                 margin: const EdgeInsets.only(top: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
+                    Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onPrimaryContainer, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _getWeightChangeMessage(),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.blue[700],
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -415,7 +415,7 @@ class _WeightGoalPageState extends State<WeightGoalPage> {
                     decoration: BoxDecoration(
                       color: isSelected 
                           ? Colors.blue.withOpacity(0.1)
-                          : Colors.grey[50],
+                          : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isSelected 

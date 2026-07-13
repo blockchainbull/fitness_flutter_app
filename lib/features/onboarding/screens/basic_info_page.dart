@@ -436,7 +436,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _selectedGender == 'Male' ? Colors.blue.withOpacity(0.2) : Colors.grey[100],
+                      color: _selectedGender == 'Male' ? Colors.blue.withOpacity(0.2) : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _selectedGender == 'Male'
@@ -473,7 +473,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _selectedGender == 'Female' ? Colors.pink.withOpacity(0.2) : Colors.grey[100],
+                      color: _selectedGender == 'Female' ? Colors.pink.withOpacity(0.2) : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _selectedGender == 'Female'
@@ -679,7 +679,7 @@ class _BasicInfoPageState extends State<BasicInfoPage> {
               margin: const EdgeInsets.only(top: 24),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: Colors.blue.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(

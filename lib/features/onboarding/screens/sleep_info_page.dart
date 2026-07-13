@@ -514,7 +514,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> with SingleTickerProvider
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: _adjustByBedtime ? Colors.indigo.withOpacity(0.1) : Colors.white,
+                            color: _adjustByBedtime ? Colors.indigo.withOpacity(0.1) : Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: _adjustByBedtime ? Colors.indigo : Colors.grey[300]!,
@@ -561,7 +561,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> with SingleTickerProvider
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: !_adjustByBedtime ? Colors.orange.withOpacity(0.1) : Colors.white,
+                            color: !_adjustByBedtime ? Colors.orange.withOpacity(0.1) : Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: !_adjustByBedtime ? Colors.orange : Colors.grey[300]!,
@@ -653,7 +653,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> with SingleTickerProvider
                   decoration: BoxDecoration(
                     color: isSelected
                         ? (issue['color'] as Color).withOpacity(0.1)
-                        : Colors.grey[100],
+                        : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
@@ -670,7 +670,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> with SingleTickerProvider
                         size: 16,
                         color: isSelected
                             ? issue['color'] as Color
-                            : Colors.grey[600],
+                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -680,7 +680,7 @@ class _SleepInfoPageState extends State<SleepInfoPage> with SingleTickerProvider
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           color: isSelected
                               ? issue['color'] as Color
-                              : Colors.grey[700],
+                              : Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ],

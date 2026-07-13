@@ -182,7 +182,7 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
                   decoration: BoxDecoration(
                     color: isSelected 
                         ? (workout['color'] as Color).withOpacity(0.1)
-                        : Colors.grey[100],
+                        : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected 
@@ -228,19 +228,19 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
               margin: const EdgeInsets.only(top: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green[50],
+                color: Colors.green.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green[700], size: 16),
+                  Icon(Icons.check_circle, color: Colors.green, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '${_selectedWorkouts.length} workout type${_selectedWorkouts.length > 1 ? 's' : ''} selected',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.green[700],
+                        color: Colors.green,
                       ),
                     ),
                   ),
@@ -327,7 +327,7 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
                         decoration: BoxDecoration(
                           color: isSelected 
                               ? _getFrequencyColor()
-                              : Colors.grey[200],
+                              : Theme.of(context).colorScheme.surface,
                           shape: BoxShape.circle,
                         ),
                         child: Center(
@@ -450,7 +450,7 @@ class _WorkoutPreferencesPageState extends State<WorkoutPreferencesPage> {
                   decoration: BoxDecoration(
                     color: isSelected 
                         ? durationColor.withOpacity(0.1)
-                        : Colors.grey[100],
+                        : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected 
