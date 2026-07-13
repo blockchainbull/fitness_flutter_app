@@ -35,7 +35,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _isLoading = false;
   Map<String, dynamic>? _userContext;
   Map<String, dynamic>? _userFramework;
-  bool _isLoadingHistory = false;
   int _contextVersion = 1;
   bool _isLoadingContext = false;
 
@@ -77,18 +76,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _loadChatHistory() async {
-    setState(() {
-      _isLoadingHistory = true;
-    });
-    
     try {
       print('[ChatPage] Loading chat history for user: ${widget.userProfile.id}');
       
       // Get chat history from the backend
       final history = await ChatService.getChatHistory(widget.userProfile.id);
-      
+
       print('[ChatPage] Loaded ${history.length} messages from history');
-      
+      if (!mounted) return;
+
       if (history.isNotEmpty) {
         setState(() {
           _messages = history.map((msg) {
@@ -123,10 +119,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     } catch (e) {
       print('[ChatPage] Error loading chat history: $e');
-    } finally {
-      setState(() {
-        _isLoadingHistory = false;
-      });
     }
   }
   
@@ -138,7 +130,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     try {
       // Get cached context - much faster!
       final context = await ChatService.getUserContext(widget.userProfile.id!);
-      
+      if (!mounted) return;
+
       setState(() {
         _userContext = context;
         _isLoadingContext = false;
@@ -153,10 +146,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       
     } catch (e) {
       print('[ChatPage] Error loading context: $e');
+      if (!mounted) return;
       setState(() {
         _isLoadingContext = false;
       });
-      
+
       // Try to rebuild context on error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -224,8 +218,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     if (_userContext != null) {
       final todayProgress = _userContext!['today_progress'] ?? {};
-      final weeklySum = _userContext!['weekly_summary'] ?? {};
-      
+
       // Add context-aware greeting based on actual data
       welcomeMessage += 'I can see your activity data for today:\n';
       
@@ -382,15 +375,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ),
                   Text(
                     'Powered by your health data',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
                   ),
                 ],
               ),
             ), 
           ],
         ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
         elevation: 1,
         actions: [
           if (_hasWeeklyContext)
@@ -399,10 +392,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: Chip(
                 label: Text(
                   '$_weeksAnalyzed weeks',
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
                 ),
-                backgroundColor: Colors.purple.withOpacity(0.1),
-                avatar: const Icon(Icons.insights, size: 16, color: Colors.purple),
+                backgroundColor: Colors.white.withValues(alpha: 0.22),
+                avatar: const Icon(Icons.insights, size: 16, color: Colors.white),
               ),
             ),
           IconButton(

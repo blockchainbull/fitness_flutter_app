@@ -7,11 +7,13 @@ import 'package:intl/intl.dart';
 class CompactSleepTracker extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
+  final Duration loadDelay;
 
   const CompactSleepTracker({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.loadDelay = Duration.zero,
   }) : super(key: key);
 
   @override
@@ -44,7 +46,10 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
       curve: Curves.easeInOut,
     ));
     _initializeSleepGoal();
-    _loadSleepData();
+    // Deferred by the dashboard so lower cards load after the top ones.
+    Future.delayed(widget.loadDelay, () {
+      if (mounted) _loadSleepData();
+    });
   }
 
   @override
@@ -88,7 +93,9 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
       } else {
         _sleepDate = today;
       }
-      
+      if (!mounted) return;
+
+
       if (sleepLog != null && sleepLog['success'] == true && sleepLog['entry'] != null) {
         final entry = sleepLog['entry'];
         
@@ -108,12 +115,13 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
       }
     } catch (e) {
       print('Error loading sleep data: $e');
+      if (!mounted) return;
       setState(() {
         _lastNightHours = 0;
         _sleepQuality = '';
       });
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

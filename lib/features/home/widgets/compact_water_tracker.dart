@@ -58,7 +58,8 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
       setState(() => _isLoading = true);
       
       final entry = await WaterRepository.getTodayWaterEntry(widget.userProfile.id);
-      
+      if (!mounted) return;
+
       if (entry != null) {
         setState(() {
           _todayEntry = entry;
@@ -83,6 +84,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
       
     } catch (e) {
       print('Error loading today\'s water entry: $e');
+      if (!mounted) return;
       // Still create a default entry on error
       final targetGlasses = widget.userProfile.formData['waterIntakeGlasses'] ?? 8;
       setState(() {
@@ -100,7 +102,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
       _animationController.forward();
       
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -120,7 +122,8 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
       );
 
       await WaterRepository.saveWaterEntry(updatedEntry);
-      
+      if (!mounted) return;
+
       setState(() {
         _todayEntry = updatedEntry;
         _isSaving = false;
@@ -151,7 +154,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
       }
     } catch (e) {
       print('Error saving water entry: $e');
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 

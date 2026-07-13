@@ -4,7 +4,6 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_history_page.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_logging_page.dart';
 import 'package:user_onboarding/data/services/api/meal_api.dart';
-import 'package:user_onboarding/data/services/api/exercise_api.dart';
 import 'package:intl/intl.dart';
 
 class DailyGoalsCard extends StatefulWidget {
@@ -40,9 +39,7 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
   };
   
   bool _isLoadingProgress = false;
-  double _caloriesBurned = 0;
   final MealApi _apiService = MealApi();
-  final ExerciseApi _exerciseApi = ExerciseApi();
   
   @override
   void initState() {
@@ -59,7 +56,6 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
       _loadUserData();
       _calculateDailyGoals();
       _loadTodayProgress();
-      _loadExerciseData();
     }
   }
   
@@ -177,7 +173,8 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
         widget.userProfile.id!,
         date: dateStr,
       );
-      
+      if (!mounted) return;
+
       // Calculate consumed macros
       double totalProtein = 0;
       double totalCarbs = 0;
@@ -202,7 +199,7 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
       });
     } catch (e) {
       print('Error loading today\'s progress: $e');
-      setState(() => _isLoadingProgress = false);
+      if (mounted) setState(() => _isLoadingProgress = false);
     }
   }
   
@@ -239,51 +236,21 @@ class _DailyGoalsCardState extends State<DailyGoalsCard> {
     }
   }
 
-  Future<void> _loadExerciseData() async {
-    if (widget.userProfile.id == null) return;
-    
-    try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final exercises = await _exerciseApi.getExerciseLogs(
-        widget.userProfile.id!,
-        startDate: dateStr,
-        endDate: dateStr,
-      );
-      
-      double totalBurned = 0;
-      for (var ex in exercises) {
-        totalBurned += (ex['calories_burned'] ?? 0).toDouble();
-      }
-      
-      if (mounted) {
-        setState(() {
-          _caloriesBurned = totalBurned;
-        });
-      }
-    } catch (e) {
-      print('Error loading exercise data: $e');
-    }
-  }
-  
   Widget _buildMacroTooltip(String macro) {
     String explanation = '';
-    IconData icon = Icons.info_outline;
-    
+
     switch (macro.toLowerCase()) {
       case 'protein':
-        icon = Icons.fitness_center;
-        explanation = _weightGoal.contains('muscle') 
+        explanation = _weightGoal.contains('muscle')
           ? 'Target: 1g per lb body weight for optimal muscle growth and recovery'
           : 'Target: 0.8-1g per lb to preserve muscle mass and increase satiety';
         break;
       case 'carbs':
-        icon = Icons.grain;
-        explanation = _activityLevel.contains('very') 
+        explanation = _activityLevel.contains('very')
           ? 'Higher carbs to fuel your intense training sessions'
           : 'Moderate carbs for sustained energy throughout the day';
         break;
       case 'fat':
-        icon = Icons.water_drop;
         explanation = 'Essential for hormone production, vitamin absorption, and overall health. Minimum 0.25g per lb body weight.';
         break;
     }

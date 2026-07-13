@@ -28,11 +28,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   bool _isLoading = false;
   DateTime _selectedDate = DateTime.now();
 
-  int _targetDuration = 30;
-  List<String> _preferredWorkouts = [];
-  String _fitnessLevel = 'Beginner';
-
-  
   // Exercise history and smart defaults
   List<Map<String, dynamic>> _exerciseHistory = [];
   Map<String, ExerciseDefaults> _exerciseDefaults = {};
@@ -47,7 +42,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
 
   // Track suggested exercises from last workout
   List<Map<String, dynamic>> _suggestedExercises = [];
-  bool _showSuggestions = false;
 
   // Enhanced muscle groups with more exercises
   final Map<String, List<Exercise>> _muscleGroupExercises = {
@@ -140,9 +134,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
   @override
   void initState() {
     super.initState();
-    _targetDuration = widget.userProfile.workoutDuration ?? 30;
-    _preferredWorkouts = widget.userProfile.preferredWorkouts ?? [];
-    _fitnessLevel = widget.userProfile.fitnessLevel ?? 'Beginner';
     _loadExerciseData();
     _loadCustomExercises();
   }
@@ -629,11 +620,14 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     // NEW: Check if has last workout suggestion available
     final hasLastWorkout = _hasLastWorkoutForMuscleGroup(muscleGroup);
     
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       elevation: isSelected ? 8 : 2,
-      // Use a translucent tint (not shade50) so the selected state adapts to
-      // dark mode instead of flipping to a light cream card.
-      color: isSelected ? Colors.orange.withValues(alpha: 0.18) : null,
+      // Light peach in light mode; a translucent tint in dark mode so the
+      // selected state reads well without flipping to a light cream card.
+      color: isSelected
+          ? (isDark ? Colors.orange.withValues(alpha: 0.22) : Colors.orange.shade50)
+          : null,
       child: InkWell(
         onTap: () => _selectMuscleGroup(muscleGroup),
         borderRadius: BorderRadius.circular(8),
@@ -808,9 +802,13 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: isSelected ? 4 : 1,
-      // NEW: Add visual indicator if already logged (translucent so it adapts
-      // to dark mode instead of showing a light green card).
-      color: isLoggedToday ? Colors.green.withValues(alpha: 0.15) : null,
+      // NEW: Add visual indicator if already logged. Light green in light mode,
+      // translucent tint in dark mode so it adapts.
+      color: isLoggedToday
+          ? (Theme.of(context).brightness == Brightness.dark
+              ? Colors.green.withValues(alpha: 0.15)
+              : Colors.green.shade50)
+          : null,
       child: CheckboxListTile(
         title: Row(
           children: [
@@ -1023,17 +1021,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     final defaults = _exerciseDefaults[exercise.name];
     final progressData = _progressHistory[exercise.name];
 
-    // Calculate estimated duration
-    double estimatedDuration = 0;
-    if (exercise.type == 'strength' && log.sets > 0 && log.reps > 0) {
-      estimatedDuration = calculateExerciseDuration(
-        exerciseType: exercise.type,
-        sets: log.sets,
-        reps: log.reps,
-        exerciseName: exercise.name,
-      );
-    }
-    
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: ExpansionTile(
@@ -1319,7 +1306,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
     if (muscleGroupExercises.isEmpty) {
       setState(() {
         _suggestedExercises = [];
-        _showSuggestions = false;
       });
       return;
     }
@@ -1341,7 +1327,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
       // Same day, don't show suggestions
       setState(() {
         _suggestedExercises = [];
-        _showSuggestions = false;
       });
       return;
     }
@@ -1363,7 +1348,6 @@ class _EnhancedExerciseLoggingPageState extends State<EnhancedExerciseLoggingPag
       
       setState(() {
         _suggestedExercises = lastWorkoutExercises;
-        _showSuggestions = true;
       });
 
       // Show suggestion dialog

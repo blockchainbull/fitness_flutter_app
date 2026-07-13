@@ -8,11 +8,13 @@ import 'package:flutter/services.dart';
 class CompactExerciseTracker extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
+  final Duration loadDelay;
 
   const CompactExerciseTracker({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.loadDelay = Duration.zero,
   }) : super(key: key);
 
   @override
@@ -25,14 +27,16 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
   int _todayExercises = 0;
   int _weeklyExercises = 0;
   Set<String> _weeklyMuscleGroups = {};
-  bool _isLoading = true;
   late int _dailyGoal;
 
   @override
   void initState() {
     super.initState();
     _initializeExerciseGoal();
-    _loadExerciseData();
+    // Deferred by the dashboard so lower cards load after the top ones.
+    Future.delayed(widget.loadDelay, () {
+      if (mounted) _loadExerciseData();
+    });
   }
 
   void _initializeExerciseGoal() {
@@ -58,8 +62,6 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
   }
 
   Future<void> _loadExerciseData() async {
-    setState(() => _isLoading = true);
-    
     try {
       final now = DateTime.now();
       final today = DateFormat('yyyy-MM-dd').format(now);
@@ -97,8 +99,7 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
               // For strength exercises, estimate duration based on sets
               // Typically, a set takes about 1-2 minutes including rest
               final sets = (exercise['sets'] as num?)?.toInt() ?? 0;
-              final exerciseType = exercise['exercise_type'] as String?;
-              
+
               if (sets > 0) {
                 // Estimate: 2 minutes per set for strength training (includes rest)
                 // This is a reasonable approximation for tracking purposes
@@ -134,16 +135,15 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
         }
       }
       
+      if (!mounted) return;
       setState(() {
         _todayMinutes = todayMinutes;
         _todayExercises = todayCount;
         _weeklyExercises = weeklyCount;
         _weeklyMuscleGroups = muscleGroups;
-        _isLoading = false;
       });
     } catch (e) {
       print('Error loading exercise data: $e');
-      setState(() => _isLoading = false);
     }
   }
 
@@ -160,40 +160,6 @@ class _CompactExerciseTrackerState extends State<CompactExerciseTracker> {
       _loadExerciseData();
       widget.onUpdate?.call();
     });
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: Colors.white.withOpacity(0.8),
-            size: 20,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.white.withOpacity(0.7),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildCleanMuscleGroupChips() {

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:user_onboarding/data/repositories/supplement_repository.dart';
 import 'package:user_onboarding/features/tracking/screens/supplement_history_page.dart';
@@ -23,7 +22,6 @@ class SupplementLoggingPage extends StatefulWidget {
 }
 
 class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
-  final DataManager _dataManager = DataManager();
   final Random _random = Random();
   
   List<Map<String, dynamic>> _userSupplements = [];
@@ -36,8 +34,6 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
   DateTime _selectedDate = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.week;
   bool _showCalendar = false;
-
-  String get _formattedDate => DateFormat('yyyy-MM-dd').format(_selectedDate);
 
   String _generateId() {
     return DateTime.now().millisecondsSinceEpoch.toString() + 
@@ -446,29 +442,6 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     } catch (e) {
       print('❌ Error setting up supplements: $e');
       setState(() => _isLoading = false);
-    }
-  }
-
-  // Helper method for background database save
-  Future<void> _saveSupplementsToDatabase(List<Map<String, dynamic>> supplements) async {
-    try {
-      final supplementsForBackend = supplements.map((supplement) {
-        return {
-          'name': supplement['name'],
-          'dosage': supplement['dosage'],
-          'frequency': supplement['frequency'],
-          'preferred_time': supplement['preferred_time'],
-          'notes': supplement['notes'],
-        };
-      }).toList();
-
-      await SupplementRepository.saveSupplementPreferences(
-        widget.userProfile.id!,
-        supplementsForBackend,
-      );
-    } catch (e) {
-      print('❌ Database save failed: $e');
-      rethrow;
     }
   }
 
@@ -1251,60 +1224,6 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     );
   }
 
-  Widget _buildQuickActions() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Quick Actions',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SupplementHistoryPage(
-                            userProfile: widget.userProfile,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.history),
-                    label: const Text('View History'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _markAllTaken,
-                    icon: const Icon(Icons.done_all),
-                    label: const Text('Mark All'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _toggleSupplement(String supplementName) async {
     if (widget.userProfile.id == null) return;
     
@@ -1412,69 +1331,6 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       print('Error saving today\'s status: $e');
     }
   }
-
-  Future<void> _saveToDatabase(String supplementName, bool taken) async {
-    try {
-      // Find the supplement details
-      final supplement = _userSupplements.firstWhere(
-        (s) => s['name'] == supplementName,
-        orElse: () => <String, dynamic>{},
-      );
-
-      if (supplement.isNotEmpty) {
-        // Use SupplementRepository which handles API vs Direct DB automatically
-        await SupplementRepository.logSupplementIntake(
-          userId: widget.userProfile.id,
-          date: _todaysDate, // This is already a String in the format 'yyyy-MM-dd'
-          supplementName: supplementName,
-          taken: taken,
-          dosage: supplement['dosage'],
-          timeTaken: taken ? DateTime.now().toIso8601String() : null,
-        );
-        
-        print('✅ Saved to database via repository: $supplementName = $taken');
-      }
-    } catch (e) {
-      print('Error saving to database: $e');
-      // Don't show error to user - local storage still works
-    }
-  }
-
-  void _markAllTaken() async {
-    setState(() {
-      for (var supplement in _userSupplements) {
-        _todaysTaken[supplement['name']] = true;
-      }
-    });
-    
-    await _saveTodaysStatus();
-    
-    // Save individual keys for report screen
-    final prefs = await SharedPreferences.getInstance();
-    final dateStr = _todaysDate; // Use _todaysDate which is already formatted
-    
-    // Save all to database and SharedPreferences
-    for (var supplement in _userSupplements) {
-      final supplementName = supplement['name'];
-      
-      // Save to database
-      await _saveToDatabase(supplementName, true);
-      
-      // Save individual key for compatibility
-      final supplementKey = 'supplement_${supplementName}_$dateStr';
-      await prefs.setBool(supplementKey, true);
-    }
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('All supplements marked as taken!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 1),
-        ),
-      );
-    }
-}
 
   void _showAddSupplementDialog() {
     final nameController = TextEditingController();

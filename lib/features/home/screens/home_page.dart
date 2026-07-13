@@ -9,8 +9,6 @@ import 'package:user_onboarding/features/profile/screens/profile_page.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 import 'package:user_onboarding/data/services/api/chat_api.dart';
-import 'package:user_onboarding/features/notifications/widgets/notification_badge.dart';
-import 'package:user_onboarding/data/services/notification_service.dart';
 
 class HomePage extends StatefulWidget {
   final UserProfile userProfile;
@@ -111,14 +109,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = [
-      DashboardHome(
-        userProfile: _currentUserProfile,
-        onTabChange: _onTabTapped, // Pass the existing method
-      ),
-      ChatPage(userProfile: _currentUserProfile),
-      ProfilePage(userProfile: _currentUserProfile),
-    ];
     return Consumer<UserProvider>(
       builder: (context, userProvider, _) {
         // Use provider's profile if available, otherwise use current

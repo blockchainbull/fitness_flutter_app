@@ -291,7 +291,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                         decoration: BoxDecoration(
                           color: isSelected 
                               ? _getStepGoalColor(goal)
-                              : Colors.grey[200],
+                              : Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -342,7 +342,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -431,7 +431,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.blue.withOpacity(0.2) : Colors.grey[100],
+                    color: isSelected ? Colors.blue.withOpacity(0.2) : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected 
@@ -447,7 +447,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                     children: [
                       Icon(
                         location['icon'],
-                        color: isSelected ? Colors.blue : Colors.grey[700],
+                        color: isSelected ? Colors.blue : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         size: 32,
                       ),
                       const SizedBox(height: 8),
@@ -464,7 +464,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                         location['description'],
                         style: TextStyle(
                           fontSize: 10,
-                          color: isSelected ? Colors.blue[700] : Colors.grey[600],
+                          color: isSelected ? Colors.blue : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 2,
@@ -621,7 +621,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.blue : Colors.grey[200],
+                        color: isSelected ? Colors.blue : Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: !_isFieldValid('fitness') && _showValidationErrors
@@ -635,7 +635,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                             level == 'Beginner' ? Icons.star_border :
                             level == 'Intermediate' ? Icons.star_half :
                             Icons.star,
-                            color: isSelected ? Colors.white : Colors.grey[700],
+                            color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                             size: 28,
                           ),
                           const SizedBox(height: 8),
@@ -688,7 +688,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _hasTrainer ? Colors.green : Colors.grey[200],
+                      color: _hasTrainer ? Colors.green : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -696,7 +696,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                       children: [
                         Icon(
                           Icons.check_circle,
-                          color: _hasTrainer ? Colors.white : Colors.grey[600],
+                          color: _hasTrainer ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -724,7 +724,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: !_hasTrainer ? Colors.red : Colors.grey[200],
+                      color: !_hasTrainer ? Colors.red : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -732,7 +732,7 @@ class _CurrentExerciseSetupPageState extends State<CurrentExerciseSetupPage> {
                       children: [
                         Icon(
                           Icons.cancel,
-                          color: !_hasTrainer ? Colors.white : Colors.grey[600],
+                          color: !_hasTrainer ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                         const SizedBox(width: 8),
                         Text(

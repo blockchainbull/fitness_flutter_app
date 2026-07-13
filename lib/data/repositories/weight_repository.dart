@@ -1,12 +1,9 @@
 // lib/data/repositories/weight_repository.dart
-import 'package:uuid/uuid.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/services/database_service.dart';
 import 'package:user_onboarding/data/services/api/weight_api.dart';
 
 class WeightRepository {
-  static final Uuid _uuid = Uuid();
-
   static Future<String> saveWeightEntry(WeightEntry weightEntry) async {
     try {
       // Use API service instead of database

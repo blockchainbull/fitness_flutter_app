@@ -1274,13 +1274,6 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
     return Colors.red;
   }
   
-  String _getMissingDescription(TrackingStatus status) {
-    if (status.total > 0) {
-      final remaining = status.total - status.completed;
-      return '$remaining ${status.unit} needed';
-    }
-    return 'Not logged';
-  }
 }
 
 // Data model for tracking status

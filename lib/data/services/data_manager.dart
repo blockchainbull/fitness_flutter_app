@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/repositories/user_repository.dart';
 import 'package:user_onboarding/data/services/api/auth_api.dart';
 import 'package:user_onboarding/data/services/api/weight_api.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
@@ -458,10 +457,7 @@ class DataManager {
   Future<UserProfile> updateUserProfile(UserProfile userProfile) async {
     try {
       _log('Starting to update user profile for ${userProfile.name}');
-      
-      // Get shared preferences
-      final prefs = await SharedPreferences.getInstance();
-      
+
       // Check if connected to the internet
       final isConnected = await _connectivityService.isConnected();
       
@@ -533,28 +529,6 @@ class DataManager {
     } catch (e) {
       _log('Failed to delete weight entry: $e');
       return false;
-    }
-  }
-
-  Future<void> _deleteWeightEntryLocally(String entryId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-    
-      final userId = prefs.getString(userIdKey);
-      if (userId != null) {
-        final key = 'weight_entries_$userId';
-        final existingJson = prefs.getString(key) ?? '[]';
-        final List<dynamic> existingList = jsonDecode(existingJson);
-        
-        // Remove the entry with matching ID
-        existingList.removeWhere((item) => item['id'] == entryId);
-        
-        // Save back to preferences
-        await prefs.setString(key, jsonEncode(existingList));
-      }
-    } catch (e) {
-      _log('Failed to delete weight entry locally: $e');
-      rethrow;
     }
   }
 

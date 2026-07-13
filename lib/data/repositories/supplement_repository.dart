@@ -1,17 +1,10 @@
 // lib/data/repositories/supplement_repository.dart
 import 'package:flutter/foundation.dart';
 import 'package:user_onboarding/data/services/api/supplement_api.dart';
-import 'dart:math';
 import 'package:intl/intl.dart';
 
 class SupplementRepository {
-  static final Random _random = Random();
   static final SupplementApi _apiService = SupplementApi();
-
-  static String _generateId() {
-    return DateTime.now().millisecondsSinceEpoch.toString() + 
-           _random.nextInt(9999).toString().padLeft(4, '0');
-  }
 
   static Future<List<Map<String, dynamic>>> getSupplementPreferences(String userId) async {
     try {

@@ -34,6 +34,7 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
       // Get the full weight history so we can show the progress the user has
       // actually made (start → current), not just the latest reading.
       final weightHistory = await DataManager().getWeightHistory(widget.userProfile.id);
+      if (!mounted) return;
 
       setState(() {
         // Entries come back newest-first.
@@ -52,6 +53,7 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
       });
     } catch (e) {
       print('Error loading weight data: $e');
+      if (!mounted) return;
       setState(() {
         _currentWeight = widget.userProfile.weight;
         _startingWeight = widget.userProfile.startingWeight ?? _currentWeight;
@@ -69,7 +71,7 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
     
     if (_isLoading) {
       return Container(
-        margin: const EdgeInsets.all(16),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(32),
         child: const Center(
           child: CircularProgressIndicator(),
@@ -83,7 +85,7 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
     final totalChange = currentWeight - startingWeight;
     
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,

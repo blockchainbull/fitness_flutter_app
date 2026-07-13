@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/basic_info_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/period_cycle_page.dart';
@@ -68,7 +67,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     'hasTrainer': false,
   };
 
-  final DataManager _dataManager = DataManager();
   final ConnectivityService _connectivityService = ConnectivityService();
   bool _isConnected = true;
 

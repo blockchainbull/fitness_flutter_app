@@ -15,11 +15,13 @@ import 'package:user_onboarding/data/services/step_counter_service.dart';
 class CompactStepTracker extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
+  final Duration loadDelay;
 
   const CompactStepTracker({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.loadDelay = Duration.zero,
   }) : super(key: key);
 
   @override
@@ -52,7 +54,10 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
-    _checkPermissionAndInitialize();
+    // Deferred by the dashboard so lower cards load after the top ones.
+    Future.delayed(widget.loadDelay, () {
+      if (mounted) _checkPermissionAndInitialize();
+    });
     _stepCounterService.addListener(_onStepCountUpdate);
   }
 
@@ -72,6 +77,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     }
 
     final status = await Permission.activityRecognition.status;
+    if (!mounted) return;
     setState(() {
       _hasPedometerPermission = status.isGranted;
     });
@@ -89,11 +95,12 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     final granted = await _stepCounterService.requestPermissionAndStart(
       widget.userProfile.id!
     );
-    
+    if (!mounted) return;
+
     setState(() {
       _hasPedometerPermission = granted;
     });
-    
+
     if (granted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -212,10 +219,11 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     
     try {
       final entry = await StepRepository.getTodayStepEntry(widget.userProfile.id!);
-      final stepGoal = widget.userProfile.dailyStepGoal ?? 
-                      (widget.userProfile.dailyStepGoal as int?) ?? 
+      if (!mounted) return;
+      final stepGoal = widget.userProfile.dailyStepGoal ??
+                      (widget.userProfile.dailyStepGoal as int?) ??
                       10000;
-      
+
       setState(() {
         _todayEntry = entry ?? StepEntry(
           userId: widget.userProfile.id!,
@@ -240,7 +248,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
       }
     } catch (e) {
       print('Error loading step entry: $e');
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -344,13 +352,15 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     } catch (e) {
       print('Error saving step entry: $e');
       // Revert on error
-      setState(() {
-        _todayEntry = _todayEntry!.copyWith(
-          steps: previousSteps,
-        );
-      });
+      if (mounted) {
+        setState(() {
+          _todayEntry = _todayEntry!.copyWith(
+            steps: previousSteps,
+          );
+        });
+      }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 

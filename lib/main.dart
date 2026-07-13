@@ -1,5 +1,4 @@
 // lib/main.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -7,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/providers/theme_provider.dart';
 import 'package:user_onboarding/config/theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/features/splash/screens/splash_screen.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;

@@ -10,11 +10,13 @@ import 'dart:convert';
 class CompactSupplementsTracker extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
+  final Duration loadDelay;
 
   const CompactSupplementsTracker({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.loadDelay = Duration.zero,
   }) : super(key: key);
 
   @override
@@ -31,7 +33,10 @@ class _CompactSupplementsTrackerState extends State<CompactSupplementsTracker> {
   void initState() {
     super.initState();
     _todaysDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    _loadSupplementsData();
+    // Deferred by the dashboard so lower cards load after the top ones.
+    Future.delayed(widget.loadDelay, () {
+      if (mounted) _loadSupplementsData();
+    });
   }
 
   Future<void> _loadSupplementsData() async {

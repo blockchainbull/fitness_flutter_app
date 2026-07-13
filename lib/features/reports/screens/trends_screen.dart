@@ -1,6 +1,5 @@
 // lib/features/reports/screens/trends_screen.dart
 
-import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:user_onboarding/data/services/api/chat_api.dart';

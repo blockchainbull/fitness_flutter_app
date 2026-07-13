@@ -1,6 +1,5 @@
 // lib/features/home/widgets/compact_period_tracker.dart
 
-import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/period_entry.dart';
@@ -11,11 +10,13 @@ import 'package:user_onboarding/features/tracking/screens/period_logging_page.da
 class CompactPeriodTracker extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
+  final Duration loadDelay;
 
   const CompactPeriodTracker({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.loadDelay = Duration.zero,
   }) : super(key: key);
 
   @override
@@ -24,7 +25,6 @@ class CompactPeriodTracker extends StatefulWidget {
 
 class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
   PeriodEntry? _currentPeriod;
-  List<PeriodEntry> _periodHistory = [];
   bool _isLoading = true;
   
   int _cycleDay = 1;
@@ -35,7 +35,10 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
   @override
   void initState() {
     super.initState();
-    _loadPeriodData();
+    // Deferred by the dashboard so lower cards load after the top ones.
+    Future.delayed(widget.loadDelay, () {
+      if (mounted) _loadPeriodData();
+    });
   }
 
   Future<void> _loadPeriodData() async {
@@ -55,8 +58,6 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
       if (!mounted) return;
       
       setState(() {
-        _periodHistory = history;
-        
         if (history.isNotEmpty && history.first.endDate == null) {
           _isOnPeriod = true;
           _currentPeriod = history.first;

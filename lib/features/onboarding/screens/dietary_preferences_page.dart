@@ -131,11 +131,13 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
           // NEW: Daily Meals Count Section
           Row(
             children: const [
-              Text(
-                'How many meals do you typically have per day?',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'How many meals do you typically have per day?',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Text(
@@ -225,19 +227,19 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
+                      Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onPrimaryContainer, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _getMealCountAdvice(),
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.blue[700],
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
                           ),
                         ),
                       ),
@@ -383,13 +385,13 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
                       width: 80,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
+                        color: Theme.of(context).colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '$_waterIntakeGlasses glasses',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onPrimaryContainer),
                       ),
                     ),
                   ],
@@ -421,13 +423,13 @@ class _DietaryPreferencesPageState extends State<DietaryPreferencesPage> {
                       width: 80,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
+                        color: Theme.of(context).colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '${_waterIntake.toStringAsFixed(1)} L',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onPrimaryContainer),
                       ),
                     ),
                   ],
