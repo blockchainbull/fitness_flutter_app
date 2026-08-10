@@ -1,4 +1,5 @@
 // lib/data/services/api/chat_api.dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:user_onboarding/data/services/api/api_client.dart';
@@ -16,6 +17,27 @@ class ChatApi {
   ChatApi._internal();
 
   final ApiClient _client = ApiClient();
+
+  /// Fire-and-forget chat-context sync. Kicks the context update off in the
+  /// background WITHOUT blocking the activity-save path, so logging feels
+  /// instant. The AI coach's context is (re)built when the Chat screen opens
+  /// and again server-side before each chat response, so a slightly stale
+  /// cache here has no user-visible effect. Errors are swallowed inside
+  /// [updateChatContext].
+  void syncContext(
+    String userId,
+    String activityType,
+    Map<String, dynamic> data,
+    {DateTime? date}
+  ) {
+    unawaited(updateChatContext(userId, activityType, data, date: date));
+  }
+
+  /// Fire-and-forget context rebuild (used after edits/deletes). Non-blocking;
+  /// the authoritative rebuild happens on Chat open + server-side per reply.
+  void rebuildContextInBackground(String userId, {DateTime? date}) {
+    unawaited(rebuildChatContext(userId, date: date));
+  }
 
   Future<void> updateChatContext(
     String userId,

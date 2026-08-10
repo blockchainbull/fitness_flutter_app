@@ -104,8 +104,8 @@ class StepApi {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // ✅ UPDATE CHAT CONTEXT
-        await _chat.updateChatContext(
+        // ✅ UPDATE CHAT CONTEXT (fire-and-forget; does not block the save)
+        _chat.syncContext(
           entry.userId,
           'steps',
           entry.toMap(),

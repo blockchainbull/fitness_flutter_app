@@ -31,8 +31,8 @@ class ExerciseApi {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
 
-        // ✅ UPDATE CHAT CONTEXT
-        await _chat.updateChatContext(
+        // ✅ UPDATE CHAT CONTEXT (fire-and-forget; does not block the save)
+        _chat.syncContext(
           exerciseData['user_id'],
           'exercise',
           responseData['exercise'] ?? exerciseData

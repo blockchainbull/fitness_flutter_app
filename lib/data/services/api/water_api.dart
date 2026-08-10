@@ -28,8 +28,8 @@ class WaterApi {
         final data = jsonDecode(response.body);
         final entryId = data['id'] ?? waterEntry.id ?? DateTime.now( ).millisecondsSinceEpoch.toString(); 
 
-        // ✅ UPDATE CHAT CONTEXT
-        await _chat.updateChatContext(
+        // ✅ UPDATE CHAT CONTEXT (fire-and-forget; does not block the save)
+        _chat.syncContext(
           waterEntry.userId,
           'water',
           waterEntry.toMap(),

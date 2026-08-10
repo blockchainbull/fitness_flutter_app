@@ -1,6 +1,8 @@
 // lib/features/home/widgets/weekly_stats_card.dart
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api/chat_api.dart';
 import 'package:user_onboarding/features/reports/screens/weekly_summary_screen.dart';
@@ -23,7 +25,9 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
   final ChatApi _apiService = ChatApi();
   Map<String, dynamic>? _weeklyData;
   bool _isLoading = true;
-  
+
+  String get _cacheKey => 'weekly_stats_cache_${widget.userId}';
+
   @override
   void initState() {
     super.initState();
@@ -32,8 +36,32 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
     // when it returns.
     _loadWeeklyStats();
   }
-  
+
+  // Cache-first load. The current-week weekly-context endpoint always rebuilds
+  // server-side (14–27s), so we show the last-cached snapshot instantly and
+  // refresh it silently in the background. Only the first-ever load (no cache)
+  // shows the spinner; every subsequent dashboard open is instant.
   Future<void> _loadWeeklyStats() async {
+    await _loadFromCache();
+    await _refreshFromServer();
+  }
+
+  Future<void> _loadFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString(_cacheKey);
+      if (cached != null && mounted) {
+        setState(() {
+          _weeklyData = jsonDecode(cached) as Map<String, dynamic>;
+          _isLoading = false; // show cached data immediately, no spinner
+        });
+      }
+    } catch (e) {
+      print('Error reading weekly stats cache: $e');
+    }
+  }
+
+  Future<void> _refreshFromServer() async {
     try {
       // /weekly/context is a heavy aggregation and routinely takes 15–30s, so
       // allow a generous timeout rather than giving up early and leaving a
@@ -47,9 +75,16 @@ class _WeeklyStatsCardState extends State<WeeklyStatsCard> {
           _isLoading = false;
         });
       }
+      // Persist only successful payloads so a stale-but-valid card can render
+      // instantly next time.
+      if (data['success'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_cacheKey, jsonEncode(data));
+      }
     } catch (e) {
       print('Error loading weekly stats: $e');
       if (mounted) {
+        // Keep any cached data on screen; only clear the spinner if we had none.
         setState(() => _isLoading = false);
       }
     }

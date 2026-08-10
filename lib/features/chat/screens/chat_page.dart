@@ -47,9 +47,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     // Load the user's personalized framework (used by the "My Framework" menu).
     _loadFramework();
-    // Only reset/rebuild context when a new day has started; the server keeps
-    // today's context up to date incrementally as activities are logged.
+    // Activity logging no longer syncs the chat context on every save (that
+    // was making logging + the dashboard slow). Instead we (re)build today's
+    // context when the Chat screen opens so the AI coach reflects everything
+    // logged since the last visit. This is fire-and-forget — it warms the
+    // cache without blocking the chat UI, and the backend also rebuilds
+    // today's context server-side before each reply as a safety net.
     _apiService.checkAndResetDailyContext(widget.userProfile.id!).then((_) {
+      _apiService.rebuildContextInBackground(widget.userProfile.id!);
       _loadChatHistory();
       _loadChatContext();
       _checkWeeklyContext();

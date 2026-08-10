@@ -35,8 +35,8 @@ class WeightApi {
         final data = jsonDecode(response.body);
         final entryId = data['id'] ?? weightEntry.id;
 
-        // ✅ UPDATE CHAT CONTEXT
-        await _chat.updateChatContext(
+        // ✅ UPDATE CHAT CONTEXT (fire-and-forget; does not block the save)
+        _chat.syncContext(
           weightEntry.userId,
           'weight',
           {'weight': weightEntry.weight},
