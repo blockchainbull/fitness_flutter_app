@@ -41,7 +41,15 @@ class DashboardHome extends StatefulWidget {
   State<DashboardHome> createState() => _DashboardHomeState();
 }
 
-class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserver {
+class _DashboardHomeState extends State<DashboardHome>
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  // Keep the dashboard alive across tab switches so its trackers (weight,
+  // steps, sleep, period, ...) don't all re-fetch every time the user returns.
+  // That re-fetch storm against the single-worker backend was leaving widgets
+  // blank/slow on the second visit.
+  @override
+  bool get wantKeepAlive => true;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   // Core state
@@ -358,6 +366,7 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required by AutomaticKeepAliveClientMixin
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

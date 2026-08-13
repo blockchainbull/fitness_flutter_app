@@ -22,7 +22,13 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
+class _ProfilePageState extends State<ProfilePage>
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  // Keep alive across tab switches so returning to Profile doesn't re-fetch
+  // and flash empty. See PageView keep-alive note in home_page.dart.
+  @override
+  bool get wantKeepAlive => true;
+
   late UserProfile currentProfile;
   late TabController _tabController;
   final AuthApi _apiService = AuthApi();
@@ -151,6 +157,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required by AutomaticKeepAliveClientMixin
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: RefreshIndicator(

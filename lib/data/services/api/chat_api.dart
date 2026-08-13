@@ -195,9 +195,21 @@ class ChatApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getChatHistory(String userId) async {
+  /// Fetch chat history. Defaults to the most recent [limit] messages
+  /// (oldest-first) so long transcripts don't ship in full on every open.
+  /// Pass [before] (an ISO `created_at`) to page further back — used for
+  /// lazy scroll-up loading of older messages.
+  Future<List<Map<String, dynamic>>> getChatHistory(
+    String userId, {
+    int limit = 100,
+    String? before,
+  }) async {
     try {
-      final response = await _client.get('/chat/history/$userId');
+      final query = StringBuffer('?limit=$limit');
+      if (before != null && before.isNotEmpty) {
+        query.write('&before=${Uri.encodeQueryComponent(before)}');
+      }
+      final response = await _client.get('/chat/history/$userId$query');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

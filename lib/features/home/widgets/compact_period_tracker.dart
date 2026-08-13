@@ -26,6 +26,9 @@ class CompactPeriodTracker extends StatefulWidget {
 class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
   PeriodEntry? _currentPeriod;
   bool _isLoading = true;
+  // True once the first load attempt completes — keeps the card populated on
+  // later refreshes instead of flashing the full-card spinner.
+  bool _hasLoaded = false;
   
   int _cycleDay = 1;
   DateTime? _nextPeriodDate;
@@ -89,12 +92,17 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
         }
         
         _isLoading = false;
+        _hasLoaded = true;
       });
     } catch (e) {
       print('Error loading period data: $e');
-      // Check mounted before setState on error
+      // Check mounted before setState on error. Keep any existing data; just
+      // stop the spinner.
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _hasLoaded = true;
+      });
     }
   }
 
@@ -115,7 +123,7 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading && !_hasLoaded) {
       return Container(
         height: 140,
         padding: const EdgeInsets.all(16),
