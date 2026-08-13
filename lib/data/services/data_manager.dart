@@ -723,12 +723,19 @@ class DataManager {
         throw Exception('No internet connection');
       }
       
-      // Attempt login with timeout
+      // Attempt login with timeout. The backend runs on a tier that spins down
+      // when idle, so the FIRST request after a quiet period can take 30–50s to
+      // cold-start. Allow up to 60s here (matching AuthApi.loginUser) so a cold
+      // start doesn't get killed prematurely; the login screen also fires a
+      // warm-up ping on open to shrink this window.
       final result = await _apiService.loginUser(email, password).timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 60),
         onTimeout: () {
-          _log('Login timed out after 15 seconds');
-          throw Exception('Login request timed out. Please check your connection.');
+          _log('Login timed out after 60 seconds');
+          throw Exception(
+            'The server is taking longer than usual to respond (it may be '
+            'waking up). Please try again in a moment.',
+          );
         },
       );
       

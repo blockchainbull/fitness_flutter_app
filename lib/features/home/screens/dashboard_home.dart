@@ -9,6 +9,7 @@ import 'package:user_onboarding/data/services/notification_service.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/features/home/widgets/activity_drawer.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_logging_page.dart';
+import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 import 'package:user_onboarding/data/services/metrics_service.dart';
@@ -60,6 +61,9 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
   final bool _sleepTrackerEnabled = true;
   bool _supplementsTrackerEnabled = true;
   bool _hasSupplementsSetup = false;
+  // Shown once per app session so we invite the user to configure supplements
+  // (if they never have) without nagging on every dashboard rebuild.
+  static bool _supplementPromptShownThisSession = false;
   
   // Data placeholders
   Map<String, dynamic> todayProgress = {
@@ -163,10 +167,61 @@ class _DashboardHomeState extends State<DashboardHome> with WidgetsBindingObserv
       // Check database as fallback
       final apiService = SupplementApi();
       final preferences = await apiService.getSupplementPreferences(userId);
+      if (!mounted) return;
       setState(() => _hasSupplementsSetup = preferences.isNotEmpty);
+
+      // First-time nudge: they've logged in but never configured supplements,
+      // so invite them to set it up (once per session).
+      if (preferences.isEmpty) {
+        _maybePromptSupplementSetup();
+      }
     } catch (e) {
       print('Error checking supplement setup: $e');
-      setState(() => _hasSupplementsSetup = false);
+      if (mounted) setState(() => _hasSupplementsSetup = false);
+    }
+  }
+
+  // Invites the user to set up supplement tracking if they never have. Shown at
+  // most once per app session (guarded by [_supplementPromptShownThisSession]).
+  Future<void> _maybePromptSupplementSetup() async {
+    if (_supplementPromptShownThisSession || !mounted) return;
+    _supplementPromptShownThisSession = true;
+
+    // Let the dashboard settle before interrupting with a dialog.
+    await Future.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
+
+    final goSetup = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Track your supplements?'),
+        content: const Text(
+          'Set up your supplements to log daily intake and get reminders. '
+          'You can always do this later from the dashboard.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Maybe later'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Set up now'),
+          ),
+        ],
+      ),
+    );
+
+    if (goSetup == true && mounted) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              SupplementLoggingPage(userProfile: _currentUserProfile),
+        ),
+      );
+      // Re-check on return so the tracker shows up if they completed setup.
+      if (mounted) _checkSupplementsSetup();
     }
   }
 

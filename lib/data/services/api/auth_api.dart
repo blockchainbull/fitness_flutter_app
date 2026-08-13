@@ -14,6 +14,23 @@ class AuthApi {
 
   final ApiClient _client = ApiClient();
 
+  /// Fire-and-forget "wake up the server" ping. The backend spins down when
+  /// idle and can take 30–50s to cold-start, which makes the first login feel
+  /// broken. Calling this when the login/splash screen opens starts the wake-up
+  /// while the user is still typing their credentials, so the actual login
+  /// request often lands on an already-warm server. Errors are ignored.
+  void warmUpServer() {
+    _client.get('/check').timeout(
+      const Duration(seconds: 60),
+      onTimeout: () => throw Exception('warm-up timeout'),
+    ).then((res) {
+      print('[AuthApi] 🔥 Warm-up ping status: ${res.statusCode}');
+    }).catchError((e) {
+      // Non-critical: this only pre-warms the server.
+      print('[AuthApi] Warm-up ping failed (non-critical): $e');
+    });
+  }
+
   // Complete onboarding using unified backend format
   Future<Map<String, dynamic>> completeOnboarding(Map<String, dynamic> onboardingData) async {
     try {
@@ -147,7 +164,8 @@ class AuthApi {
         '/auth/login',
         body: body,
       ).timeout(
-        const Duration(seconds: 30),
+        // Generous timeout to survive a backend cold start (see DataManager.login).
+        const Duration(seconds: 60),
         onTimeout: () {
           print('[AuthApi] ❌ Request timed out');
           throw Exception('Request timed out');

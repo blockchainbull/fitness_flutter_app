@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
+import 'package:user_onboarding/data/services/api/auth_api.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/onboarding_flow.dart';
 import 'package:user_onboarding/data/services/notification_service.dart';
@@ -20,6 +21,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Wake the backend up front so it's warm by the time the user taps Login
+    // (the server cold-starts after being idle). See AuthApi.warmUpServer.
+    AuthApi().warmUpServer();
+  }
 
   @override
   void dispose() {
@@ -119,10 +128,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Logo/Title
-                      const Icon(
-                        Icons.fitness_center,
-                        size: 80,
-                        color: Colors.blue,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Image.asset(
+                          'assets/icon/app_icon.png',
+                          width: 88,
+                          height: 88,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                       const SizedBox(height: 24),
                       const Text(

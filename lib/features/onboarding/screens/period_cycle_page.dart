@@ -152,7 +152,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _hasPeriods == true ? Colors.pink.withOpacity(0.1) : Colors.grey[100],
+                      color: _hasPeriods == true ? Colors.pink.withOpacity(0.1) : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.grey[100]),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _hasPeriods == true 
@@ -201,7 +201,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _hasPeriods == false ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
+                      color: _hasPeriods == false ? Colors.blue.withOpacity(0.1) : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.grey[100]),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _hasPeriods == false 
@@ -343,7 +343,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.pink[50],
+                color: Colors.pink.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -397,7 +397,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.red[50],
+                color: Colors.deepOrange.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -491,7 +491,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _isCycleRegular == true ? Colors.green[50] : Colors.grey[100],
+                        color: _isCycleRegular == true ? Colors.green.withOpacity(0.15) : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.grey[100]),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: _isCycleRegular == true 
@@ -526,7 +526,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _isCycleRegular == false ? Colors.orange[50] : Colors.grey[100],
+                        color: _isCycleRegular == false ? Colors.orange.withOpacity(0.15) : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.grey[100]),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: _isCycleRegular == false 
@@ -619,7 +619,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
                   decoration: BoxDecoration(
                     color: isSelected 
                         ? (option['color'] as Color).withOpacity(0.1)
-                        : Colors.grey[100],
+                        : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.grey[100]),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected 
@@ -715,7 +715,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
                   decoration: BoxDecoration(
                     color: isSelected 
                         ? Colors.purple.withOpacity(0.1)
-                        : Colors.grey[100],
+                        : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.grey[100]),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected 
@@ -733,7 +733,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
                         decoration: BoxDecoration(
                           color: isSelected 
                               ? Colors.purple.withOpacity(0.2)
-                              : Colors.grey[200],
+                              : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200]),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -782,7 +782,7 @@ class _PeriodCyclePageState extends State<PeriodCyclePage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue[50],
+              color: Colors.blue.withOpacity(0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(

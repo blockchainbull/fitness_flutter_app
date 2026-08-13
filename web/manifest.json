@@ -1,11 +1,11 @@
 {
-    "name": "user_onboarding",
-    "short_name": "user_onboarding",
+    "name": "Nufitionist",
+    "short_name": "Nufitionist",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Nufitionist — your AI-powered health & nutrition coach.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
