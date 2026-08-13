@@ -26,6 +26,9 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
   double _lastNightHours = 0;
   String _sleepQuality = '';
   bool _isLoading = true;
+  // True once the first load attempt completes — keeps existing data on screen
+  // during later refreshes instead of flashing a spinner.
+  bool _hasLoaded = false;
   late double _sleepGoal;
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
@@ -115,13 +118,13 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
       }
     } catch (e) {
       print('Error loading sleep data: $e');
-      if (!mounted) return;
-      setState(() {
-        _lastNightHours = 0;
-        _sleepQuality = '';
-      });
+      // Don't wipe the last-known values to 0 on a failed/timed-out refresh —
+      // that was blanking the card. Keep whatever we already showed.
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() {
+        _isLoading = false;
+        _hasLoaded = true;
+      });
     }
   }
 
@@ -267,7 +270,7 @@ class _CompactSleepTrackerState extends State<CompactSleepTracker>
           onTap: _navigateToSleepLogging,
           child: Container(
             padding: const EdgeInsets.all(16),
-            child: _isLoading
+            child: (_isLoading && !_hasLoaded)
                 ? const Center(
                     child: CircularProgressIndicator(
                       color: Colors.white,

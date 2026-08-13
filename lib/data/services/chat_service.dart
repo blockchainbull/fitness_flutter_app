@@ -45,11 +45,16 @@ class ChatService {
     }
   }
 
-  /// Get chat history for a user (if you implement this later)
-  static Future<List<Map<String, dynamic>>> getChatHistory(String userId) async {
+  /// Get chat history for a user. Bounded to the most recent [limit] messages
+  /// by default; pass [before] (ISO created_at) to page older messages.
+  static Future<List<Map<String, dynamic>>> getChatHistory(
+    String userId, {
+    int limit = 100,
+    String? before,
+  }) async {
     try {
       print('[ChatService] Getting chat history for user: $userId');
-      return await _apiService.getChatHistory(userId);
+      return await _apiService.getChatHistory(userId, limit: limit, before: before);
     } catch (e) {
       print('[ChatService] Error getting chat history: $e');
       return [];

@@ -22,6 +22,9 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
   double? _currentWeight;
   double? _startingWeight;
   bool _isLoading = true;
+  // True once the first load attempt completes — keeps the card populated on
+  // later refreshes instead of flashing the spinner.
+  bool _hasLoaded = false;
 
   @override
   void initState() {
@@ -50,14 +53,21 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
                 : widget.userProfile.weight);
 
         _isLoading = false;
+        _hasLoaded = true;
       });
     } catch (e) {
       print('Error loading weight data: $e');
       if (!mounted) return;
       setState(() {
-        _currentWeight = widget.userProfile.weight;
-        _startingWeight = widget.userProfile.startingWeight ?? _currentWeight;
+        // Only fall back to the profile weight if we never loaded real data;
+        // otherwise keep the last-known values so a failed refresh doesn't
+        // reset the card.
+        if (!_hasLoaded) {
+          _currentWeight = widget.userProfile.weight;
+          _startingWeight = widget.userProfile.startingWeight ?? _currentWeight;
+        }
         _isLoading = false;
+        _hasLoaded = true;
       });
     }
   }
@@ -69,7 +79,7 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
       return const SizedBox.shrink();
     }
     
-    if (_isLoading) {
+    if (_isLoading && !_hasLoaded) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(32),

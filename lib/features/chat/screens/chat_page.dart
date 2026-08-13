@@ -1,9 +1,11 @@
 // lib/features/chat/screens/chat_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/features/chat/screens/chat_context_debug_page.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api/chat_api.dart';
 import 'package:user_onboarding/data/services/chat_service.dart';
+import 'package:user_onboarding/data/services/chat_cache.dart';
 import 'package:intl/intl.dart';
 import 'package:user_onboarding/features/reports/screens/weekly_summary_screen.dart';
 
@@ -25,7 +27,15 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
+class _ChatPageState extends State<ChatPage>
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  // Keep this page's state alive across tab switches. The parent uses a
+  // PageView, which disposes off-screen children by default — that was causing
+  // the chat to re-run initState (and re-fetch history) every time the user
+  // came back, showing a blank screen when the re-fetch failed/timed out.
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ChatApi _apiService = ChatApi();
@@ -47,24 +57,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     // Load the user's personalized framework (used by the "My Framework" menu).
     _loadFramework();
-    // Activity logging no longer syncs the chat context on every save (that
-    // was making logging + the dashboard slow). Instead we (re)build today's
-    // context when the Chat screen opens so the AI coach reflects everything
-    // logged since the last visit. This is fire-and-forget — it warms the
-    // cache without blocking the chat UI, and the backend also rebuilds
-    // today's context server-side before each reply as a safety net.
+
+    // Paint the last-known transcript from the local cache first so the screen
+    // is never blank while the network catches up (and stays populated even if
+    // the backend is cold-starting or the fetch fails).
+    _primeFromCache();
+
+    // Load everything the user actually sees IMMEDIATELY and in parallel.
+    // Previously these were gated behind checkAndResetDailyContext(), so the
+    // chat history (the thing the user opened the screen to read) waited on an
+    // unrelated context-housekeeping round-trip before it even started.
+    _loadChatHistory();
+    _loadChatContext();
+    _checkWeeklyContext();
+
+    // Context housekeeping is fire-and-forget — it must never block the UI.
+    // The daily reset/rebuild warms the AI coach's context; the backend also
+    // rebuilds today's context server-side before each reply as a safety net,
+    // and _loadChatContext re-runs on app resume, so a slightly stale cache
+    // here has no user-visible effect.
     _apiService.checkAndResetDailyContext(widget.userProfile.id!).then((_) {
       _apiService.rebuildContextInBackground(widget.userProfile.id!);
-      _loadChatHistory();
-      _loadChatContext();
-      _checkWeeklyContext();
-
-      // Scroll to bottom after everything is loaded
-      Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted && _scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
     });
   }
 
@@ -80,43 +93,67 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
+  /// Paint the cached transcript immediately (before any network) so the screen
+  /// isn't blank on open. Only fills in when we don't already have messages, so
+  /// it never clobbers a live transcript that keep-alive preserved.
+  Future<void> _primeFromCache() async {
+    if (_messages.isNotEmpty) return;
+    try {
+      final cached = await ChatCache.getMessages(widget.userProfile.id!);
+      if (!mounted || cached.isEmpty || _messages.isNotEmpty) return;
+      setState(() {
+        _messages = cached;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
+    } catch (e) {
+      print('[ChatPage] Cache prime error (non-fatal): $e');
+    }
+  }
+
   Future<void> _loadChatHistory() async {
     try {
       print('[ChatPage] Loading chat history for user: ${widget.userProfile.id}');
-      
+
       // Get chat history from the backend
       final history = await ChatService.getChatHistory(widget.userProfile.id);
 
       print('[ChatPage] Loaded ${history.length} messages from history');
       if (!mounted) return;
 
+      // Only replace what's on screen when the backend actually returned
+      // something. An empty result here is almost always a failed/timed-out
+      // fetch (errors are swallowed upstream and surface as []), so we keep the
+      // cached transcript rather than blanking the screen.
       if (history.isNotEmpty) {
+        final mapped = history.map((msg) {
+          // Convert backend message format to UI format
+          return <String, dynamic>{
+            'text': msg['message'] ?? '',
+            'isUser': msg['is_user'] ?? false,
+            'timestamp': msg['created_at'] != null
+                ? DateTime.parse(msg['created_at'])
+                : DateTime.now(),
+            'type': 'history',
+          };
+        }).toList()
+          ..sort((a, b) =>
+              (a['timestamp'] as DateTime).compareTo(b['timestamp'] as DateTime));
+
         setState(() {
-          _messages = history.map((msg) {
-            // Convert backend message format to UI format
-            return {
-              'text': msg['message'] ?? '',
-              'isUser': msg['is_user'] ?? false,
-              'timestamp': msg['created_at'] != null 
-                  ? DateTime.parse(msg['created_at']) 
-                  : DateTime.now(),
-              'type': 'history',
-            };
-          }).toList();
-          _messages.sort((a, b) => 
-            (a['timestamp'] as DateTime).compareTo(b['timestamp'] as DateTime)
-          );
+          _messages = mapped;
         });
-        
-        // ADD THIS: Scroll to bottom after messages are loaded and rendered
+
+        // Write-through to the local cache so the next open is instant.
+        unawaited(ChatCache.saveMessages(widget.userProfile.id!, mapped));
+
+        // Jump to the newest message once the list has laid out. One
+        // post-frame callback is enough — the previous extra delayed jumps just
+        // added visible lag.
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-          }
-        });
-        
-        // Additional delayed scroll to ensure it works
-        Future.delayed(const Duration(milliseconds: 300), () {
           if (_scrollController.hasClients) {
             _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
           }
@@ -298,7 +335,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _messages.add(aiMessage);
         _isTyping = false;
       });
-      
+
+      // Persist the updated transcript so the next open is instant.
+      unawaited(ChatCache.saveMessages(widget.userProfile.id!, _messages));
+
     } catch (e) {
       print('[ChatPage] Error sending message: $e');
       
@@ -360,6 +400,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // required by AutomaticKeepAliveClientMixin
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -897,6 +938,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     setState(() {
       _messages.clear();
     });
+    // Drop the cached transcript too, otherwise the next open would repaint the
+    // messages the user just cleared.
+    unawaited(ChatCache.clear(widget.userProfile.id!));
     _addWelcomeMessage();
   }
 

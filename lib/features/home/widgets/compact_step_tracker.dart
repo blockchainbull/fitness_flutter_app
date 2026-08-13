@@ -32,6 +32,10 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
     with SingleTickerProviderStateMixin {
   StepEntry? _todayEntry;
   bool _isLoading = true;
+  // True once the first load attempt has completed. Used to show the full-card
+  // spinner only on the very first load — later refreshes keep the existing
+  // data on screen instead of flashing a spinner/blank.
+  bool _hasLoaded = false;
   bool _isSaving = false;
   late AnimationController _animationController;
   late Animation<double> _fillAnimation;
@@ -233,6 +237,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
           sourceType: 'manual',
         );
         _isLoading = false;
+        _hasLoaded = true;
       });
       
       if (_todayEntry != null) {
@@ -248,7 +253,11 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
       }
     } catch (e) {
       print('Error loading step entry: $e');
-      if (mounted) setState(() => _isLoading = false);
+      // Keep any previously loaded entry visible; just stop the spinner.
+      if (mounted) setState(() {
+        _isLoading = false;
+        _hasLoaded = true;
+      });
     }
   }
 
@@ -412,7 +421,7 @@ class _CompactStepTrackerState extends State<CompactStepTracker>
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading && !_hasLoaded) {
       return Container(
         height: 60,
         child: const Center(
