@@ -155,6 +155,28 @@ class SupplementApi {
   }
 
   // Log daily supplement intake
+  /// Log a single supplement intake from typed fields. Builds the request body
+  /// and delegates to [logSupplementIntake].
+  Future<Map<String, dynamic>> logIntake({
+    required String userId,
+    required String date,
+    required String supplementName,
+    required bool taken,
+    String? dosage,
+    String? timeTaken,
+    String? notes,
+  }) {
+    return logSupplementIntake({
+      'user_id': userId,
+      'date': date,
+      'supplement_name': supplementName,
+      'taken': taken,
+      'dosage': dosage,
+      'time_taken': timeTaken,
+      'notes': notes,
+    });
+  }
+
   Future<Map<String, dynamic>> logSupplementIntake(Map<String, dynamic> logData) async {
     try {
       print('[SupplementApi] Logging supplement intake: ${logData['supplement_name']} = ${logData['taken']}');

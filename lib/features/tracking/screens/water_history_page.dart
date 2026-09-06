@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
-import 'package:user_onboarding/data/repositories/water_repository.dart';
+import 'package:user_onboarding/data/services/api/water_api.dart';
 import 'package:user_onboarding/data/services/api/sharing_api.dart';
 import 'package:intl/intl.dart';
 
@@ -32,7 +32,7 @@ class _WaterHistoryPageState extends State<WaterHistoryPage> {
     setState(() => _isLoading = true);
     
     try {
-      final entries = await WaterRepository.getWaterHistory(widget.userProfile.id!, limit: 30);
+      final entries = await WaterApi().getWaterHistory(widget.userProfile.id!, limit: 30);
       setState(() {
         _entries = entries;
         _isLoading = false;

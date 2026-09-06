@@ -3,7 +3,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:user_onboarding/data/models/period_entry.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/repositories/period_repository.dart';
+import 'package:user_onboarding/data/services/api/period_api.dart';
 import 'package:user_onboarding/data/managers/user_manager.dart';
 import 'package:user_onboarding/data/services/api/sharing_api.dart';
 
@@ -50,8 +50,8 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     try {
       final user = await UserManager.getCurrentUser();
       if (user != null && user.id != null) {
-        final periods = await PeriodRepository.getPeriodHistory(user.id!, limit: 24);
-        final currentPeriod = await PeriodRepository.getCurrentPeriod(user.id!);
+        final periods = await PeriodApi().getPeriodHistory(user.id!, limit: 24);
+        final currentPeriod = await PeriodApi().getCurrentPeriod(user.id!);
         
         setState(() {
           _userProfile = user;
@@ -1017,7 +1017,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     
     try {
       final updatedPeriod = period.copyWith(endDate: endDate);
-      await PeriodRepository.savePeriodEntry(updatedPeriod);
+      await PeriodApi().savePeriodEntry(updatedPeriod);
       
       await _loadData();
       
@@ -1051,7 +1051,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     setState(() => _isLoading = true);
     
     try {
-      final success = await PeriodRepository.deletePeriodEntry(period.id!);
+      final success = await PeriodApi().deletePeriodEntry(period.id!);
       
       if (success) {
         await _loadData();
@@ -1105,7 +1105,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
         notes: null,
       );
       
-      await PeriodRepository.savePeriodEntry(newPeriod);
+      await PeriodApi().savePeriodEntry(newPeriod);
       
       await _loadData();
       
@@ -1184,7 +1184,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     
     try {
       final updatedPeriod = _currentPeriod!.copyWith(endDate: day);
-      await PeriodRepository.savePeriodEntry(updatedPeriod);
+      await PeriodApi().savePeriodEntry(updatedPeriod);
       
       await _loadData();
       
@@ -1319,7 +1319,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
         notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
       
-      await PeriodRepository.savePeriodEntry(updatedEntry);
+      await PeriodApi().savePeriodEntry(updatedEntry);
       await _loadData();
       
       if (mounted) {

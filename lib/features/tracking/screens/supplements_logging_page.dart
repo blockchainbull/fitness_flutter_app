@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:user_onboarding/data/repositories/supplement_repository.dart';
+import 'package:user_onboarding/data/services/api/supplement_api.dart';
 import 'package:user_onboarding/features/tracking/screens/supplement_history_page.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
@@ -91,7 +91,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       // ✅ NEW: Check database before showing setup dialog
       print('🔍 No local setup found, checking database...');
       try {
-        final dbPreferences = await SupplementRepository.getSupplementPreferences(widget.userProfile.id!);
+        final dbPreferences = await SupplementApi().getSupplementPreferences(widget.userProfile.id!);
         
         if (dbPreferences.isNotEmpty) {
           print('✅ Found ${dbPreferences.length} supplements in database, syncing to local storage...');
@@ -404,7 +404,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
           };
         }).toList();
 
-        await SupplementRepository.saveSupplementPreferences(
+        await SupplementApi().saveSupplementPreferences(
           widget.userProfile.id!,
           supplementsForBackend,
         );
@@ -415,7 +415,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       }
 
       // Initialize today's status from database
-      final dbStatus = await SupplementRepository.getTodaysSupplementStatus(widget.userProfile.id!);
+      final dbStatus = await SupplementApi().getTodaysSupplementStatus(widget.userProfile.id!);
       final todaysStatus = <String, bool>{};
       for (var supplement in supplements) {
         final name = supplement['name'] as String;
@@ -498,7 +498,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     try {
       print('📋 Loading user supplements for user ID: ${widget.userProfile.id}');
       
-      final dbPreferences = await SupplementRepository.getSupplementPreferences(widget.userProfile.id!);
+      final dbPreferences = await SupplementApi().getSupplementPreferences(widget.userProfile.id!);
       print('📋 Received ${dbPreferences.length} preferences from repository');
         
       if (dbPreferences.isNotEmpty) {
@@ -583,9 +583,9 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
     
     try {
       // Try to get status from API
-      final statusFromApi = await SupplementRepository.getSupplementStatusByDate(
+      final statusFromApi = await SupplementApi().getSupplementStatusByDate(
         widget.userProfile.id!,
-        _selectedDate,
+        DateFormat('yyyy-MM-dd').format(_selectedDate),
       );
       
       if (statusFromApi.isNotEmpty) {
@@ -952,46 +952,6 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
   }
 
 
-  // Widget _buildDatabaseStatus() {
-  //   return FutureBuilder<String>(
-  //     future: DatabaseService.getConnectionStatus(),
-  //     builder: (context, snapshot) {
-  //       final status = snapshot.data ?? 'Checking...';
-  //       final isConnected = status == 'Connected';
-        
-  //       return Container(
-  //         margin: const EdgeInsets.all(8),
-  //         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-  //         decoration: BoxDecoration(
-  //           color: isConnected ? Colors.green.shade100 : Colors.orange.shade100,
-  //           borderRadius: BorderRadius.circular(12),
-  //           border: Border.all(
-  //             color: isConnected ? Colors.green : Colors.orange,
-  //             width: 1,
-  //           ),
-  //         ),
-  //         child: Row(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             Icon(
-  //               isConnected ? Icons.cloud_done : Icons.cloud_off,
-  //               size: 16,
-  //               color: isConnected ? Colors.green : Colors.orange,
-  //             ),
-  //             const SizedBox(width: 4),
-  //             Text(
-  //               'DB: $status',
-  //               style: TextStyle(
-  //                 fontSize: 12,
-  //                 color: isConnected ? Colors.green.shade700 : Colors.orange.shade700,
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       );
-  //     },
-  //   );
-  // }
 
   Widget _buildEmptyState() {
     return Center(
@@ -1243,7 +1203,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
       );
       
       // Save to API/database
-      await SupplementRepository.logSupplementIntake(
+      await SupplementApi().logIntake(
         userId: widget.userProfile.id!,
         date: _todaysDate,
         supplementName: supplementName,
@@ -1430,7 +1390,7 @@ class _SupplementLoggingPageState extends State<SupplementLoggingPage> {
         'notes': newSupplement['notes'],
       };
 
-      await SupplementRepository.saveSupplementPreferences(
+      await SupplementApi().saveSupplementPreferences(
         widget.userProfile.id!,
         [supplementForBackend], 
       );
