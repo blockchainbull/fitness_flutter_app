@@ -40,11 +40,18 @@ backend-owned and builds from the *shared* subset of entries — it is **not** a
 - **Cache-first, today only.** The module owns a per-section cache for the *current* day:
   serve cached instantly, revalidate behind it, notify on update. Past dates read
   network-only. This serves the dashboard-load goal without an unbounded cache.
-- **Invalidation via a notifier.** Writes stay on their normal `Api`/`Repository` path.
-  After a successful write, the screen fires a lightweight `DayDataNotifier` signal
-  (sibling of the existing `utils/profile_update_notifier.dart`) naming the changed
-  (date, section); `DailySnapshot` listens and revalidates *just that section*.
-  `DailySnapshot` stays a pure read model — writes do not route through it.
+- **Invalidation — deferred (2026-09-06).** The design called for a `DayDataNotifier`
+  fired by tracking screens after a write, with `DailySnapshot` revalidating just the
+  changed section. In implementation this proved redundant: the app navigates one screen
+  at a time, the dashboard and today report already reload on navigation-return (and via
+  inline-tracker callbacks), and `forDay` always fetches fresh — so the existing plumbing
+  already keeps both consumers correct. A notifier would be a hypothetical seam (nothing
+  needs decoupled invalidation that the callbacks don't already provide), and wiring it
+  into all 16 write-sites would be redundant churn. `DayDataNotifier` and the module's
+  `revalidateSection` were therefore removed rather than shipped unused. Revisit if
+  simultaneous or inline views (tabs, split-screen, a live widget board) ever need
+  cross-view invalidation the navigation model can't supply. `DailySnapshot` remains a
+  pure read model regardless.
 - **Accept data sources.** `DailySnapshot` takes its per-tracker sources (the `Api`s,
   `StepRepository`/`SleepRepository`, and the cache) via its constructor, so it is
   testable through fakes immediately and F3's injection work is a no-op for this module.

@@ -21,7 +21,6 @@ import 'package:user_onboarding/data/services/api/water_api.dart';
 import 'package:user_onboarding/data/services/api/exercise_api.dart';
 import 'package:user_onboarding/data/services/api/weight_api.dart';
 import 'package:user_onboarding/data/services/api/supplement_api.dart';
-import 'package:user_onboarding/utils/day_data_notifier.dart';
 
 /// Reads one tracker for (userId, date). Normalized so every source has the
 /// same injectable shape regardless of its underlying Api signature.
@@ -134,48 +133,6 @@ class DailySnapshot {
       _todayCache[userId] = snapshot;
     }
     return snapshot;
-  }
-
-  /// Re-fetch a single [tracker] for [date] and, when it is today, patch the
-  /// cached snapshot. Returns the updated (or freshly built) snapshot. Used to
-  /// respond to a DayDataNotifier signal without re-reading the whole day.
-  Future<DaySnapshot> revalidateSection(
-      String userId, DateTime date, Tracker tracker) async {
-    var base = cachedDay(userId, date) ??
-        DaySnapshot(userId: userId, date: date);
-
-    switch (tracker) {
-      case Tracker.meals:
-        base = base.copyWith(meals: await _mealsSection(userId, date));
-        break;
-      case Tracker.water:
-        base = base.copyWith(
-            water: await _entrySection<WaterEntry>(() => _readWater(userId, date)));
-        break;
-      case Tracker.steps:
-        base = base.copyWith(
-            steps: await _entrySection<StepEntry>(() => _readSteps(userId, date)));
-        break;
-      case Tracker.sleep:
-        base = base.copyWith(
-            sleep: await _entrySection<SleepEntry>(() => _readSleep(userId, date)));
-        break;
-      case Tracker.exercise:
-        base = base.copyWith(exercise: await _exerciseSection(userId, date));
-        break;
-      case Tracker.weight:
-        base = base.copyWith(
-            weight: await _entrySection<WeightEntry>(() => _readWeight(userId, date)));
-        break;
-      case Tracker.supplements:
-        base = base.copyWith(supplements: await _supplementsSection(userId, date));
-        break;
-    }
-
-    if (_sameDay(date, _clock())) {
-      _todayCache[userId] = base;
-    }
-    return base;
   }
 
   /// Clear cached state (e.g. on logout).

@@ -3,7 +3,6 @@ import 'package:user_onboarding/data/models/day_snapshot.dart';
 import 'package:user_onboarding/data/models/step_entry.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
 import 'package:user_onboarding/data/services/daily_snapshot.dart';
-import 'package:user_onboarding/utils/day_data_notifier.dart';
 
 /// Tests the DailySnapshot fan-out through injected fake readers — no network.
 /// Verifies per-section error isolation, today-only caching, and surgical
@@ -73,21 +72,6 @@ void main() {
     final otherDay = DateTime(2026, 9, 1);
     await module.forDay('u1', otherDay);
     expect(module.cachedDay('u1', otherDay), isNull); // not today -> not cached
-  });
-
-  test('revalidateSection patches one section on the cached day', () async {
-    var glasses = 2;
-    final module = buildModule(readWater: (u, d) async => water(glasses));
-
-    var snap = await module.forDay('u1', today);
-    expect(snap.water.value!.glassesConsumed, 2);
-
-    glasses = 7; // simulate a write
-    snap = await module.revalidateSection('u1', today, Tracker.water);
-    expect(snap.water.value!.glassesConsumed, 7);
-    // Other sections survive the surgical update.
-    expect(snap.meals.hasValue, isTrue);
-    expect(module.cachedDay('u1', today)!.water.value!.glassesConsumed, 7);
   });
 
   test('clearCache drops cached days', () async {
