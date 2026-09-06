@@ -2,8 +2,13 @@
 //
 // Pure projection over a DaySnapshot: given the logged data and the user's
 // goals, derive per-tracker status (value, target, completeness). No I/O, no
-// dependency on the profile existing — the client twin of the backend's
-// health-insights. See docs/adr/0002-daily-snapshot-module.dart.
+// dependency on the profile existing.
+//
+// A cousin of the backend's health_trends module, not a twin: this answers
+// "is the user at their goal today?" for one day and returns structured
+// values; health_trends answers "which way is the user moving?" over a window
+// and returns encoded strings that are on the wire. Same spirit, different
+// question. See docs/adr/0002-daily-snapshot-module.md.
 
 import 'package:user_onboarding/data/models/day_snapshot.dart';
 

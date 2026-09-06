@@ -49,6 +49,14 @@ backend-owned and builds from the *shared* subset of entries — it is **not** a
   `StepRepository`/`SleepRepository`, and the cache) via its constructor, so it is
   testable through fakes immediately and F3's injection work is a no-op for this module.
 
+> **Correction (2026-09-06).** This ADR calls `dayStatus` "the client twin of the
+> backend's emerging `health_insights` module". They are cousins, not twins. The backend
+> module — now `health_trends` — answers *which way is the user moving?* over a window of
+> entries and returns encoded strings (`'losing_1.5kg'`, `'no_data'`) that are on the wire
+> and persisted. `dayStatus` answers *is the user at their goal today?* over a single day
+> and returns structured `MetricStatus`. Same spirit (pure projection, testable without
+> I/O), different question. See the backend's `docs/adr/0001-extract-health-trends.md`.
+
 ## Consequences
 
 - Locality: day-assembly bugs concentrate in one module; leverage: one interface, two

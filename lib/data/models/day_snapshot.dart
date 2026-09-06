@@ -2,7 +2,7 @@
 //
 // The DaySnapshot read model: a user's full day across every tracker, assembled
 // once and consumed by the dashboard and the today report. See
-// docs/adr/0002-daily-snapshot-module.dart for the design.
+// docs/adr/0002-daily-snapshot-module.md for the design.
 //
 // Each tracker is a [Section] with an independent load-state, so one failed or
 // missing tracker never blanks the whole day.

@@ -3,7 +3,7 @@
 // Lightweight signal fired by a tracking screen after it successfully writes an
 // entry, so read models (DailySnapshot) can revalidate just the affected
 // section for the affected day. Mirrors ProfileUpdateNotifier's pattern.
-// See docs/adr/0002-daily-snapshot-module.dart.
+// See docs/adr/0002-daily-snapshot-module.md.
 
 import 'dart:async';
 

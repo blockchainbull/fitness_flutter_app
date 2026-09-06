@@ -3,7 +3,7 @@
 // DailySnapshot: the deep read module for "a user's day". One interface —
 // forDay(userId, date) — hides a parallel fan-out across every tracker, with
 // per-section error isolation and a cache-first read for today. Absorbs the old
-// MetricsService. See docs/adr/0002-daily-snapshot-module.dart.
+// MetricsService. See docs/adr/0002-daily-snapshot-module.md.
 //
 // Data sources are injected as normalized readers so the module is testable
 // through fakes and independent of each Api's exact method shape.
