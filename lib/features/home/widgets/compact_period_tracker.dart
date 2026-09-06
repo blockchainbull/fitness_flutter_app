@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/period_entry.dart';
-import 'package:user_onboarding/data/repositories/period_repository.dart';
+import 'package:user_onboarding/data/services/api/period_api.dart';
 import 'package:user_onboarding/features/tracking/screens/period_logging_page.dart';
 
 
@@ -52,7 +52,7 @@ class _CompactPeriodTrackerState extends State<CompactPeriodTracker> {
       
       final cycleLength = widget.userProfile.cycleLength ?? 28;
       
-      final history = await PeriodRepository.getPeriodHistory(
+      final history = await PeriodApi().getPeriodHistory(
         widget.userProfile.id ?? '',
         limit: 12,
       );

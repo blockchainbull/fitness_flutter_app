@@ -1,5 +1,6 @@
 // lib/data/services/api/water_api.dart
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
 import 'package:user_onboarding/data/services/api/api_client.dart';
 import 'package:user_onboarding/data/services/api/chat_api.dart';
@@ -159,5 +160,20 @@ class WaterApi {
       print('Error getting water by date: $e');
       return {'success': false};
     }
+  }
+
+  /// Typed read of the water entry for a specific date. Returns null if none.
+  Future<WaterEntry?> getWaterEntryByDate(String userId, DateTime date) async {
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    final waterData = await getWaterByDate(userId, dateStr);
+    if (waterData['success'] == true && waterData['entry'] != null) {
+      return WaterEntry.fromMap(waterData['entry']);
+    }
+    return null;
+  }
+
+  /// Typed read of today's water entry. Returns null if none.
+  Future<WaterEntry?> getTodayWaterEntry(String userId) {
+    return getWaterEntryByDate(userId, DateTime.now());
   }
 }

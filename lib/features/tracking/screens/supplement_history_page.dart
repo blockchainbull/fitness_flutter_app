@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:user_onboarding/data/repositories/supplement_repository.dart';
+import 'package:user_onboarding/data/services/api/supplement_api.dart';
 import 'package:user_onboarding/data/services/api/sharing_api.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
@@ -85,7 +85,7 @@ class _SupplementHistoryPageState extends State<SupplementHistoryPage> {
   Future<List<Map<String, dynamic>>> _loadFromDatabase(DateTime startDate, DateTime endDate) async {
     try {
       final days = endDate.difference(startDate).inDays + 1;
-      final results = await SupplementRepository.getSupplementHistory(
+      final results = await SupplementApi().getSupplementHistory(
         widget.userProfile.id!,
         days: days,
       );

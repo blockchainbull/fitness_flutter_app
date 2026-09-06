@@ -6,10 +6,8 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api/auth_api.dart';
 import 'package:user_onboarding/data/services/api/weight_api.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
-import 'package:user_onboarding/data/services/database_service.dart';
 import 'package:user_onboarding/data/services/exercise_data_service.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
-import 'package:user_onboarding/data/repositories/weight_repository.dart';
 import 'package:user_onboarding/data/managers/user_manager.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 
@@ -314,8 +312,8 @@ class DataManager {
         } else {
           // For native, try database first, fallback to local
           try {
-            final result = await WeightRepository.saveWeightEntry(weightEntry);
-            _log('Weight entry saved to database');
+            final result = await _weightApi.saveWeightEntry(weightEntry);
+            _log('Weight entry saved via API');
             return result;
           } catch (e) {
             _log('Database save failed, falling back to local storage: $e');
@@ -381,8 +379,8 @@ class DataManager {
           }
         } else {
           try {
-            final result = await WeightRepository.getLatestWeight(userId);
-            _log('Latest weight loaded from database');
+            final result = await _weightApi.getLatestWeight(userId);
+            _log('Latest weight loaded via API');
             return result;
           } catch (e) {
             _log('Database load failed, falling back to local storage: $e');
@@ -418,19 +416,8 @@ class DataManager {
       final isConnected = await _connectivityService.isConnected();
       if (isConnected) {
         try {
-          if (kIsWeb) {
-            await _weightApi.updateUserWeight(userId, newWeight);
-            _log('User weight updated via API');
-          } else {
-            // For native apps, update via database
-            await DatabaseService.execute('''
-              UPDATE users SET weight = @weight WHERE id = @userId
-            ''', {
-              'weight': newWeight,
-              'userId': userId,
-            });
-            _log('User weight updated via database');
-          }
+          await _weightApi.updateUserWeight(userId, newWeight);
+          _log('User weight updated via API');
         } catch (e) {
           _log('Failed to update weight remotely, but local update succeeded: $e');
           // Don't throw here since local update succeeded

@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
-import 'package:user_onboarding/data/repositories/water_repository.dart';
+import 'package:user_onboarding/data/services/api/water_api.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:user_onboarding/features/tracking/screens/water_history_page.dart';
 import 'package:intl/intl.dart';
@@ -45,7 +45,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
     setState(() => _isLoading = true);
     
     try {
-      final entry = await WaterRepository.getWaterEntryByDate(
+      final entry = await WaterApi().getWaterEntryByDate(
         widget.userProfile.id!, 
         date
       );
@@ -114,7 +114,7 @@ class _WaterLoggingPageState extends State<WaterLoggingPage> {
     setState(() => _isSaving = true);
 
     try {
-      await WaterRepository.saveWaterEntry(_todayEntry!);
+      await WaterApi().saveWaterEntry(_todayEntry!);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

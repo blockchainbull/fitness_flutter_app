@@ -1,5 +1,5 @@
 // lib/data/services/metrics_service.dart
-import 'package:user_onboarding/data/repositories/water_repository.dart';
+import 'package:user_onboarding/data/services/api/water_api.dart';
 import 'package:user_onboarding/data/repositories/step_repository.dart';
 import 'package:user_onboarding/data/services/api/meal_api.dart';
 import 'package:user_onboarding/data/services/api/exercise_api.dart';
@@ -32,7 +32,7 @@ class MetricsService {
       }
       
       // Get water using EXISTING repository method (same as reports page)
-      final waterEntry = await WaterRepository.getTodayWaterEntry(userId);
+      final waterEntry = await WaterApi().getTodayWaterEntry(userId);
       if (waterEntry != null) {
         metrics['water'] = waterEntry.glassesConsumed;
       }
@@ -72,7 +72,7 @@ class MetricsService {
       totalMl: glasses * 250.0,
       targetMl: 2000.0,
     );
-    await WaterRepository.saveWaterEntry(waterEntry);
+    await WaterApi().saveWaterEntry(waterEntry);
   }
 
   Future<void> updateSteps(String userId, int steps, {int? goal}) async {

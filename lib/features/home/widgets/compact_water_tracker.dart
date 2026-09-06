@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/water_entry.dart';
-import 'package:user_onboarding/data/repositories/water_repository.dart';
+import 'package:user_onboarding/data/services/api/water_api.dart';
 import 'package:user_onboarding/features/tracking/screens/water_logging_page.dart';
 
 class CompactWaterTracker extends StatefulWidget {
@@ -57,7 +57,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
     try {
       setState(() => _isLoading = true);
       
-      final entry = await WaterRepository.getTodayWaterEntry(widget.userProfile.id);
+      final entry = await WaterApi().getTodayWaterEntry(widget.userProfile.id);
       if (!mounted) return;
 
       if (entry != null) {
@@ -121,7 +121,7 @@ class _CompactWaterTrackerState extends State<CompactWaterTracker>
         totalMl: (_todayEntry!.glassesConsumed + count) * mlPerGlass,
       );
 
-      await WaterRepository.saveWaterEntry(updatedEntry);
+      await WaterApi().saveWaterEntry(updatedEntry);
       if (!mounted) return;
 
       setState(() {
