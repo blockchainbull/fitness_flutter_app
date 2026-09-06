@@ -2,12 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/repositories/step_repository.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
-import 'package:user_onboarding/data/repositories/sleep_repository.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:user_onboarding/data/models/water_entry.dart';
+import 'package:user_onboarding/data/models/step_entry.dart';
+import 'package:user_onboarding/data/models/sleep_entry.dart';
+import 'package:user_onboarding/data/models/day_snapshot.dart';
+import 'package:user_onboarding/data/services/daily_snapshot.dart';
 import 'package:user_onboarding/features/tracking/screens/meal_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/water_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/sleep_logging_page.dart';
@@ -16,10 +17,6 @@ import 'package:user_onboarding/features/tracking/screens/steps_logging_page.dar
 import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
 import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.dart';
-import 'package:user_onboarding/data/services/api/meal_api.dart';
-import 'package:user_onboarding/data/services/api/water_api.dart';
-import 'package:user_onboarding/data/services/api/supplement_api.dart';
-import 'package:user_onboarding/data/services/api/exercise_api.dart';
 
 
 class TodayReportScreen extends StatefulWidget {
@@ -40,6 +37,8 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
   
   // Tracking data for today
   Map<String, TrackingStatus> trackingStatus = {};
+
+  final DailySnapshot _dailySnapshot = DailySnapshot();
   
   @override
   void initState() {
@@ -48,60 +47,24 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
   }
   
   Future<void> _loadTodayData() async {
-    setState(() => isLoading = true);
-    
+    final userId = widget.userProfile.id ?? '';
+
+    // Cache-first: render an already-loaded day instantly (no spinner), then
+    // revalidate behind it. Only show the loader when there's nothing to show.
+    final cached = _dailySnapshot.cachedDay(userId, selectedDate);
+    if (cached != null) {
+      _applyStatuses(cached);
+    } else {
+      setState(() => isLoading = true);
+    }
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = widget.userProfile.id ?? '';
-      final todayStr = DateFormat('yyyy-MM-dd').format(selectedDate);
-      
-      // Load each category with individual error handling
-      final futures = [
-        _getMealStatus(prefs, todayStr).catchError((e) {
-          print('Meal status error: $e');
-          return _getEmptyMealStatus();
-        }),
-        _getWaterStatus(prefs, todayStr).catchError((e) {
-          print('Water status error: $e');
-          return _getEmptyWaterStatus();
-        }),
-        _getSleepStatus(prefs, todayStr).catchError((e) {
-          print('Sleep status error: $e');
-          return _getEmptySleepStatus();
-        }),
-        _getExerciseStatus(prefs, todayStr).catchError((e) {
-          print('Exercise status error: $e');
-          return _getEmptyExerciseStatus();
-        }),
-        _getStepsStatus(userId).catchError((e) {
-          print('Steps status error: $e');
-          return _getEmptyStepsStatus();
-        }),
-        _getWeightStatus(prefs, todayStr).catchError((e) {
-          print('Weight status error: $e');
-          return _getEmptyWeightStatus();
-        }),
-        _getSupplementStatus(prefs, todayStr).catchError((e) {
-          print('Supplement status error: $e');
-          return _getEmptySupplementStatus();
-        }),
-      ];
-      
-      final results = await Future.wait(futures);
-      
-      trackingStatus = {
-        'meals': results[0],
-        'water': results[1],
-        'sleep': results[2],
-        'exercise': results[3],
-        'steps': results[4],
-        'weight': results[5],
-        'supplements': results[6],
-      };
-      
+      // One fan-out for the whole day; each tracker fails independently inside
+      // DailySnapshot, so a broken read degrades only its own card.
+      final snap = await _dailySnapshot.forDay(userId, selectedDate);
+      _applyStatuses(snap);
     } catch (e) {
       print('Error loading today data: $e');
-      // Set all to empty states
       trackingStatus = {
         'meals': _getEmptyMealStatus(),
         'water': _getEmptyWaterStatus(),
@@ -112,424 +75,216 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
         'supplements': _getEmptySupplementStatus(),
       };
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  Future<TrackingStatus> _getMealStatus(SharedPreferences prefs, String date) async {
-    try {
-      final apiService = MealApi();
-      final userId = widget.userProfile.id ?? '';
+  /// Build every tracker card from a single DaySnapshot.
+  void _applyStatuses(DaySnapshot snap) {
+    trackingStatus = {
+      'meals': _mealStatusFrom(snap.meals.value),
+      'water': _waterStatusFrom(snap.water.value),
+      'sleep': _sleepStatusFrom(snap.sleep.value),
+      'exercise': _exerciseStatusFrom(snap.exercise.value),
+      'steps': _stepsStatusFrom(snap.steps.value),
+      'weight': _weightStatusFrom(snap.weight.value),
+      'supplements': _supplementStatusFrom(snap.supplements.value),
+    };
+    if (mounted) setState(() {});
+  }
 
-      final dailySummary = await apiService.getDailySummary(
-        userId,
-        date: date,
-      );
+  TrackingStatus _mealStatusFrom(MealsDay? meals) {
+    if (meals == null) return _getEmptyMealStatus();
 
-      // getDailySummary returns: { 'totals': { 'calories': .. }, 'meals_count': N }
-      final mealCount = (dailySummary['meals_count'] as num?)?.toInt() ?? 0;
-      final totals = dailySummary['totals'] as Map<String, dynamic>? ?? {};
-      final calories = (totals['calories'] as num?)?.toDouble() ?? 0.0;
+    final mealCount = meals.count;
+    final calories = meals.calories;
+    final mealGoal = widget.userProfile.dailyMealsCount ?? 3;
 
-      // Get user's meal goal from profile
-      final mealGoal = widget.userProfile.dailyMealsCount ?? 3;
-
-      return TrackingStatus(
-        category: 'Meals',
-        icon: Icons.restaurant,
-        color: Colors.green,
-        completed: mealCount,
-        total: mealGoal,  // Use user's meal goal
-        details: {
-          'Calories': calories.toInt(),
-          'Status': mealCount >= mealGoal ? 'Complete' : 'In Progress',
-        },
-        unit: 'meals',
-        isComplete: mealCount >= mealGoal,
-        excludeFromProgress: false,
-      );
-
-    } catch (e) {
-      print('Error getting meal status: $e');
-      return _getEmptyMealStatus();
-    }
+    return TrackingStatus(
+      category: 'Meals',
+      icon: Icons.restaurant,
+      color: Colors.green,
+      completed: mealCount,
+      total: mealGoal,
+      details: {
+        'Calories': calories.toInt(),
+        'Status': mealCount >= mealGoal ? 'Complete' : 'In Progress',
+      },
+      unit: 'meals',
+      isComplete: mealCount >= mealGoal,
+      excludeFromProgress: false,
+    );
   }
   
-  Future<TrackingStatus> _getWaterStatus(SharedPreferences prefs, String date) async {
-    try {
-      final waterApi = WaterApi();
-      final userId = widget.userProfile.id ?? '';
+  TrackingStatus _waterStatusFrom(WaterEntry? water) {
+    final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
+    if (water == null) return _getEmptyWaterStatus();
 
-      final waterData = await waterApi.getTodaysWater(userId);
-      
-      final glasses = (waterData['glasses'] as num? ?? 0).toInt();
-      final totalMl = (waterData['total_ml'] as num? ?? 0.0).toDouble();
-      
-      // Get user's water goal from profile
-      final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
-      final remaining = (targetGlasses - glasses).clamp(0, targetGlasses);
-      
-      await prefs.setInt('water_glasses_$date', glasses);
-      
-      return TrackingStatus(
-        category: 'Water',
-        icon: Icons.water_drop,
-        color: Colors.blue,
-        completed: glasses,
-        total: targetGlasses,  // Use user's water goal
-        details: {
-          'Consumed': '$glasses glasses',
-          'Target': '$targetGlasses glasses',
-          'Remaining': '$remaining glasses',
-          'Volume': '${totalMl.toInt()}ml',
-          'Status': glasses >= targetGlasses ? 'Complete' : 'In Progress',
-        },
-        unit: 'glasses',
-        isComplete: glasses >= targetGlasses,
-        excludeFromProgress: false,
-      );
-      
-    } catch (e) {
-      print('Error getting water status: $e');
-      
-      // Fallback with user's goal
-      final glasses = prefs.getInt('water_glasses_$date') ?? 0;
-      final targetGlasses = widget.userProfile.waterIntakeGlasses ?? 8;
-      
-      return TrackingStatus(
-        category: 'Water',
-        icon: Icons.water_drop,
-        color: Colors.blue,
-        completed: glasses,
-        total: targetGlasses,
-        details: {
-          'Consumed': '$glasses glasses',
-          'Target': '$targetGlasses glasses',
-          'Remaining': '${targetGlasses - glasses} glasses',
-          'Status': glasses >= targetGlasses ? 'Complete' : 'In Progress',
-        },
-        unit: 'glasses',
-        isComplete: glasses >= targetGlasses,
-        excludeFromProgress: false,
-      );
-    }
+    final glasses = water.glassesConsumed;
+    final totalMl = water.totalMl;
+    final remaining = (targetGlasses - glasses).clamp(0, targetGlasses);
+
+    return TrackingStatus(
+      category: 'Water',
+      icon: Icons.water_drop,
+      color: Colors.blue,
+      completed: glasses,
+      total: targetGlasses,
+      details: {
+        'Consumed': '$glasses glasses',
+        'Target': '$targetGlasses glasses',
+        'Remaining': '$remaining glasses',
+        'Volume': '${totalMl.toInt()}ml',
+        'Status': glasses >= targetGlasses ? 'Complete' : 'In Progress',
+      },
+      unit: 'glasses',
+      isComplete: glasses >= targetGlasses,
+      excludeFromProgress: false,
+    );
   }
   
-  Future<TrackingStatus> _getSleepStatus(SharedPreferences prefs, String date) async {
-    try {
-      final sleepRepo = SleepRepository();
-      final sleepEntry = await sleepRepo.getSleepEntryByDate(
-        widget.userProfile.id ?? '',
-        selectedDate
-      );
-      
-      // Get user's sleep goal from profile
-      final goalHours = widget.userProfile.sleepHours ?? 8.0;
-      
-      if (sleepEntry != null) {
-        return TrackingStatus(
-          category: 'Sleep',
-          icon: Icons.bedtime,
-          color: Colors.purple,
-          completed: sleepEntry.totalHours.toInt(),
-          total: goalHours.toInt(),
-          details: {
-            'Duration': '${sleepEntry.totalHours.toStringAsFixed(1)} hours',
-            'Target': '${goalHours.toStringAsFixed(1)} hours',
-            'Quality': 'Score: ${sleepEntry.qualityScore ?? 0}',
-            'Status': sleepEntry.totalHours >= goalHours ? 'Complete' : 'Insufficient',
-          },
-          unit: 'hours',
-          isComplete: sleepEntry.totalHours >= goalHours,
-          excludeFromProgress: false,
-        );
-      }
-    } catch (e) {
-      print('Error getting sleep status: $e');
-    }
-    
+  TrackingStatus _sleepStatusFrom(SleepEntry? sleepEntry) {
     final goalHours = widget.userProfile.sleepHours ?? 8.0;
+    if (sleepEntry == null) return _getEmptySleepStatus();
+
     return TrackingStatus(
       category: 'Sleep',
       icon: Icons.bedtime,
       color: Colors.purple,
-      completed: 0,
+      completed: sleepEntry.totalHours.toInt(),
       total: goalHours.toInt(),
       details: {
-        'Status': 'Not logged',
+        'Duration': '${sleepEntry.totalHours.toStringAsFixed(1)} hours',
         'Target': '${goalHours.toStringAsFixed(1)} hours',
+        'Quality': 'Score: ${sleepEntry.qualityScore}',
+        'Status': sleepEntry.totalHours >= goalHours ? 'Complete' : 'Insufficient',
       },
       unit: 'hours',
-      isComplete: false,
+      isComplete: sleepEntry.totalHours >= goalHours,
       excludeFromProgress: false,
     );
   }
   
-  Future<TrackingStatus> _getExerciseStatus(SharedPreferences prefs, String date) async {
-    try {
-      // Exercise logs live on the backend (same source as the dashboard tracker),
-      // not in SharedPreferences. Fetch today's logs from the API.
-      final exercises = await ExerciseApi().getExerciseLogs(
-        widget.userProfile.id ?? '',
-        startDate: date,
-        endDate: date,
-      );
-
-      // Get user's workout goal from profile
-      final goalMinutes = widget.userProfile.workoutDuration ?? 30;
-
-      // Only count exercises actually dated today.
-      final todays = exercises.where((ex) {
-        final exDate = (ex['exercise_date'] ?? ex['created_at'])?.toString();
-        return exDate != null && exDate.startsWith(date);
-      }).toList();
-
-      if (todays.isNotEmpty) {
-        int totalMinutes = 0;
-        for (final ex in todays) {
-          if (ex['duration_minutes'] != null) {
-            totalMinutes += (ex['duration_minutes'] as num?)?.toInt() ?? 0;
-          } else {
-            // Strength sets: estimate ~2 minutes per set (matches dashboard tracker).
-            final sets = (ex['sets'] as num?)?.toInt() ?? 0;
-            if (sets > 0) totalMinutes += sets * 2;
-          }
-        }
-
-        return TrackingStatus(
-          category: 'Exercise',
-          icon: Icons.fitness_center,
-          color: Colors.orange,
-          completed: totalMinutes,
-          total: goalMinutes,
-          details: {
-            'Duration': '$totalMinutes min',
-            'Target': '$goalMinutes min',
-            'Sessions': todays.length,
-            'Status': totalMinutes >= goalMinutes ? 'Complete' : 'In Progress',
-          },
-          unit: 'min',
-          isComplete: totalMinutes >= goalMinutes,
-          excludeFromProgress: false,
-        );
-      }
-    } catch (e) {
-      print('Error getting exercise status: $e');
-    }
-    
+  TrackingStatus _exerciseStatusFrom(ExerciseDay? exercise) {
     final goalMinutes = widget.userProfile.workoutDuration ?? 30;
+    final entries = exercise?.entries ?? const [];
+    if (entries.isEmpty) return _getEmptyExerciseStatus();
+
+    // Duration in minutes, with a sets*2 fallback for strength entries that
+    // carry no duration (matches the dashboard tracker's estimate).
+    int totalMinutes = 0;
+    for (final ex in entries) {
+      if (ex['duration_minutes'] != null) {
+        totalMinutes += (ex['duration_minutes'] as num?)?.toInt() ?? 0;
+      } else {
+        final sets = (ex['sets'] as num?)?.toInt() ?? 0;
+        if (sets > 0) totalMinutes += sets * 2;
+      }
+    }
+
     return TrackingStatus(
       category: 'Exercise',
       icon: Icons.fitness_center,
       color: Colors.orange,
-      completed: 0,
+      completed: totalMinutes,
       total: goalMinutes,
       details: {
-        'Duration': '0 min',
+        'Duration': '$totalMinutes min',
         'Target': '$goalMinutes min',
-        'Sessions': 0,
-        'Status': 'Not logged',
+        'Sessions': entries.length,
+        'Status': totalMinutes >= goalMinutes ? 'Complete' : 'In Progress',
       },
       unit: 'min',
-      isComplete: false,
+      isComplete: totalMinutes >= goalMinutes,
       excludeFromProgress: false,
     );
   }
   
-  Future<TrackingStatus> _getStepsStatus(String userId) async {
-    try {
-      // Use the correct method name from StepRepository
-      final todayEntry = await StepRepository.getTodayStepEntry(userId);
-      
-      // Get user's step goal from profile
-      final userGoal = widget.userProfile.dailyStepGoal ?? 10000;
-      
-      if (todayEntry != null) {
-        final distance = (todayEntry.steps * 0.0008).toStringAsFixed(1);
-        final calories = (todayEntry.steps * 0.04).toInt();
-        
-        return TrackingStatus(
-          category: 'Steps',
-          icon: Icons.directions_walk,
-          color: Colors.green.shade700,
-          completed: todayEntry.steps,
-          total: userGoal,
-          details: {
-            'Steps': '${todayEntry.steps}',
-            'Goal': '$userGoal',
-            'Distance': '$distance km',
-            'Calories': '$calories cal',
-            'Status': todayEntry.steps >= userGoal ? 'Complete' : 'In Progress',
-          },
-          unit: 'steps',
-          isComplete: todayEntry.steps >= userGoal,
-          excludeFromProgress: false,
-        );
-      }
-    } catch (e) {
-      print('Error getting steps status: $e');
-    }
-    
+  TrackingStatus _stepsStatusFrom(StepEntry? todayEntry) {
     final userGoal = widget.userProfile.dailyStepGoal ?? 10000;
+    if (todayEntry == null) return _getEmptyStepsStatus();
+
+    final distance = (todayEntry.steps * 0.0008).toStringAsFixed(1);
+    final calories = (todayEntry.steps * 0.04).toInt();
+
     return TrackingStatus(
       category: 'Steps',
       icon: Icons.directions_walk,
       color: Colors.green.shade700,
-      completed: 0,
+      completed: todayEntry.steps,
       total: userGoal,
       details: {
-        'Steps': '0',
+        'Steps': '${todayEntry.steps}',
         'Goal': '$userGoal',
-        'Distance': '0.0 km',
-        'Calories': '0 cal',
-        'Status': 'Not tracked',
+        'Distance': '$distance km',
+        'Calories': '$calories cal',
+        'Status': todayEntry.steps >= userGoal ? 'Complete' : 'In Progress',
       },
       unit: 'steps',
-      isComplete: false,
+      isComplete: todayEntry.steps >= userGoal,
       excludeFromProgress: false,
     );
   }
   
-  Future<TrackingStatus> _getWeightStatus(SharedPreferences prefs, String date) async {
-    try {
-      // Try to get from DataManager/Repository first
-      final dataManager = DataManager();
-      final history = await dataManager.getWeightHistory(
-        widget.userProfile.id ?? '',
-        limit: 30,
-      );
-      
-      // Check if there's an entry for today
-      final todayEntry = history.firstWhere(
-        (entry) => 
-          entry.date.year == selectedDate.year &&
-          entry.date.month == selectedDate.month &&
-          entry.date.day == selectedDate.day,
-        orElse: () => WeightEntry(
-          userId: '',
-          date: DateTime(1900), // Dummy date to indicate not found
-          weight: 0,
-        ),
-      );
-      
-      if (todayEntry.date.year != 1900) {
-        return TrackingStatus(
-          category: 'Weight',
-          icon: Icons.monitor_weight,
-          color: Colors.indigo,
-          completed: 1,
-          total: 1,
-          details: {
-            'Weight': '${todayEntry.weight.toStringAsFixed(1)} kg',
-            'BMI': _calculateBMI(todayEntry.weight),
-            'Status': 'Logged',
-            'Time': DateFormat('hh:mm a').format(todayEntry.date),
-          },
-          unit: '',
-          isComplete: true,
-          excludeFromProgress: false,
-        );
-      }
-      
-      // Fallback to SharedPreferences
-      final hasEntry = prefs.getBool('weight_logged_$date') ?? false;
-      final weight = prefs.getDouble('weight_$date') ?? 0;
-      
-      if (hasEntry) {
-        return TrackingStatus(
-          category: 'Weight',
-          icon: Icons.monitor_weight,
-          color: Colors.indigo,
-          completed: 1,
-          total: 1,
-          details: {
-            'Weight': '${weight.toStringAsFixed(1)} kg',
-            'Status': 'Logged',
-          },
-          unit: '',
-          isComplete: true,
-          excludeFromProgress: false,
-        );
-      }
-      
-      // No entry found
+  TrackingStatus _weightStatusFrom(WeightEntry? entry) {
+    if (entry != null) {
       return TrackingStatus(
         category: 'Weight',
         icon: Icons.monitor_weight,
         color: Colors.indigo,
-        completed: 0,
+        completed: 1,
         total: 1,
         details: {
-          'Status': 'Not logged',
+          'Weight': '${entry.weight.toStringAsFixed(1)} kg',
+          'BMI': _calculateBMI(entry.weight),
+          'Status': 'Logged',
+          'Time': DateFormat('hh:mm a').format(entry.date),
         },
         unit: '',
-        isComplete: false,
-        excludeFromProgress: false,
-      );
-    } catch (e) {
-      print('Error getting weight status: $e');
-      return TrackingStatus(
-        category: 'Weight',
-        icon: Icons.monitor_weight,
-        color: Colors.indigo,
-        completed: 0,
-        total: 1,
-        unit: '',
-        isComplete: false,
+        isComplete: true,
         excludeFromProgress: false,
       );
     }
+
+    return TrackingStatus(
+      category: 'Weight',
+      icon: Icons.monitor_weight,
+      color: Colors.indigo,
+      completed: 0,
+      total: 1,
+      details: {
+        'Status': 'Not logged',
+      },
+      unit: '',
+      isComplete: false,
+      excludeFromProgress: false,
+    );
   }
 
-  Future<TrackingStatus> _getSupplementStatus(SharedPreferences prefs, String date) async {
-    try {
-      final apiService = SupplementApi();
-      final userId = widget.userProfile.id ?? '';
-
-      // Get user's supplement preferences
-      final supplementData = await apiService.getSupplementStatus(userId, date: date);
-      
-      if (supplementData['success'] == true) {
-        final supplements = supplementData['supplements'] as List? ?? [];
-        final takenCount = supplements.where((s) => s['taken'] == true).length;
-        final totalCount = supplements.length;
-        
-        if (totalCount == 0) {
-          return TrackingStatus(
-            category: 'Supplements',
-            icon: Icons.medication,
-            color: Colors.teal,
-            completed: 0,
-            total: 0,
-            details: {'Status': 'Not configured'},
-            unit: 'pills',
-            isComplete: false,
-            excludeFromProgress: true,
-          );
-        }
-        
-        return TrackingStatus(
-          category: 'Supplements',
-          icon: Icons.medication,
-          color: Colors.teal,
-          completed: takenCount,
-          total: totalCount,
-          details: {
-            'Taken': takenCount,
-            'Total': totalCount,
-            'Status': takenCount >= totalCount ? 'Complete' : 'In Progress',
-          },
-          unit: 'pills',
-          isComplete: takenCount >= totalCount,
-          excludeFromProgress: false,
-        );
-      }
-    } catch (e) {
-      print('Error getting supplement status: $e');
+  TrackingStatus _supplementStatusFrom(SupplementsDay? supplements) {
+    if (supplements == null || supplements.totalCount == 0) {
+      return _getEmptySupplementStatus();
     }
-    
-    return _getEmptySupplementStatus();
-}
+
+    final takenCount = supplements.takenCount;
+    final totalCount = supplements.totalCount;
+
+    return TrackingStatus(
+      category: 'Supplements',
+      icon: Icons.medication,
+      color: Colors.teal,
+      completed: takenCount,
+      total: totalCount,
+      details: {
+        'Taken': takenCount,
+        'Total': totalCount,
+        'Status': takenCount >= totalCount ? 'Complete' : 'In Progress',
+      },
+      unit: 'pills',
+      isComplete: takenCount >= totalCount,
+      excludeFromProgress: false,
+    );
+  }
 
   TrackingStatus _getEmptyMealStatus() {
     final mealGoal = widget.userProfile.dailyMealsCount ?? 3;
