@@ -87,7 +87,9 @@ Its write contract makes the key invariant structural rather than remembered:
 | `endSession()` | removes the three session keys, touches nothing else |
 
 `login` returns a `UserProfile` and throws on failure, replacing a `Map<String, dynamic>`
-that was returned *and* thrown past, leaving one of `UserProvider`'s branches unreachable.
+that reported failure two ways: the method caught its own `throw` and returned
+`{'success': false, ...}`, so callers had to check the flag *and* guard the call. One way to
+fail is enough, and `UserProvider` funnels everything into a single `String? _error` anyway.
 The 60-second timeout and its cold-start wording are carried over deliberately: the backend
 spins down when idle, so a first request after a quiet period can take 30–50s.
 

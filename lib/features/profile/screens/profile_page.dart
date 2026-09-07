@@ -7,7 +7,7 @@ import 'package:user_onboarding/data/services/api/weight_api.dart';
 import 'package:user_onboarding/features/profile/screens/edit_profile_page.dart';
 import 'package:user_onboarding/features/profile/screens/settings_page.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:user_onboarding/data/repositories/session_repository.dart';
 import 'package:intl/intl.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -148,7 +148,7 @@ class _ProfilePageState extends State<ProfilePage>
     );
 
     if (confirmed == true) {
-      await UserManager.logout();
+      await SessionRepository().endSession();
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,

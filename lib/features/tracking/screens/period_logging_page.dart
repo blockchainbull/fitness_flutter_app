@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:user_onboarding/data/models/period_entry.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api/period_api.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:user_onboarding/data/repositories/session_repository.dart';
 import 'package:user_onboarding/data/services/api/sharing_api.dart';
 
 class PeriodCalendarPage extends StatefulWidget {
@@ -48,7 +48,7 @@ class _PeriodCalendarPageState extends State<PeriodCalendarPage> {
     setState(() => _isLoading = true);
     
     try {
-      final user = await UserManager.getCurrentUser();
+      final user = await SessionRepository().currentProfile();
       if (user != null && user.id != null) {
         final periods = await PeriodApi().getPeriodHistory(user.id!, limit: 24);
         final currentPeriod = await PeriodApi().getCurrentPeriod(user.id!);

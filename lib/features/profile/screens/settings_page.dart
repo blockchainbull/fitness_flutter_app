@@ -6,7 +6,7 @@ import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/providers/theme_provider.dart';
 import 'package:user_onboarding/data/services/notification_service.dart';
 import 'package:user_onboarding/data/services/api/auth_api.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:user_onboarding/data/repositories/session_repository.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
 import 'package:user_onboarding/features/profile/screens/notification_settings_page.dart';
 import 'package:user_onboarding/features/notifications/screens/notifications_screen.dart';
@@ -523,8 +523,9 @@ class _SettingsPageState extends State<SettingsPage> {
       // Delete everything on the backend first.
       await AuthApi().deleteAccount(userId);
 
-      // Then wipe all local state.
-      await UserManager.logout();
+      // Then wipe all local state. Unlike logout, deleting the account
+      // should take everything with it, so the clear() below is deliberate.
+      await SessionRepository().endSession();
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
 
