@@ -12,8 +12,6 @@ import 'package:user_onboarding/features/tracking/screens/meal_logging_page.dart
 import 'package:user_onboarding/features/tracking/screens/supplements_logging_page.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
-import 'package:user_onboarding/data/services/daily_snapshot.dart';
-import 'package:user_onboarding/data/models/day_snapshot.dart';
 import 'package:user_onboarding/features/home/widgets/dashboard_weight_goal_card.dart';
 import 'package:user_onboarding/features/home/widgets/daily_meal_card.dart';
 import 'package:user_onboarding/features/home/widgets/compact_water_tracker.dart';
@@ -57,7 +55,6 @@ class _DashboardHomeState extends State<DashboardHome>
   DateTime selectedDate = DateTime.now();
   late UserProfile _currentUserProfile;
   late StreamSubscription<UserProfile> _profileSubscription;
-  final DailySnapshot _dailySnapshot = DailySnapshot();
   int _unreadNotificationCount = 0;
   Timer? _notificationRefreshTimer;
 
@@ -73,18 +70,6 @@ class _DashboardHomeState extends State<DashboardHome>
   // Shown once per app session so we invite the user to configure supplements
   // (if they never have) without nagging on every dashboard rebuild.
   static bool _supplementPromptShownThisSession = false;
-  
-  // Data placeholders
-  Map<String, dynamic> todayProgress = {
-    'steps': 0,
-    'stepsGoal': 10000,
-    'water': 0,
-    'waterGoal': 8,
-    'activeMinutes': 0,
-    'activeGoal': 30,
-    'calories': 0,
-    'caloriesGoal': 2000,
-  };
   
   List<String> smartInsights = [];
   List<Map<String, dynamic>> upcomingEvents = [];
@@ -109,7 +94,6 @@ class _DashboardHomeState extends State<DashboardHome>
         }
       },
     );
-    _loadInitialData();
     _subscribeFCM();
     _checkAndRescheduleNotifications();
   }
@@ -128,7 +112,6 @@ class _DashboardHomeState extends State<DashboardHome>
         setState(() {
           _currentUserProfile = profile;
         });
-        _loadInitialData();
       }
     });
   }
@@ -280,12 +263,6 @@ class _DashboardHomeState extends State<DashboardHome>
     }
   }
 
-  Future<void> _loadInitialData() async {
-    await Future.wait([
-      if (_dailyMacros) _loadTodayProgress(),
-    ]);
-  }
-
   Future<void> _subscribeFCM() async {
     try {
       final fcmService = FCMService();
@@ -294,53 +271,6 @@ class _DashboardHomeState extends State<DashboardHome>
     } catch (e) {
       print('⚠️ FCM subscription error: $e');
     }
-  }
-
-  Future<void> _loadTodayProgress() async {
-    if (!_dailyMacros) return;
-    final userId = _currentUserProfile.id;
-    if (userId == null) return;
-    final today = DateTime.now();
-
-    // Cache-first: paint an already-loaded day instantly, then revalidate.
-    final cached = _dailySnapshot.cachedDay(userId, today);
-    if (cached != null) _applyDayProgress(cached);
-
-    try {
-      final snap = await _dailySnapshot.forDay(userId, today);
-      _applyDayProgress(snap);
-    } catch (e) {
-      print('Error loading today progress: $e');
-    }
-  }
-
-  /// Project a DaySnapshot down to the dashboard's scalar progress ring values.
-  /// Active minutes and calories burned combine the step entry and any logged
-  /// exercise, matching the metric the dashboard showed before F1.
-  void _applyDayProgress(DaySnapshot snap) {
-    if (!mounted) return;
-
-    final step = snap.steps.value;
-    final exercise = snap.exercise.value;
-    final activeMinutes = (step?.activeMinutes ?? 0) + (exercise?.totalMinutes ?? 0);
-    final caloriesBurned =
-        (step?.caloriesBurned ?? 0) + (exercise?.totalCaloriesBurned ?? 0);
-    final caloriesConsumed = snap.meals.value?.calories ?? 0;
-
-    setState(() {
-      todayProgress = {
-        'steps': step?.steps ?? 0,
-        'stepsGoal': _currentUserProfile.dailyStepGoal ?? 10000,
-        'water': snap.water.value?.glassesConsumed ?? 0,
-        'waterGoal': _currentUserProfile.waterIntakeGlasses ?? 8,
-        'activeMinutes': activeMinutes,
-        'activeGoal': _currentUserProfile.workoutDuration ?? 30,
-        'calories': caloriesBurned.round(),
-        'caloriesGoal': _currentUserProfile.tdee?.toInt() ?? 2000,
-        'caloriesConsumed': caloriesConsumed.round(),
-        'netCalories': (caloriesConsumed - caloriesBurned).round(),
-      };
-    });
   }
 
   @override
@@ -369,7 +299,6 @@ class _DashboardHomeState extends State<DashboardHome>
       setState(() {
         _currentUserProfile = userProvider.userProfile!;
       });
-      await _loadInitialData();
     }
   }
 
@@ -417,9 +346,6 @@ class _DashboardHomeState extends State<DashboardHome>
                   SliverToBoxAdapter(
                     child: DashboardWeightGoalCard(
                       userProfile: _currentUserProfile,
-                      onUpdate: () {
-                        _loadTodayProgress();
-                      },
                     ),
                   ),
 
@@ -463,9 +389,6 @@ class _DashboardHomeState extends State<DashboardHome>
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         child: CompactWaterTracker(
                           userProfile: _currentUserProfile,
-                          onUpdate: () {
-                            _loadTodayProgress();
-                          },
                         ),
                       ),
                     ),
@@ -480,9 +403,6 @@ class _DashboardHomeState extends State<DashboardHome>
                           // Staggered so the lower cards load after the top of
                           // the page (weight/weekly/meal/water) has settled.
                           loadDelay: const Duration(milliseconds: 900),
-                          onUpdate: () {
-                            _loadTodayProgress();
-                          },
                         ),
                       ),
                     ),
@@ -494,9 +414,6 @@ class _DashboardHomeState extends State<DashboardHome>
                         child: CompactExerciseTracker(
                           userProfile: _currentUserProfile,
                           loadDelay: const Duration(milliseconds: 1100),
-                          onUpdate: () {
-                            _loadTodayProgress();
-                          },
                         ),
                       ),
                     ),
@@ -509,9 +426,6 @@ class _DashboardHomeState extends State<DashboardHome>
                         child: CompactSleepTracker(
                           userProfile: _currentUserProfile,
                           loadDelay: const Duration(milliseconds: 1300),
-                          onUpdate: () {
-                            _loadTodayProgress();
-                          },
                         ),
                       ),
                     ),
@@ -524,9 +438,6 @@ class _DashboardHomeState extends State<DashboardHome>
                         child: CompactSupplementsTracker(
                           userProfile: _currentUserProfile,
                           loadDelay: const Duration(milliseconds: 1500),
-                          onUpdate: () {
-                            _loadTodayProgress();
-                          },
                         ),
                       ),
                     ),
@@ -538,9 +449,6 @@ class _DashboardHomeState extends State<DashboardHome>
                         child: CompactPeriodTracker(
                           userProfile: _currentUserProfile,
                           loadDelay: const Duration(milliseconds: 1700),
-                          onUpdate: () {
-                            _loadTodayProgress();
-                          },
                         ),
                       ),
                     ),
