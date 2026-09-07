@@ -80,23 +80,30 @@ class StepEntry {
     };
   }
 
+  /// A row value as an int, falling back to [fallback] when it is absent,
+  /// null, or an unparseable string.
+  static int _int(Object? value, int fallback) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
   factory StepEntry.fromMap(Map<String, dynamic> map) {
     try {
       return StepEntry(
         id: map['id']?.toString(),
         userId: map['user_id']?.toString() ?? map['userId']?.toString() ?? '',
         date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()).toLocal(), 
-        steps: (map['steps'] ?? 0) is int 
-            ? map['steps'] 
-            : int.tryParse(map['steps'].toString()) ?? 0,
-        goal: (map['goal'] ?? 10000) is int 
-            ? map['goal'] 
-            : int.tryParse(map['goal'].toString()) ?? 10000,
+        // Each of these applied its default inside the `is int` guard but not
+        // in the branch that produced the value, so an absent or null column
+        // tested as `0 is int` and then assigned null to a non-nullable int.
+        // _int reads the default once, for both.
+        steps: _int(map['steps'], 0),
+        goal: _int(map['goal'], 10000),
         caloriesBurned: (map['calories_burned'] ?? map['caloriesBurned'] ?? 0.0).toDouble(),
         distanceKm: (map['distance_km'] ?? map['distanceKm'] ?? 0.0).toDouble(),
-        activeMinutes: (map['active_minutes'] ?? map['activeMinutes'] ?? 0) is int 
-            ? (map['active_minutes'] ?? map['activeMinutes'])
-            : int.tryParse((map['active_minutes'] ?? map['activeMinutes'] ?? 0).toString()) ?? 0,
+        activeMinutes: _int(map['active_minutes'] ?? map['activeMinutes'], 0),
         sourceType: map['source_type']?.toString() ?? map['sourceType']?.toString() ?? 'manual',
         lastSynced: map['last_synced'] != null || map['lastSynced'] != null
             ? DateTime.tryParse(map['last_synced']?.toString() ?? map['lastSynced']?.toString() ?? '')?.toLocal() 

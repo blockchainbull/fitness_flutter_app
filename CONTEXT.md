@@ -18,12 +18,27 @@ presentation, local caching, and notifications; the backend owns persistence and
 - **Entry** — a single logged record for one tracker on one date (e.g. `WaterEntry`,
   `SleepEntry`). Most trackers are one-entry-per-day (upsert by date); meals and
   exercises can have several per day. "Log" (verb) = create or update an entry.
-- **Daily Snapshot** *(emerging term)* — a user's assembled data across all trackers for
-  a single date. It has no module yet: `MetricsService.getTodayMetrics` builds a partial
-  one, and `today_report_screen`, `dashboard_home`, and the chat context each re-assemble
-  it independently. The architecture work (candidate #1) gives this concept one home:
-  `DailySnapshot.forDay(userId, date)`. Prefer **Daily Snapshot** over "metrics",
-  "today's data", or "summary" for this concept going forward.
+- **Daily Snapshot** — a user's assembled data across all trackers for a single date,
+  owned by `DailySnapshot.forDay(userId, date)` and modelled by `DaySnapshot`. Prefer
+  **Daily Snapshot** over "metrics", "today's data", or "summary". `MetricsService` is
+  gone. See [ADR-0002](docs/adr/0002-daily-snapshot-module.md) and
+  [ADR-0006](docs/adr/0006-migrate-dailysnapshot-onto-the-endpoint.md).
+  - **It is the owner's day**, every entry regardless of `sharedWithChat` — not the
+    shared subset the coach sees, which is a different backend read. Same data, two
+    interfaces; do not conflate them.
+  - **One backend call.** It used to fan out across seven endpoints, one of which read
+    the user's entire weight history and scanned it client-side. It now reads
+    `GET /daily-snapshot/{user_id}/{date}`; the interface did not change, which is what
+    it was for.
+  - **Three states per section**, carried by `Section` / `SectionStatus`: `ok`,
+    `missing` (nothing logged), `error` (that tracker's read failed). The backend omits
+    a section for `missing` and names it in `_read_errors` for `error`. Keeping these
+    apart is the point — a failed read rendered as an empty day is a lie about the
+    user's data.
+  - **`today_report_screen` is the only consumer.** The dashboard was wired to it in F1
+    and removed again in `e918b74`: it fed a write-only `todayProgress` map that no
+    visible widget rendered. The dashboard's compact trackers each self-fetch, which is
+    the larger remaining win and its own decision.
 - **Coach** — the AI chat assistant (user-facing name is "coach"; code says `chat` /
   `ChatApi`). The coach answers using **chat context** built from the user's shared data.
 - **Chat context** — the digest of a user's recent tracker data (daily and weekly) that

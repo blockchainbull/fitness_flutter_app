@@ -1,7 +1,7 @@
 # 3. DaySnapshot contract-request (frontend → backend handoff)
 
 Date: 2026-09-06
-Status: Accepted (frontend); Proposed (backend — not yet built)
+Status: Accepted (frontend); **Built** (backend, 2026-09-07) — see the addenda below
 
 ## Context
 
@@ -61,6 +61,56 @@ them via `WaterEntry.fromMap`, `StepEntry.fromMap`, etc.), including each row's
   candidate #4's `log_daily_metric` use-case for the write side.
 - Additive: does not change or replace the existing per-tracker endpoints while the client
   migrates.
+
+## Addenda (2026-09-07, as built)
+
+The backend shipped this endpoint at
+`GET /api/health/daily-snapshot/{user_id}/{date}`. Two things this ADR left
+underspecified were settled during that work; recorded here because this file
+is the authoritative copy of the shape.
+
+### 1. The per-section error marker is `_read_errors`
+
+This ADR asked for "a 5xx/partial-failure marker per section" without saying
+what one looks like. It is a top-level map of section name to message —
+the same key and rule the backend's own day reads use:
+
+```jsonc
+{ "user_id": "...", "date": "2026-09-06",
+  "meals": { ... }, "water": { ... },
+  "_read_errors": { "sleep": "sleep_entries exploded" } }
+```
+
+So, per section: **present ⇒ `ok`**, **absent ⇒ `missing`**, **absent and named
+in `_read_errors` ⇒ `error`** — exactly `SectionStatus`. A failed section is
+never served with a value. `_read_errors` is always present, `{}` when every
+read succeeded.
+
+### 2. Meal totals are a superset
+
+`meals.totals` carries `fiber_g`, `sugar_g` and `sodium_mg` alongside the four
+named above, because `/daily-summary` already returned them and
+`MealApi.getDailySummary` already mapped them. Omitting them would have made
+migrating off `/daily-summary` a regression.
+
+### Also worth knowing
+
+- **`period` is not in the response.** The backend's day read covers eight
+  trackers; `DaySnapshot` has seven and no period section. Adding it is
+  additive and needs no backend change.
+- **Roll-ups are always present; single rows are omitted when empty.** `meals`,
+  `exercise` and `supplements` carry zeros for a day with nothing logged;
+  `water`, `steps`, `sleep` and `weight` are omitted when there is no row.
+  This mirrors what `DailySnapshot` already did, so it needed no adjustment.
+- **`supplements.items` is sorted by name**, so the list does not reshuffle
+  between refreshes. `taken_count` / `total_count` are emitted as specified
+  even though `SupplementsDay` derives both from `items`.
+- **Rows carry `shared_with_chat`, including `weight`.** The backend's
+  `get_weight_by_date` projection used to drop it; it was widened rather than
+  bypassed. Before this, `WeightEntry.sharedWithChat` read as `true` for every
+  entry, because `fromMap` defaults an absent flag to true.
+
+The backend's reasoning is in its `docs/adr/0004-daily-snapshot-endpoint.md`.
 
 ## Consequences
 

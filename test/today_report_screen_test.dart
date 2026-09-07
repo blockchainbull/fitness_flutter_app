@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/models/water_entry.dart';
-import 'package:user_onboarding/data/models/step_entry.dart';
 import 'package:user_onboarding/data/services/daily_snapshot.dart';
 import 'package:user_onboarding/features/reports/screens/today_report_screen.dart';
 
 /// Widget test proving F3's seam: TodayReportScreen renders from an injected
-/// DailySnapshot. The "fake" is a real DailySnapshot with canned readers (all
-/// seven, so no real Api/network is touched). See docs/adr/0004-...md.
+/// DailySnapshot. The "fake" is a real DailySnapshot over a canned day
+/// document -- the shape the daily-snapshot endpoint serves -- so no network
+/// is touched. See docs/adr/0004-daily-snapshot-endpoint-migration.md.
 void main() {
   final today = DateTime(2026, 9, 7);
 
@@ -41,21 +40,35 @@ void main() {
         hasTrainer: false,
       );
 
-  /// A DailySnapshot whose every reader is canned — no network in the test.
-  DailySnapshot fakeSnapshot() => DailySnapshot(
-        clock: () => today,
-        readMeals: (u, d) async => {
-          'totals': {'calories': 1800.0, 'protein_g': 90.0, 'carbs_g': 200.0, 'fat_g': 60.0},
-          'meals_count': 3,
+  /// One day document, as the endpoint returns it. `sleep` and `weight` are
+  /// omitted, which is how the contract says "nothing logged".
+  Map<String, dynamic> dayDocument() => {
+        'user_id': 'u1',
+        'date': '2026-09-07',
+        'meals': {
+          'totals': {'calories': 1800.0, 'protein_g': 90.0,
+                     'carbs_g': 200.0, 'fat_g': 60.0},
+          'count': 3,
+          'entries': const [],
         },
-        readWater: (u, d) async =>
-            WaterEntry(userId: u, date: d, glassesConsumed: 5, targetMl: 2000),
-        readSteps: (u, d) async =>
-            StepEntry(userId: u, date: d, steps: 8000, goal: 10000),
-        readSleep: (u, d) async => null,
-        readExercise: (u, d) async => const [],
-        readWeight: (u, d) async => null,
-        readSupplements: (u, d) async => const {},
+        'water': {
+          'user_id': 'u1', 'date': '2026-09-07',
+          'glasses_consumed': 5, 'total_ml': 1250.0, 'target_ml': 2000.0,
+        },
+        'steps': {
+          'user_id': 'u1', 'date': '2026-09-07', 'steps': 8000, 'goal': 10000,
+        },
+        'exercise': {'entries': const [], 'total_minutes': 0,
+                     'total_calories_burned': 0.0},
+        'supplements': {'items': const [], 'taken_count': 0, 'total_count': 0},
+        '_read_errors': const <String, dynamic>{},
+      };
+
+  /// A DailySnapshot over a canned document -- no network in the test.
+  DailySnapshot fakeSnapshot({Map<String, dynamic>? document}) => DailySnapshot(
+        clock: () => today,
+        readDay: (u, d) async => document ?? dayDocument(),
+        readLocalSteps: (u, d) async => null,
       );
 
   testWidgets('renders tracker cards from an injected DailySnapshot', (tester) async {
@@ -79,22 +92,19 @@ void main() {
     expect(find.textContaining('5/8'), findsWidgets);   // water: 5 of 8 glasses
   });
 
-  testWidgets('a failing reader degrades only its own card', (tester) async {
-    // Water reader throws; everything else is fine. The screen should still
-    // render (Steps present), water falling back to its empty state.
-    final module = DailySnapshot(
-      clock: () => today,
-      readMeals: (u, d) async => {'totals': {'calories': 0.0}, 'meals_count': 0},
-      readWater: (u, d) async => throw Exception('water API down'),
-      readSteps: (u, d) async => StepEntry(userId: u, date: d, steps: 8000, goal: 10000),
-      readSleep: (u, d) async => null,
-      readExercise: (u, d) async => const [],
-      readWeight: (u, d) async => null,
-      readSupplements: (u, d) async => const {},
-    );
+  testWidgets('a failing section degrades only its own card', (tester) async {
+    // The backend could not read water and says so in _read_errors; every
+    // other tracker loaded. The screen should still render, with water in its
+    // empty state.
+    final document = dayDocument()
+      ..remove('water')
+      ..['_read_errors'] = {'water': 'daily_water unreachable'};
 
     await tester.pumpWidget(MaterialApp(
-      home: TodayReportScreen(userProfile: testProfile(), dailySnapshot: module),
+      home: TodayReportScreen(
+        userProfile: testProfile(),
+        dailySnapshot: fakeSnapshot(document: document),
+      ),
     ));
     await tester.pumpAndSettle();
 
