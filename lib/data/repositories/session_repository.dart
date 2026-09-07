@@ -68,12 +68,28 @@ class SessionRepository {
 
   /// Writes the full session: the user is now signed in. Used by login and by
   /// onboarding, the only two ways a session begins.
-  Future<void> startSession(UserProfile profile) async {
+  ///
+  /// [profile] is optional because authenticating and holding a profile are two
+  /// steps, not one: the server can accept the credentials and then fail the
+  /// follow-up profile read. The session is real either way, and [loadProfile]
+  /// will fill the gap. When there is no profile, any cached one is dropped
+  /// rather than left behind — it may belong to the previous user.
+  Future<void> startSession(String userId, {UserProfile? profile}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(userIdKey, profile.id ?? '');
-    await prefs.setString(userProfileKey, jsonEncode(profile.toMap()));
+    await prefs.setString(userIdKey, userId);
+    if (profile != null) {
+      await prefs.setString(userProfileKey, jsonEncode(profile.toMap()));
+    } else {
+      await prefs.remove(userProfileKey);
+    }
     await prefs.setBool(isLoggedInKey, true);
   }
+
+  /// [profile] with [userId] filled in when the server omitted it.
+  UserProfile _withId(UserProfile profile, String userId) =>
+      (profile.id == null || profile.id!.isEmpty)
+          ? profile.copyWith(id: userId)
+          : profile;
 
   /// Refreshes the cached profile without asserting anything about sign-in.
   /// Used when an already-signed-in user's profile changes.
@@ -115,13 +131,19 @@ class SessionRepository {
 
   // --- Operations ----------------------------------------------------------
 
-  /// Signs in and returns the profile.
+  /// Signs in, returning the profile when it could be read.
   ///
-  /// Throws [SessionException] on any failure — offline, bad credentials, or a
-  /// cold-start timeout. The backend spins down when idle, so a first request
-  /// after a quiet period can take 30–50s; the 60s budget matches
-  /// AuthApi.loginUser, and the login screen fires a warm-up ping on open.
-  Future<UserProfile> login(String email, String password) async {
+  /// Throws [SessionException] only when *authentication* fails — offline, bad
+  /// credentials, or a cold-start timeout. The backend spins down when idle, so
+  /// a first request after a quiet period can take 30–50s; the 60s budget
+  /// matches AuthApi.loginUser, and the login screen fires a warm-up ping on
+  /// open.
+  ///
+  /// Returns null when the credentials were accepted but the follow-up profile
+  /// read failed. The session is still started, because it is real: making the
+  /// user authenticate again over a transient blip on a cold-starting backend
+  /// would be the wrong answer. Callers finish with [loadProfile].
+  Future<UserProfile?> login(String email, String password) async {
     if (!await _isConnected()) {
       throw const SessionException('No internet connection');
     }
@@ -154,24 +176,17 @@ class SessionRepository {
       throw const SessionException('Login failed: no user id returned');
     }
 
-    // A profile fetch that fails does not fail the login — the session is real
-    // and loadProfile will retry. Fall back to the id alone.
+    // Authentication succeeded, so the session begins here regardless of what
+    // the profile read does next.
     UserProfile? profile;
     try {
-      profile = await _fetchProfile(userId);
+      final fetched = await _fetchProfile(userId);
+      profile = fetched == null ? null : _withId(fetched, userId);
     } catch (_) {
       profile = null;
     }
 
-    if (profile == null) {
-      throw const SessionException(
-        'Signed in, but your profile could not be loaded. Please try again.',
-      );
-    }
-
-    await startSession(profile.id == null || profile.id!.isEmpty
-        ? profile.copyWith(id: userId)
-        : profile);
+    await startSession(userId, profile: profile);
     return profile;
   }
 
@@ -249,16 +264,19 @@ class SessionRepository {
       );
     }
 
-    final profile = await _fetchProfile(userId);
-    if (profile == null) {
-      throw const SessionException(
-        'Setup completed, but your profile could not be loaded. Please sign in.',
-      );
+    // The account now exists. Everything past this point is best-effort: a
+    // failed profile read must not be reported as a failed sign-up, or the
+    // dialog offers "Try Again" and the retry collides with the email that was
+    // just registered.
+    UserProfile? profile;
+    try {
+      final fetched = await _fetchProfile(userId);
+      profile = fetched == null ? null : _withId(fetched, userId);
+    } catch (_) {
+      profile = null;
     }
 
-    await startSession(profile.id == null || profile.id!.isEmpty
-        ? profile.copyWith(id: userId)
-        : profile);
+    await startSession(userId, profile: profile);
     return userId;
   }
 

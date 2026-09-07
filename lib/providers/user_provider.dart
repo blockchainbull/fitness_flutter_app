@@ -76,7 +76,7 @@ class UserProvider extends ChangeNotifier {
   // Set user after login or onboarding
   Future<void> setUser(UserProfile profile) async {
     _userProfile = profile;
-    await _session.startSession(profile);
+    await _session.startSession(profile.id ?? '', profile: profile);
     notifyListeners();
   }
 
@@ -88,6 +88,10 @@ class UserProvider extends ChangeNotifier {
 
     try {
       final userId = await _session.completeOnboarding(onboardingData);
+      // The account exists from here on. If the profile is unreadable the id is
+      // still returned, because reporting failure would invite a retry that
+      // re-registers the same email. Callers check [userProfile] to tell a
+      // finished sign-up from a profile-pending one.
       _userProfile = await _session.loadProfile();
       return userId;
     } catch (e) {
@@ -106,9 +110,23 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Throws SessionException on any failure — offline, bad credentials, or
-      // a cold-start timeout — carrying the message the login screen shows.
+      // Throws SessionException when authentication fails — offline, bad
+      // credentials, or a cold-start timeout — carrying the message the login
+      // screen shows. A null result means the credentials were accepted but the
+      // profile read failed; the session is real, so finish it with a load
+      // rather than sending the user back to the login form.
       _userProfile = await _session.login(email, password);
+      _userProfile ??= await _session.loadProfile();
+
+      if (_userProfile == null) {
+        // Authenticated, but the profile is unreadable. The session stays — a
+        // retry will not need to re-authenticate — but every screen past here
+        // requires a profile, so this is not a usable state to report as
+        // success. The splash screen resolves the same case the same way.
+        _error = 'Signed in, but your profile could not be loaded. '
+            'Please try again in a moment.';
+        return false;
+      }
       return true;
     } catch (e) {
       _error = e.toString();

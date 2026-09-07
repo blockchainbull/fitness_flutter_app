@@ -79,6 +79,71 @@ void main() {
     expect(provider.isLoading, false);
   });
 
+  test('a blip on the profile read still signs the user in', () async {
+    // The provider finishes what login could not: the session is real, so it
+    // loads the profile rather than reporting a failed login.
+    var attempt = 0;
+    final provider = UserProvider(
+      session: SessionRepository(
+        login: (e, p) async => {'success': true, 'user': {'id': 'u1'}},
+        fetchProfile: (id) async {
+          if (attempt++ == 0) throw Exception('transient');
+          return profile(id: id);
+        },
+        pushProfile: (p) async => p,
+        submitOnboarding: (d) async => {'success': true, 'userId': 'u1'},
+        isConnected: () async => true,
+      ),
+    );
+
+    final ok = await provider.login('t@example.com', 'pw');
+
+    expect(ok, true);
+    expect(provider.error, isNull);
+    expect(provider.userProfile?.id, 'u1');
+  });
+
+  test('a sustained profile outage is not reported as a usable login', () async {
+    // Regression: returning true with a null profile crashed LoginScreen, which
+    // force-unwraps userProfile. The session survives so a retry need not
+    // re-authenticate, but this is not success.
+    final repo = SessionRepository(
+      login: (e, p) async => {'success': true, 'user': {'id': 'u1'}},
+      fetchProfile: (id) async => throw Exception('profile service down'),
+      pushProfile: (p) async => p,
+      submitOnboarding: (d) async => {'success': true, 'userId': 'u1'},
+      isConnected: () async => true,
+    );
+    final provider = UserProvider(session: repo);
+
+    final ok = await provider.login('t@example.com', 'pw');
+
+    expect(ok, false);
+    expect(provider.userProfile, isNull);
+    expect(provider.error, contains('could not be loaded'));
+    // Authentication did happen, so the session stands.
+    expect(await repo.isLoggedIn(), true);
+  });
+
+  test('onboarding returns its id even when the profile stays unreadable', () async {
+    // Regression: the caller must be able to tell "created, profile pending"
+    // from "creation failed", because only the latter is safe to retry.
+    final provider = UserProvider(
+      session: SessionRepository(
+        login: (e, p) async => {'success': true, 'user': {'id': 'u1'}},
+        fetchProfile: (id) async => throw Exception('profile service down'),
+        pushProfile: (p) async => p,
+        submitOnboarding: (d) async => {'success': true, 'userId': 'u1'},
+        isConnected: () async => true,
+      ),
+    );
+
+    final userId = await provider.completeOnboarding({'basicInfo': {}});
+
+    expect(userId, 'u1');
+    expect(provider.userProfile, isNull);
+  });
+
   test('logout clears the profile and the error', () async {
     final provider = UserProvider(session: session());
     await provider.login('t@example.com', 'pw');
@@ -93,7 +158,7 @@ void main() {
 
   test('initUser restores a signed-in user and skips a signed-out one', () async {
     final repo = session();
-    await repo.startSession(profile());
+    await repo.startSession('u1', profile: profile());
 
     final restored = UserProvider(session: repo);
     await restored.initUser();

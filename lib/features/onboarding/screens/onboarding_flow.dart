@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
+import 'package:user_onboarding/features/auth/screens/login_screens.dart';
 import 'package:user_onboarding/features/onboarding/screens/basic_info_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/period_cycle_page.dart';
 import 'package:user_onboarding/features/onboarding/screens/sleep_info_page.dart';
@@ -686,8 +687,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final userId = await userProvider.completeOnboarding(onboardingData);
       
-      if (userId == null || userProvider.userProfile == null) {
+      // Only a null id means the account was never created — that is the one
+      // case where retrying is safe.
+      if (userId == null) {
         throw Exception('Failed to complete onboarding');
+      }
+
+      if (userProvider.userProfile == null) {
+        // The account exists but its profile could not be read. Retrying here
+        // would re-register an email the backend already has, so route to
+        // sign-in instead of offering "Try Again".
+        if (!mounted) return;
+        Navigator.pop(context); // close loading indicator
+        _showAccountCreatedSignInDialog();
+        return;
       }
 
       final userProfile = userProvider.userProfile!;
@@ -804,6 +817,37 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         },
       );
     }
+  }
+
+  /// Sign-up succeeded but the profile could not be loaded. The account is
+  /// real, so the only safe next step is signing in — never re-submitting.
+  void _showAccountCreatedSignInDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Account created'),
+          content: const Text(
+            'Your account is set up, but we could not load your profile just '
+            'yet. Please sign in to finish — do not sign up again.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              },
+              child: const Text('Sign in'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override

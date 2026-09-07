@@ -64,7 +64,7 @@ void main() {
       final result = await build().login('t@example.com', 'pw');
       final prefs = await SharedPreferences.getInstance();
 
-      expect(result.id, 'u1');
+      expect(result!.id, 'u1');
       expect(prefs.getString(SessionRepository.userIdKey), 'u1');
       expect(prefs.getBool(SessionRepository.isLoggedInKey), true);
       expect(prefs.getString(SessionRepository.userProfileKey), isNotNull);
@@ -95,6 +95,58 @@ void main() {
       );
     });
 
+    test('a failed profile read does not undo a successful login', () async {
+      // Regression: authentication and holding a profile are two steps. The
+      // backend cold-starts, so the follow-up read can blip; that must not send
+      // the user back to the login form.
+      final repo = build(
+        fetchProfile: (id) async => throw Exception('backend cold-starting'),
+      );
+
+      final result = await repo.login('t@example.com', 'pw');
+
+      expect(result, isNull);
+      expect(await repo.isLoggedIn(), true);
+      expect(await repo.currentUserId(), 'u1');
+    });
+
+    test('login returns the profile with the id filled in', () async {
+      // Regression: the corrected copy was cached but the original returned, so
+      // callers ran with an empty user id until something forced a reload.
+      final repo = build(fetchProfile: (id) async => profile(id: ''));
+
+      final result = await repo.login('t@example.com', 'pw');
+
+      expect(result!.id, 'u1');
+    });
+
+    test('a stale cached profile does not survive a profile-less login', () async {
+      final repo = build();
+      await repo.startSession('someone-else', profile: profile(id: 'someone-else'));
+
+      final blind = build(
+        fetchProfile: (id) async => throw Exception('unreachable'),
+      );
+      await blind.login('t@example.com', 'pw');
+
+      // Better no profile than the previous user's.
+      expect(await blind.currentProfile(), isNull);
+    });
+
+    test('onboarding that created the account never reports failure', () async {
+      // Regression: the account exists once the POST succeeds. Reporting
+      // failure made the dialog offer "Try Again", which re-registered the same
+      // email and failed on the duplicate.
+      final repo = build(
+        fetchProfile: (id) async => throw Exception('profile read failed'),
+      );
+
+      final userId = await repo.completeOnboarding({'basicInfo': {'name': 'Test'}});
+
+      expect(userId, 'u1');
+      expect(await repo.isLoggedIn(), true);
+    });
+
     test('onboarding offline refuses rather than inventing an account', () async {
       final repo = build(connected: false);
 
@@ -111,7 +163,7 @@ void main() {
   group('reading the profile', () {
     test('loadProfile prefers the server and refreshes the cache', () async {
       final repo = build(fetchProfile: (id) async => profile(weight: 71));
-      await repo.startSession(profile(weight: 60));
+      await repo.startSession('u1', profile: profile(weight: 60));
 
       final loaded = await repo.loadProfile();
 
@@ -126,7 +178,7 @@ void main() {
       final repo = build(
         fetchProfile: (id) async => throw Exception('backend cold-starting'),
       );
-      await repo.startSession(profile(weight: 60));
+      await repo.startSession('u1', profile: profile(weight: 60));
 
       final loaded = await repo.loadProfile();
 
@@ -137,7 +189,7 @@ void main() {
 
     test('currentProfile is null once the session ends', () async {
       final repo = build();
-      await repo.startSession(profile());
+      await repo.startSession('u1', profile: profile());
       expect(await repo.currentProfile(), isNotNull);
 
       await repo.endSession();
@@ -153,7 +205,7 @@ void main() {
       await seed.setBool('supplement_vitamin_d', true);
 
       final repo = build();
-      await repo.startSession(profile());
+      await repo.startSession('u1', profile: profile());
 
       await repo.endSession();
 
