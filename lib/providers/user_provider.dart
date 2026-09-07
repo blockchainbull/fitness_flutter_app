@@ -76,7 +76,7 @@ class UserProvider extends ChangeNotifier {
   // Set user after login or onboarding
   Future<void> setUser(UserProfile profile) async {
     _userProfile = profile;
-    await _session.startSession(profile);
+    await _session.startSession(profile.id ?? '', profile: profile);
     notifyListeners();
   }
 
@@ -106,9 +106,13 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Throws SessionException on any failure — offline, bad credentials, or
-      // a cold-start timeout — carrying the message the login screen shows.
+      // Throws SessionException when authentication fails — offline, bad
+      // credentials, or a cold-start timeout — carrying the message the login
+      // screen shows. A null result means the credentials were accepted but the
+      // profile read failed; the session is real, so finish it with a load
+      // rather than sending the user back to the login form.
       _userProfile = await _session.login(email, password);
+      _userProfile ??= await _session.loadProfile();
       return true;
     } catch (e) {
       _error = e.toString();

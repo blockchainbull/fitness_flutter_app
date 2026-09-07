@@ -79,6 +79,30 @@ void main() {
     expect(provider.isLoading, false);
   });
 
+  test('a blip on the profile read still signs the user in', () async {
+    // The provider finishes what login could not: the session is real, so it
+    // loads the profile rather than reporting a failed login.
+    var attempt = 0;
+    final provider = UserProvider(
+      session: SessionRepository(
+        login: (e, p) async => {'success': true, 'user': {'id': 'u1'}},
+        fetchProfile: (id) async {
+          if (attempt++ == 0) throw Exception('transient');
+          return profile(id: id);
+        },
+        pushProfile: (p) async => p,
+        submitOnboarding: (d) async => {'success': true, 'userId': 'u1'},
+        isConnected: () async => true,
+      ),
+    );
+
+    final ok = await provider.login('t@example.com', 'pw');
+
+    expect(ok, true);
+    expect(provider.error, isNull);
+    expect(provider.userProfile?.id, 'u1');
+  });
+
   test('logout clears the profile and the error', () async {
     final provider = UserProvider(session: session());
     await provider.login('t@example.com', 'pw');
@@ -93,7 +117,7 @@ void main() {
 
   test('initUser restores a signed-in user and skips a signed-out one', () async {
     final repo = session();
-    await repo.startSession(profile());
+    await repo.startSession('u1', profile: profile());
 
     final restored = UserProvider(session: repo);
     await restored.initUser();

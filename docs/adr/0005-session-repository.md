@@ -82,7 +82,7 @@ Its write contract makes the key invariant structural rather than remembered:
 
 | Operation | Writes |
 |---|---|
-| `startSession(profile)` | `user_id`, `user_profile`, `is_logged_in` |
+| `startSession(userId, {profile})` | `user_id`, `is_logged_in`, and `user_profile` when a profile is supplied |
 | `cacheProfile(profile)` | `user_id`, `user_profile` |
 | `endSession()` | removes the three session keys, touches nothing else |
 
@@ -148,3 +148,31 @@ so nothing live read it.
   not refactors, and if built they should share one replay mechanism rather than two.
 - Not addressed here: the repo's `print`-based logging and its `avoid_print` lints.
   Introducing a logging framework is a separate decision and should not hide inside this one.
+
+## Correction (2026-09-08)
+
+A review that arrived after this landed found three defects in the first implementation, all
+from one mistake: it treated *being authenticated* and *holding a profile* as a single step.
+They are two, and the second can fail on its own — which on a backend that spins down when
+idle is a routine event, not an edge case.
+
+- **`login` rejected a successful sign-in when the follow-up profile read failed.** The code
+  said so in a comment — "a profile fetch that fails does not fail the login" — and then
+  threw seven lines later. The predecessor was explicit about not doing this, and
+  `UserProvider` retried with a second load. Restored: `login` now returns `UserProfile?`,
+  throwing only when *authentication* fails, and `UserProvider` finishes with `loadProfile`.
+- **`login` returned the uncorrected profile.** When the server omitted the id, `startSession`
+  cached a corrected copy while the method returned the original, so callers ran with an
+  empty user id until something forced a reload.
+- **A failed profile read after onboarding was reported as a failed sign-up.** The account
+  already existed, so the dialog's "Try Again" re-registered the same email and failed on the
+  duplicate. Once the POST succeeds the result is committed; everything after it is
+  best-effort.
+
+Hence the signature above: a session is a user id plus the signed-in flag, and the profile is
+cached when there is one. When there is not, any cached profile is *removed* rather than left
+in place — it may belong to the previous user.
+
+The original tests missed all three because they covered the happy path and the
+offline-refusal path, never "the server accepted the credentials and then the next call
+failed." Three regression tests now cover exactly that.
