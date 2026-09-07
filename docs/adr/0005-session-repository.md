@@ -141,8 +141,10 @@ so nothing live read it.
 - `UserProvider` — which owns login, logout, onboarding and profile for the whole app — gets
   its first tests, as does the session logic itself.
 - Weight has one path, matching what `DailySnapshot` already did.
-- Real offline support for weight and for onboarding replay is explicitly out of scope and
-  tracked as issues. Both are features with genuine design work (replay, conflict handling,
-  partial payloads), not refactors.
+- Real offline support for weight ([#7](https://github.com/ShoaibRana888/nufi_app/issues/7))
+  and for onboarding replay
+  ([#8](https://github.com/ShoaibRana888/nufi_app/issues/8)) is explicitly out of scope.
+  Both are features with genuine design work (replay, conflict handling, partial payloads),
+  not refactors, and if built they should share one replay mechanism rather than two.
 - Not addressed here: the repo's `print`-based logging and its `avoid_print` lints.
   Introducing a logging framework is a separate decision and should not hide inside this one.
