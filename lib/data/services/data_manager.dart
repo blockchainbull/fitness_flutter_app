@@ -1,12 +1,9 @@
 // lib/data/services/data_manager.dart
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/services/api/auth_api.dart';
-import 'package:user_onboarding/data/services/api/weight_api.dart';
 import 'package:user_onboarding/data/services/connectivity_service.dart';
-import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/managers/user_manager.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 
@@ -14,7 +11,6 @@ class DataManager {
   static final DataManager _instance = DataManager._internal();
   final ConnectivityService _connectivityService = ConnectivityService();
   final AuthApi _apiService = AuthApi();
-  final WeightApi _weightApi = WeightApi();
 
   // Local storage keys
   static const String userIdKey = 'user_id';
@@ -191,108 +187,6 @@ class DataManager {
     }
   }
 
-  Future<String> saveWeightEntry(WeightEntry weightEntry) async {
-    try {
-      _log('Saving weight entry for user: ${weightEntry.userId}');
-      _log('Weight: ${weightEntry.weight} kg');
-      _log('Date: ${weightEntry.date}');
-      
-      final isConnected = await _connectivityService.isConnected();
-      
-      if (isConnected) {
-        if (kIsWeb) {
-          // For web, use API service
-          try {
-            _log('Using API service to save weight entry');
-            final result = await _weightApi.saveWeightEntry(weightEntry);
-            _log('Weight entry saved via API with ID: $result');
-            return result;
-          } catch (e) {
-            _log('API save failed, falling back to local storage: $e');
-            await _saveWeightEntryLocally(weightEntry);
-            return weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
-          }
-        } else {
-          // For native, try database first, fallback to local
-          try {
-            final result = await _weightApi.saveWeightEntry(weightEntry);
-            _log('Weight entry saved via API');
-            return result;
-          } catch (e) {
-            _log('Database save failed, falling back to local storage: $e');
-            await _saveWeightEntryLocally(weightEntry);
-            return weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
-          }
-        }
-      } else {
-        // Save locally when offline
-        await _saveWeightEntryLocally(weightEntry);
-        _log('Weight entry saved locally (offline)');
-        return weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
-      }
-    } catch (e) {
-      _log('Failed to save weight entry: $e');
-      // Final fallback to local storage
-      try {
-        await _saveWeightEntryLocally(weightEntry);
-        return weightEntry.id ?? DateTime.now().millisecondsSinceEpoch.toString();
-      } catch (localError) {
-        _log('Even local save failed: $localError');
-        rethrow;
-      }
-    }
-  }
-
-  Future<List<WeightEntry>> getWeightHistory(String userId, {int limit = 50}) async {
-    try {
-      _log('Loading weight history for user: $userId');
-      
-      // ALWAYS use API service now (works for both web and mobile)
-      try {
-        final result = await _weightApi.getWeightHistory(userId, limit: limit);
-        _log('Weight history loaded via API: ${result.length} entries');
-        return result;
-      } catch (e) {
-        _log('API load failed, falling back to local storage: $e');
-        return await _loadWeightHistoryLocally(userId);
-      }
-      
-    } catch (e) {
-      _log('Failed to load weight history: $e');
-      return [];
-    }
-  }
-
-  Future<void> updateUserWeight(String userId, double newWeight) async {
-    try {
-      _log('Updating user weight to $newWeight kg');
-      
-      // Always update local profile, regardless of weight increase/decrease
-      final userProfile = await loadUserProfile();
-      if (userProfile != null) {
-        final updatedProfile = userProfile.copyWith(weight: newWeight);
-        await _saveUserProfileLocally(updatedProfile);
-        _log('User weight updated locally to $newWeight kg');
-      }
-
-      // Try to update remotely if connected
-      final isConnected = await _connectivityService.isConnected();
-      if (isConnected) {
-        try {
-          await _weightApi.updateUserWeight(userId, newWeight);
-          _log('User weight updated via API');
-        } catch (e) {
-          _log('Failed to update weight remotely, but local update succeeded: $e');
-          // Don't throw here since local update succeeded
-        }
-      }
-    } catch (e) {
-      _log('Failed to update user weight: $e');
-      // Don't rethrow since this is a non-critical operation
-    }
-  }
-
-  // Clear weight data (for logout)
   Future<UserProfile> updateUserProfile(UserProfile userProfile) async {
     try {
       _log('Starting to update user profile for ${userProfile.name}');
@@ -330,89 +224,6 @@ class DataManager {
     }
   }
 
-  Future<bool> deleteWeightEntry(String entryId) async {
-    try {
-      _log('Deleting weight entry: $entryId');
-      
-      final isConnected = await _connectivityService.isConnected();
-      
-      if (isConnected) {
-        // Weight history is ALWAYS loaded from the backend API (see
-        // getWeightHistory), so deletes must also go to the backend on every
-        // platform. The old native path deleted only from an unused local SQL
-        // table, so the entry stayed in Supabase and reappeared on reload —
-        // which is why deletes "didn't work" on mobile.
-        try {
-          final success = await _weightApi.deleteWeightEntry(entryId);
-          if (success) {
-            _log('Weight entry deleted via API');
-          } else {
-            _log('API delete returned failure for entry: $entryId');
-          }
-          return success;
-        } catch (e) {
-          _log('API delete failed: $e');
-          return false;
-        }
-      } else {
-        // When offline, remove from local storage
-        try {
-          // You'll need to implement local deletion logic
-          _log('Offline delete not implemented yet');
-          return false;
-        } catch (e) {
-          _log('Local delete failed: $e');
-          return false;
-        }
-      }
-    } catch (e) {
-      _log('Failed to delete weight entry: $e');
-      return false;
-    }
-  }
-
-  Future<void> _saveWeightEntryLocally(WeightEntry weightEntry) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'weight_entries_${weightEntry.userId}';
-      
-      // Get existing entries
-      final existingJson = prefs.getString(key) ?? '[]';
-      final List<dynamic> existingList = jsonDecode(existingJson);
-      
-      // Add new entry (with generated ID if none exists)
-      final entryToSave = weightEntry.id != null 
-          ? weightEntry 
-          : weightEntry.copyWith(id: DateTime.now().millisecondsSinceEpoch.toString());
-      
-      existingList.add(entryToSave.toMap());
-      
-      // Sort by date (newest first)
-      existingList.sort((a, b) => DateTime.parse(b['date']).compareTo(DateTime.parse(a['date'])));
-      
-      // Save back to preferences
-      await prefs.setString(key, jsonEncode(existingList));
-    } catch (e) {
-      _log('Failed to save weight entry locally: $e');
-      rethrow;
-    }
-  }
-
-  Future<List<WeightEntry>> _loadWeightHistoryLocally(String userId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'weight_entries_$userId';
-      final existingJson = prefs.getString(key) ?? '[]';
-      final List<dynamic> existingList = jsonDecode(existingJson);
-      
-      return existingList.map((item) => WeightEntry.fromMap(item)).toList();
-    } catch (e) {
-      _log('Failed to load weight history locally: $e');
-      return [];
-    }
-  }
-
-  // Check if onboarding is completed
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       _log('=== LOGIN PROCESS STARTED ===');
