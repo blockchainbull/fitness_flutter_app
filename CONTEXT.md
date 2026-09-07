@@ -53,14 +53,24 @@ presentation, local caching, and notifications; the backend owns persistence and
 
 - **Api** — a per-tracker HTTP client under `lib/data/services/api/` (`MealApi`, …).
   This is the live seam to the backend, and the one adapter that actually runs.
-- **Repository** — a `lib/data/repositories/` type (water, sleep, step, period,
-  supplement, weight, user). Historically shaped for two adapters — the `Api` and a
-  direct-Postgres `DatabaseService`. The Postgres adapter is dead (unusable on web,
-  commented out), so most repositories are now shallow pass-throughs to their `Api`.
-  Candidate #2 collapses this seam. Not every tracker has a repository — meal, exercise,
-  chat, and auth call their `Api` directly.
-- **DataManager** — a legacy singleton mixing profile save/load, onboarding, weight
-  history, connectivity, and a local prefs cache. Candidate #4 splits it.
+- **Repository** — a `lib/data/repositories/` type. These were once shaped for two
+  adapters, the `Api` and a direct-Postgres `DatabaseService`; the Postgres path was dead,
+  so [ADR-0001](docs/adr/0001-collapse-repository-seam.md) collapsed the pass-through ones
+  into their `Api`. What survives is the shape worth keeping: **a deep module hiding an
+  `Api` plus `SharedPreferences`**. There are three — `StepRepository`, `SleepRepository`
+  and `SessionRepository`. Everything else calls its `Api` directly.
+- **Session** — who is signed in: the cached `UserProfile`, the user id, and the
+  signed-in flag. Owned by `SessionRepository`, which is the **only** writer of those
+  three `SharedPreferences` keys, so "a cached profile implies signed-in" holds by
+  construction rather than by callers pairing two writes. Its three write operations are
+  `startSession` (login and onboarding), `cacheProfile` (refresh an existing session's
+  profile) and `endSession`. `DataManager` and `UserManager`, which used to share this
+  concern and disagreed about it, are gone. See
+  [ADR-0005](docs/adr/0005-session-repository.md).
+  - **Ending a session is not deleting an account.** `endSession` clears the three
+    session keys and nothing else — the theme, the step-accrual baseline, the chat cache
+    and supplement preferences all survive a logout. Account deletion wipes local state
+    wholesale, and that is deliberate.
 
 ## Conventions
 

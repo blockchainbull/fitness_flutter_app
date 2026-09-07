@@ -7,14 +7,21 @@ import 'package:provider/provider.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:user_onboarding/data/services/api/weight_api.dart';
 import 'package:user_onboarding/data/services/api/sharing_api.dart';
 import 'package:user_onboarding/utils/profile_update_notifier.dart';
 
 class WeightLoggingPage extends StatefulWidget {
   final UserProfile userProfile;
 
-  const WeightLoggingPage({Key? key, required this.userProfile}) : super(key: key);
+  /// Injectable for tests; defaults to a real WeightApi. See ADR-0004.
+  final WeightApi? weightApi;
+
+  const WeightLoggingPage({
+    Key? key,
+    required this.userProfile,
+    this.weightApi,
+  }) : super(key: key);
 
   @override
   State<WeightLoggingPage> createState() => _WeightLoggingPageState();
@@ -23,7 +30,7 @@ class WeightLoggingPage extends StatefulWidget {
 class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindingObserver {
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  final DataManager _dataManager = DataManager();
+  late final WeightApi _weightApi = widget.weightApi ?? WeightApi();
   final SharingApi _sharingApi = SharingApi();
 
   UserProfile? _currentUserProfile;
@@ -127,7 +134,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
 
   Future<void> _loadWeightHistory() async {
     try {
-      final history = await _dataManager.getWeightHistory(
+      final history = await _weightApi.getWeightHistory(
         _currentUserProfile?.id ?? widget.userProfile.id ?? '',
       );
       
@@ -1074,7 +1081,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
                     
                     // Delete old entry and create new one
                     if (entry.id != null) {
-                      await _dataManager.deleteWeightEntry(entry.id!);
+                      await _weightApi.deleteWeightEntry(entry.id!);
                     }
                     
                     await _saveWeightEntry(weight, _notesController.text, selectedDateTime);
@@ -1136,7 +1143,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
         notes: notes.isEmpty ? null : notes,
       );
 
-      await _dataManager.saveWeightEntry(entry);
+      await _weightApi.saveWeightEntry(entry);
       
       // Always update the user's current weight in profile (not just for today)
       // This fixes the dashboard not updating when weight increases
@@ -1147,8 +1154,9 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
         final userProvider = Provider.of<UserProvider>(context, listen: false);
         await userProvider.updateProfile(updatedProfile);
         
-        // Also update via DataManager to ensure persistence
-        await _dataManager.updateUserWeight(_currentUserProfile!.id, weight);
+        // Persist the weight itself; updateProfile above already refreshed the
+        // cached profile, so this is the PATCH /user/{id}/weight half only.
+        await _weightApi.updateUserWeight(_currentUserProfile!.id, weight);
       }
 
       // Reload history to show the new entry
@@ -1183,7 +1191,7 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
   Future<void> _deleteEntry(WeightEntry entry) async {
     try {
       if (entry.id != null) {
-        await _dataManager.deleteWeightEntry(entry.id!);
+        await _weightApi.deleteWeightEntry(entry.id!);
       }
       
       // Reload the history first
@@ -1208,8 +1216,9 @@ class _WeightLoggingPageState extends State<WeightLoggingPage> with WidgetsBindi
         final userProvider = Provider.of<UserProvider>(context, listen: false);
         await userProvider.updateProfile(updatedProfile);
         
-        // Also update via DataManager to ensure persistence
-        await _dataManager.updateUserWeight(_currentUserProfile!.id, newWeight);
+        // Persist the weight itself; updateProfile above already refreshed the
+        // cached profile, so this is the PATCH /user/{id}/weight half only.
+        await _weightApi.updateUserWeight(_currentUserProfile!.id, newWeight);
       }
       
       if (mounted) {
@@ -1256,10 +1265,14 @@ class WeightHistoryPage extends StatelessWidget {
  final List<WeightEntry> weightHistory;
  final VoidCallback onEntryDeleted;
 
+  /// Injectable for tests; defaults to a real WeightApi. See ADR-0004.
+  final WeightApi? weightApi;
+
  const WeightHistoryPage({
    Key? key,
    required this.weightHistory,
    required this.onEntryDeleted,
+    this.weightApi,
  }) : super(key: key);
 
  @override
@@ -1363,7 +1376,7 @@ class WeightHistoryPage extends StatelessWidget {
   Future<void> _deleteEntry(BuildContext context, WeightEntry entry) async {
     try {
       if (entry.id != null) {
-        await DataManager().deleteWeightEntry(entry.id!);
+        await (weightApi ?? WeightApi()).deleteWeightEntry(entry.id!);
       }
       
       // Call the callback to refresh the parent page

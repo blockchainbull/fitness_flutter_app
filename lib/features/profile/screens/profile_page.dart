@@ -3,19 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
 import 'package:user_onboarding/data/models/weight_entry.dart';
 import 'package:user_onboarding/data/services/api/auth_api.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:user_onboarding/data/services/api/weight_api.dart';
 import 'package:user_onboarding/features/profile/screens/edit_profile_page.dart';
 import 'package:user_onboarding/features/profile/screens/settings_page.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:user_onboarding/data/repositories/session_repository.dart';
 import 'package:intl/intl.dart';
 
 class ProfilePage extends StatefulWidget {
   final UserProfile userProfile;
-  
+
+  /// Injectable for tests; defaults to a real WeightApi. See ADR-0004.
+  final WeightApi? weightApi;
+
   const ProfilePage({
     Key? key,
     required this.userProfile,
+    this.weightApi,
   }) : super(key: key);
 
   @override
@@ -32,7 +36,7 @@ class _ProfilePageState extends State<ProfilePage>
   late UserProfile currentProfile;
   late TabController _tabController;
   final AuthApi _apiService = AuthApi();
-  final DataManager _dataManager = DataManager();
+  late final WeightApi _weightApi = widget.weightApi ?? WeightApi();
   bool isLoading = false;
   
   // Weight tracking
@@ -69,7 +73,7 @@ class _ProfilePageState extends State<ProfilePage>
       if (currentProfile.id == null) return;
       
       // Get weight history from weight_entries table
-      final history = await _dataManager.getWeightHistory(currentProfile.id!);
+      final history = await _weightApi.getWeightHistory(currentProfile.id!);
       
       if (history.isNotEmpty) {
         // Sort by date to get most recent
@@ -144,7 +148,7 @@ class _ProfilePageState extends State<ProfilePage>
     );
 
     if (confirmed == true) {
-      await UserManager.logout();
+      await SessionRepository().endSession();
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,

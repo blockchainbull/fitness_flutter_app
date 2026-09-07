@@ -1,103 +1,96 @@
 // lib/providers/user_provider.dart
+//
+// UserProvider holds the signed-in user for the widget tree. All session work —
+// the API calls and the SharedPreferences writes — belongs to SessionRepository;
+// this class is state plus delegation. See docs/adr/0005-session-repository.md.
+
 import 'package:flutter/foundation.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:user_onboarding/data/repositories/session_repository.dart';
 
 class UserProvider extends ChangeNotifier {
-  final DataManager _dataManager = DataManager();
+  final SessionRepository _session;
+
+  /// Injectable for tests; defaults to a real repository. See ADR-0004.
+  UserProvider({SessionRepository? session})
+      : _session = session ?? SessionRepository();
+
   UserProfile? _userProfile;
   bool _isLoading = false;
   String? _error;
-  
+
   // Getters
   UserProfile? get userProfile => _userProfile;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _userProfile != null;
   String? get error => _error;
-  
+
   // Initialize user on app start
   Future<void> initUser() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
-    
+
     try {
-      // Check if user is logged in
-      final isLoggedIn = await UserManager.isLoggedIn();
-      if (isLoggedIn) {
-        _userProfile = await _dataManager.loadUserProfile();
+      if (await _session.isLoggedIn()) {
+        _userProfile = await _session.loadProfile();
       }
     } catch (e) {
-      print('Error initializing user: $e');
       _error = e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
-  
+
   // Load or refresh user profile
   Future<void> loadUser() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
-    
+
     try {
-      _userProfile = await _dataManager.loadUserProfile();
-      if (_userProfile != null) {
-        await UserManager.setCurrentUser(_userProfile!);
-      }
+      _userProfile = await _session.loadProfile();
     } catch (e) {
-      print('Error loading user: $e');
       _error = e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
-  
+
   // Update user profile
   Future<UserProfile> updateProfile(UserProfile profile) async {
     try {
       _error = null;
-      final updatedProfile = await _dataManager.updateUserProfile(profile);
-      _userProfile = updatedProfile;
+      _userProfile = await _session.updateProfile(profile);
       notifyListeners();
-      return updatedProfile;
+      return _userProfile!;
     } catch (e) {
-      print('Error updating profile: $e');
       _error = e.toString();
       notifyListeners();
       rethrow;
     }
   }
-  
+
   // Set user after login or onboarding
   Future<void> setUser(UserProfile profile) async {
     _userProfile = profile;
-    await UserManager.setCurrentUser(profile);
+    await _session.startSession(profile);
     notifyListeners();
   }
-  
+
   // Complete onboarding
   Future<String?> completeOnboarding(Map<String, dynamic> onboardingData) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
-    
+
     try {
-      final userId = await _dataManager.completeOnboarding(onboardingData);
-      if (userId != null) {
-        // Load the created profile
-        _userProfile = await _dataManager.loadUserProfile();
-        if (_userProfile != null) {
-          await UserManager.setCurrentUser(_userProfile!);
-        }
-      }
+      final userId = await _session.completeOnboarding(onboardingData);
+      _userProfile = await _session.loadProfile();
       return userId;
     } catch (e) {
-      print('Error completing onboarding: $e');
       _error = e.toString();
       return null;
     } finally {
@@ -105,36 +98,19 @@ class UserProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-  
-  // Login - FIXED VERSION
+
+  // Login
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
-    
+
     try {
-      // DataManager.login returns Map<String, dynamic>
-      final result = await _dataManager.login(email, password);
-      
-      if (result['success'] == true) {
-        // Load the user profile after successful login
-        _userProfile = await _dataManager.loadUserProfile();
-        
-        if (_userProfile != null) {
-          // Set user in UserManager
-          await UserManager.setCurrentUser(_userProfile!);
-          notifyListeners();
-          return true;
-        } else {
-          _error = 'Failed to load user profile';
-          return false;
-        }
-      } else {
-        _error = result['message'] ?? 'Invalid credentials';
-        return false;
-      }
+      // Throws SessionException on any failure — offline, bad credentials, or
+      // a cold-start timeout — carrying the message the login screen shows.
+      _userProfile = await _session.login(email, password);
+      return true;
     } catch (e) {
-      print('Error during login: $e');
       _error = e.toString();
       return false;
     } finally {
@@ -142,35 +118,33 @@ class UserProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-  
-  // Logout
+
+  // Logout. Ends the session only: the theme, step baseline, chat cache and
+  // supplement preferences survive. Account deletion is a different operation.
   Future<void> logout() async {
-    await UserManager.logout();
-    await _dataManager.logout();
+    await _session.endSession();
     _userProfile = null;
     _error = null;
     notifyListeners();
   }
-  
+
   // Refresh profile from backend
   Future<void> refreshProfile() async {
     if (_userProfile == null) return;
-    
+
     try {
       _error = null;
-      final refreshedProfile = await _dataManager.loadUserProfile();
-      if (refreshedProfile != null) {
-        _userProfile = refreshedProfile;
-        await UserManager.setCurrentUser(refreshedProfile);
+      final refreshed = await _session.loadProfile();
+      if (refreshed != null) {
+        _userProfile = refreshed;
         notifyListeners();
       }
     } catch (e) {
-      print('Error refreshing profile: $e');
       _error = e.toString();
       notifyListeners();
     }
   }
-  
+
   // Clear error
   void clearError() {
     _error = null;

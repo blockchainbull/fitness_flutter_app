@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:user_onboarding/providers/user_provider.dart';
 import 'package:user_onboarding/features/home/screens/home_page.dart';
 import 'package:user_onboarding/features/auth/screens/login_screens.dart';
-import 'package:user_onboarding/data/managers/user_manager.dart';
+import 'package:user_onboarding/data/repositories/session_repository.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     // Check if user is logged in
-    final isLoggedIn = await UserManager.isLoggedIn();
+    final isLoggedIn = await SessionRepository().isLoggedIn();
 
     if (isLoggedIn) {
       // Load user profile

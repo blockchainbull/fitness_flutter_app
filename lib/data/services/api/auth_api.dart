@@ -164,7 +164,7 @@ class AuthApi {
         '/auth/login',
         body: body,
       ).timeout(
-        // Generous timeout to survive a backend cold start (see DataManager.login).
+        // Generous timeout to survive a backend cold start (see SessionRepository.login).
         const Duration(seconds: 60),
         onTimeout: () {
           print('[AuthApi] ❌ Request timed out');

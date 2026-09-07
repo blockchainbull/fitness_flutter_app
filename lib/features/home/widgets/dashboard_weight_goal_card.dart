@@ -1,17 +1,21 @@
 // lib/features/home/widgets/dashboard_weight_goal_card.dart
 import 'package:flutter/material.dart';
 import 'package:user_onboarding/data/models/user_profile.dart';
-import 'package:user_onboarding/data/services/data_manager.dart';
+import 'package:user_onboarding/data/services/api/weight_api.dart';
 import 'package:user_onboarding/features/tracking/screens/weight_logging_page.dart';
 
 class DashboardWeightGoalCard extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback? onUpdate;
-  
+
+  /// Injectable for tests; defaults to a real WeightApi. See ADR-0004.
+  final WeightApi? weightApi;
+
   const DashboardWeightGoalCard({
     Key? key,
     required this.userProfile,
     this.onUpdate,
+    this.weightApi,
   }) : super(key: key);
   
   @override
@@ -19,6 +23,8 @@ class DashboardWeightGoalCard extends StatefulWidget {
 }
 
 class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
+  late final WeightApi _weightApi = widget.weightApi ?? WeightApi();
+
   double? _currentWeight;
   double? _startingWeight;
   bool _isLoading = true;
@@ -36,7 +42,7 @@ class _DashboardWeightGoalCardState extends State<DashboardWeightGoalCard> {
     try {
       // Get the full weight history so we can show the progress the user has
       // actually made (start → current), not just the latest reading.
-      final weightHistory = await DataManager().getWeightHistory(widget.userProfile.id);
+      final weightHistory = await _weightApi.getWeightHistory(widget.userProfile.id);
       if (!mounted) return;
 
       setState(() {
