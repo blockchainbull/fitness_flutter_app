@@ -22,9 +22,13 @@ import 'package:user_onboarding/features/tracking/screens/activity_logging_menu.
 class TodayReportScreen extends StatefulWidget {
   final UserProfile userProfile;
 
+  /// Injected for tests; production defaults to a fresh [DailySnapshot].
+  final DailySnapshot? dailySnapshot;
+
   const TodayReportScreen({
     Key? key,
     required this.userProfile,
+    this.dailySnapshot,
   }) : super(key: key);
 
   @override
@@ -38,7 +42,8 @@ class _TodayReportScreenState extends State<TodayReportScreen> {
   // Tracking data for today
   Map<String, TrackingStatus> trackingStatus = {};
 
-  final DailySnapshot _dailySnapshot = DailySnapshot();
+  late final DailySnapshot _dailySnapshot =
+      widget.dailySnapshot ?? DailySnapshot();
   
   @override
   void initState() {
