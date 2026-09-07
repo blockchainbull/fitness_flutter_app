@@ -176,3 +176,22 @@ in place — it may belong to the previous user.
 The original tests missed all three because they covered the happy path and the
 offline-refusal path, never "the server accepted the credentials and then the next call
 failed." Three regression tests now cover exactly that.
+
+### Follow-up: the UI needs a profile-pending state (2026-09-08)
+
+The first correction fixed the repository and the provider but not the two screens that
+consume them, so the same two failures survived one layer up. `HomePage` requires a non-null
+`UserProfile`, which means **authenticated-without-a-profile is not a state the app can
+enter** — the splash screen already knew this and routed such a session to sign-in.
+
+- `UserProvider.login` now returns `false` when the profile is still unreadable after the
+  retry, with an explanatory error. The session stays, so a retry does not re-authenticate,
+  but `LoginScreen` force-unwraps `userProfile` on success and would have crashed.
+- `OnboardingFlow` now separates "creation failed" from "created, profile pending". Only a
+  null user id is safe to retry; a created account with no profile routes to sign-in with an
+  explicit "do not sign up again" message, instead of the "Try Again" dialog that
+  re-registered the email.
+
+The lesson worth keeping: both rounds of defects came from changing a contract and checking
+only its immediate caller. The force-unwraps at the edges are what decide whether a nullable
+result is safe.
